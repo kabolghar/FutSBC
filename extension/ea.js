@@ -18,10 +18,12 @@ export async function eaOperation(action, payload = {}) {
       }
       throw Error('Open the SBC squad screen in the Web App, then reconnect.');
     };
+    const readCancelled=()=>payload.readToken&&window.__futsbcCancelledTeamRead===payload.readToken&&['teamSnapshot','teamEvaluate','teamQuote','teamPlan'].includes(action);
+    if(readCancelled())throw Error('Background recommendations stopped.');
     const observe=(observable,allowRejection=false,stage=null)=>new Promise((resolve,reject)=>{
       const owner={};
       const timer=setTimeout(()=>{observable.unobserve(owner);reject(Error('EA did not respond. Check the Web App connection before retrying.'));},20000);
-      observable.observe(owner,(sender,result)=>{clearTimeout(timer);sender.unobserve(owner);if(result.success||allowRejection)resolve(result);else{const unauthorized=Number(result.status)===401;const error=Error(unauthorized?'EA could not authenticate this request (401). Reload the EA Web App and sign in again if prompted, then reopen your squad and retry.':`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;error.stage=stage;reject(error);}});
+      observable.observe(owner,(sender,result)=>{clearTimeout(timer);sender.unobserve(owner);if(readCancelled()){reject(Error('Background recommendations stopped.'));return;}if(result.success||allowRejection)resolve(result);else{const unauthorized=Number(result.status)===401;const error=Error(unauthorized?'EA could not authenticate this request (401). Reload the EA Web App and sign in again if prompted, then reopen your squad and retry.':`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;error.stage=stage;reject(error);}});
     });
     const coinBalance=()=>Number(services.User.getUser()?.getCurrency(GameCurrency.COINS)?.amount);
     const activeTeam=()=>{

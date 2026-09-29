@@ -74,12 +74,24 @@ async function tradeState(){
 }
 const state=async()=> (await chrome.storage.session.get('state')).state || {};
 const save=async value=>chrome.storage.session.set({state:value});
+let activeTeamRead=null;
+function checkTeamReadCancelled(){if(activeTeamRead?.cancelled)throw Error('Background recommendations stopped.');}
+async function cancelTeamRead(){
+  const current=activeTeamRead;if(!current)return;
+  current.cancelled=true;
+  await Promise.all([...current.tabs].map(tabId=>chrome.scripting.executeScript({target:{tabId},world:'MAIN',func:function markTeamReadCancelled(token){window.__futsbcCancelledTeamRead=token;},args:[current.id]}).catch(()=>{})));
+}
 async function ea(tabId,action,payload,timeoutMs=0) {
+  checkTeamReadCancelled();
+  if(activeTeamRead&&['teamSnapshot','teamEvaluate','teamQuote','teamPlan'].includes(action)){
+    activeTeamRead.tabs.add(tabId);payload={...payload,readToken:activeTeamRead.id};
+  }
   const tab=await chrome.tabs.get(tabId);
   if(!isEaWebAppURL(tab.url)) throw Error('The connected tab is no longer the FC Web App.');
   const request=chrome.scripting.executeScript({target:{tabId},world:'MAIN',func:eaOperation,args:[action,payload||{}]});
   let timer;
   const results=timeoutMs?await Promise.race([request,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(`EA ${action} did not respond within ${Math.round(timeoutMs/1000)} seconds.`)),timeoutMs);})]).finally(()=>clearTimeout(timer)):await request;
+  checkTeamReadCancelled();
   const result=results[0]?.result;
   if(!result?.ok){const error=Error(result?.error||'EA integration unavailable.');error.status=result?.status;error.stage=result?.stage;error.page=result?.page;error.unmatchedPlayer=result?.unmatchedPlayer;throw error;}
   return result;
@@ -567,7 +579,8 @@ async function refreshSwapCandidates(saved,group,team,tabId,budget){
   const unknown=candidates.filter(card=>!card.owned&&!Number.isSafeInteger(card.price));
   if(unknown.length){
     const key='futsbc-console-estimates-v1',cache=(await chrome.storage.local.get(key))[key]||{};
-    const estimates=await getConsoleEstimates(unknown.map(card=>card.definitionId),cache);
+    const estimates=await getConsoleEstimates(unknown.map(card=>card.definitionId),cache,(...args)=>{checkTeamReadCancelled();return fetch(...args);});
+    checkTeamReadCancelled();
     await chrome.storage.local.set({[key]:estimates.cache});
     for(const quote of estimates.quotes){const card=merged.get(quote.definitionId);Object.assign(card,{price:quote.price,estimatedPrice:quote.price,priceVerified:true,priceEstimated:true,priceSource:quote.source,priceUpdatedAt:quote.updatedAt});}
   }
@@ -586,6 +599,7 @@ async function refreshSwapCandidates(saved,group,team,tabId,budget){
       priceError=error.message;break;
     }
   }
+  checkTeamReadCancelled();
   group.options=[...merged.values()];
   await chrome.storage.session.set({'futsbc-team-plan':saved});
   return priceError||rankingError;
@@ -800,10 +814,10 @@ async function dispatch(message) {
   if(message.type==='cardArt')return cardArt(Number(message.assetId),Number(message.definitionId));
   if(message.type==='teamSnapshot')return (await connectedTeam()).team;
   if(message.type==='teamRunState')return teamRun;
-  if(message.type==='teamCancel'){teamRun={...teamRun,cancelled:true,status:'Stopping after the current EA request…'};return teamRun;}
+  if(message.type==='teamCancel'){teamRun={...teamRun,cancelled:true,status:'Stopping after the current EA request…'};await cancelTeamRead();return teamRun;}
   if(message.type==='teamRecommend')return runTeamRecommendation(message.slots,message.budget);
   if(message.type==='teamApply')return applyTeamSuggestion(message);
-  if(message.type==='teamAlternatives'||message.type==='teamSwap'){teamRun={running:true,startedAt:Date.now(),status:'Checking swap alternatives…'};try{return await swapTeamSuggestion(message);}finally{teamRun={...teamRun,running:false};}}
+  if(message.type==='teamAlternatives'||message.type==='teamSwap'){teamRun={running:true,startedAt:Date.now(),status:'Checking swap alternatives…'};if(message.type==='teamAlternatives')activeTeamRead={id:crypto.randomUUID(),cancelled:false,tabs:new Set()};try{return await swapTeamSuggestion(message);}finally{activeTeamRead=null;teamRun={...teamRun,running:false};}}
   if(message.type==='teamPriceCheck'){
     const {tabId,team}=await connectedTeam();
     return ea(tabId,'teamQuote',{fingerprint:team.fingerprint,definitionIds:message.definitionIds,maxPrice:Math.min(Number(message.maxPrice),team.balance)},SBC_REQUEST_TIMEOUT);

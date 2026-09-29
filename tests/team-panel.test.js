@@ -95,6 +95,7 @@ test('building a team prefetches swaps once, prioritizes an opened slot, and reu
     window.eval('void findTeam();');await tick();
     window.document.getElementById('team-apply').click();await tick();
     assert.equal(calls.filter(call=>call.type==='teamApply').length,0,'adding waits for the active read to finish');
+    assert(calls.some(call=>call.type==='teamCancel'),'adding actively cancels the running recommendation search');
     finish();await tick();
     assert.equal(calls.filter(call=>call.type==='teamApply').length,1);
     assert.equal(waiting.length,0,'adding cancels the rest of the background queue');

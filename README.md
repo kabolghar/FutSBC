@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.22**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.23**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -110,3 +110,7 @@ Manual swap alternatives may reduce squad chemistry or individual player chemist
 ### Background swap suggestions (v0.21.22)
 
 After a Team recommendation completes, the panel prefetches alternatives for recommended selected positions sequentially. Opening Swap reuses ready results or shows the existing fetching message for the same in-flight request; queued positions opened by the user take priority. A selected swap starts a new cache because price and chemistry comparisons have changed. Changing the team discards stale responses. Mutations cancel queued work and wait for the current read; authentication/rate-limit failures stop the queue. Cached results expire with the plan and the add/swap operations still revalidate in EA. Prefetch continues while the existing panel is collapsed, but is not a persistent job across browser/extension reloads.
+
+### Add players takes priority over background reads (v0.21.23)
+
+Add concept players now actively cancels the in-progress swap search as well as clearing queued searches. The worker stops between requests, and the EA read stops after its current response instead of checking the remaining batches. The existing plan is retained and applied once the read releases its lock. An already-sent EA request may still need to finish or time out; cancellation does not start a concurrent squad mutation.

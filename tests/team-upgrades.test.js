@@ -84,6 +84,13 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const clubExpired=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:12000,cards});
   assert.equal(clubExpired.stage,'team-club-search');assert.equal(Number(clubExpired.status),401);
   services.Club.search=clubSearch;
+  let cancelledCalls=0;
+  services.Item.searchConceptItems=()=>({observe(owner,callback){cancelledCalls++;queueMicrotask(()=>{window.__futsbcCancelledTeamRead='cancel-test';callback(this,{success:true,response:{items:[concept]}});});},unobserve(){}});
+  const stoppedRead=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:12000,cards:Array.from({length:25},()=>cards[0]),readToken:'cancel-test'});
+  assert.equal(stoppedRead.ok,false);assert.match(stoppedRead.error,/stopped/);
+  assert.equal(cancelledCalls,1,'stop between EA responses instead of processing the rest of the batches');
+  assert.equal(slots[0].item,original);
+  delete window.__futsbcCancelledTeamRead;services.Item.searchConceptItems=conceptSearch;
   const result=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:12000,cards});
   assert.deepEqual(result.options.map(option=>option.assetId),[20]);
   const empty=await eaOperation('teamEvaluate',{slotIndex:2,fingerprint:snapshot.fingerprint,budget:12000,cards:[{assetId:23,name:'New CM',url:'https://www.futbin.com/27/player/23/new-cm',price:10000,rating:81,futbinRating:84}]});

@@ -390,7 +390,7 @@ function queueTeamAlternative(slotIndex,priority=false){
 }
 async function stopTeamPrefetch(){
   swapEpoch++;swapQueue=[];swapCache.clear();
-  if(swapActive)await swapActive;
+  if(swapActive){await call('teamCancel');await swapActive;}
 }
 function startTeamPrefetch(){
   swapEpoch++;swapQueue=[];swapCache.clear();
