@@ -13,6 +13,7 @@ let state={},busy=false,mapping=[],activeView='sbc',trader={enabled:false},trade
 let insights={},insightsPending=false,insightsUiError='';
 let teamSwapView=null;
 let team={},teamResult=null,teamSelected=new Set(),teamPending=false,teamUiError='',teamRunActive=false,teamProgressText='';
+let swapCache=new Map(),swapQueue=[],swapActive=null,swapEpoch=0;
 let recovering=false;
 const recoveryKey='futsbc-last-context-reload';
 const fmt=n=>new Intl.NumberFormat('en-US').format(n);
@@ -68,7 +69,9 @@ function recoverContext(error) {
   window.location.reload();
   return true;
 }
-async function call(type,extra={}) {
+async function call(type,extra={},prefetch=false) {
+  const readOnly=['teamRunState','teamCancel','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'];
+  if(!prefetch&&swapActive&&!readOnly.includes(type))await stopTeamPrefetch();
   if(preview) throw Error('Install the extension and open FutSBC in the EA Web App. This is a visual preview.');
   try{
     const response=await chrome.runtime.sendMessage({type,...extra});
@@ -343,16 +346,67 @@ async function applyTeamConcepts(){
   catch(error){teamUiError=error.message;}
   finally{teamPending=false;renderTeam();}
 }
+function showPrefetchedSwap(slotIndex,entry){
+  if(teamSwapView?.slotIndex!==slotIndex)return;
+  teamSwapView=entry.data?{...entry.data,loading:false}:{slotIndex,loading:entry.state!=='error',alternatives:[],reason:entry.error};
+  renderTeam();
+}
+function drainTeamPrefetch(){
+  if(swapActive||teamPending||!swapQueue.length)return;
+  swapActive=(async()=>{
+    while(swapQueue.length&&!teamPending){
+      const task=swapQueue.shift(),entry=swapCache.get(task.slotIndex);
+      if(task.epoch!==swapEpoch||task.context!==teamResult||teamResult?.applied||!entry)continue;
+      entry.state='loading';
+      try{
+        const data=await call('teamAlternatives',{slotIndex:task.slotIndex,planId:task.context.planId},true);
+        if(task.epoch!==swapEpoch||task.context!==teamResult)continue;
+        Object.assign(entry,{state:'ready',data,at:Date.now()});
+      }catch(error){
+        if(task.epoch!==swapEpoch||task.context!==teamResult)continue;
+        Object.assign(entry,{state:'error',error:error.message,at:Date.now()});
+        if(/\b(?:401|429)\b|squad changed|expired|another panel/i.test(error.message)){
+          for(const waiting of swapQueue){const pending=swapCache.get(waiting.slotIndex);if(pending)Object.assign(pending,{state:'error',error:error.message,at:Date.now()});}
+          swapQueue=[];
+        }
+      }
+      if(task.epoch===swapEpoch&&task.context===teamResult)showPrefetchedSwap(task.slotIndex,entry);
+    }
+  })().finally(()=>{swapActive=null;drainTeamPrefetch();});
+}
+function queueTeamAlternative(slotIndex,priority=false){
+  if(!teamResult?.plan||teamResult.applied)return;
+  let entry=swapCache.get(slotIndex);
+  if(entry?.context!==teamResult||entry.state==='error'||entry.state==='ready'&&Date.now()-Math.min(entry.at,teamResult.checkedAt||entry.at)>=10*60_000){
+    entry={context:teamResult,state:'queued'};swapCache.set(slotIndex,entry);
+    swapQueue=swapQueue.filter(task=>task.slotIndex!==slotIndex);
+    const task={slotIndex,context:teamResult,epoch:swapEpoch};
+    if(priority)swapQueue.unshift(task);else swapQueue.push(task);
+  }else if(priority&&entry.state==='queued'){
+    const index=swapQueue.findIndex(task=>task.slotIndex===slotIndex);
+    if(index>0)swapQueue.unshift(...swapQueue.splice(index,1));
+  }
+  showPrefetchedSwap(slotIndex,entry);drainTeamPrefetch();
+}
+async function stopTeamPrefetch(){
+  swapEpoch++;swapQueue=[];swapCache.clear();
+  if(swapActive)await swapActive;
+}
+function startTeamPrefetch(){
+  swapEpoch++;swapQueue=[];swapCache.clear();
+  if(!teamResult?.plan||teamResult.applied)return;
+  for(const card of teamResult.plan.choices)if(teamSelected.has(card.slotIndex))queueTeamAlternative(card.slotIndex);
+}
 async function loadTeamAlternatives(slotIndex){
-  if(teamPending)return;teamPending=true;teamUiError='';teamSwapView={slotIndex,loading:true,alternatives:[]};renderTeam();
-  try{teamSwapView=await call('teamAlternatives',{slotIndex,planId:teamResult.planId});}catch(error){teamSwapView=null;teamUiError=error.message;}
-  finally{teamPending=false;renderTeam();}
+  if(teamPending)return;
+  teamUiError='';teamSwapView={slotIndex,loading:true,alternatives:[]};
+  queueTeamAlternative(slotIndex,true);renderTeam();
 }
 async function chooseTeamAlternative(slotIndex,definitionId){
   if(teamPending)return;teamPending=true;teamUiError='';renderTeam();
-  try{teamResult=await call('teamSwap',{slotIndex,definitionId,planId:teamResult.planId});team=teamResult.team;teamSwapView=null;}
+  try{teamResult=await call('teamSwap',{slotIndex,definitionId,planId:teamResult.planId});team=teamResult.team;teamSwapView=null;startTeamPrefetch();}
   catch(error){teamUiError=error.message;}
-  finally{teamPending=false;renderTeam();}
+  finally{teamPending=false;renderTeam();drainTeamPrefetch();}
 }
 async function refreshTeam(){
   if(preview||teamPending)return;teamPending=true;teamUiError='';renderTeam();
@@ -381,9 +435,9 @@ async function findTeam(){
   },1000);
   try{
     teamResult=await Promise.race([interrupted,call('teamRecommend',{slots:[...teamSelected],budget:teamBudget()}),new Promise((_,reject)=>{timer=setTimeout(()=>{void call('teamCancel').catch(()=>{});reject(Error('Team check took too long. Reopen the menu and retry; no team was applied.'));},9*60_000);})]);
-    team=teamResult.team;
+    team=teamResult.team;startTeamPrefetch();
   }catch(error){teamUiError=error.message;}
-  finally{clearInterval(poll);clearTimeout(timer);teamPending=false;teamRunActive=false;renderTeam();}
+  finally{clearInterval(poll);clearTimeout(timer);teamPending=false;teamRunActive=false;renderTeam();drainTeamPrefetch();}
 }
 
 async function refreshInsights(){

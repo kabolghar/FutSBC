@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.21**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.22**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -106,3 +106,7 @@ Add concept players rechecks the club before applying the lineup. Exact owned ca
 ### Choose swap chemistry tradeoffs (v0.21.21)
 
 Manual swap alternatives may reduce squad chemistry or individual player chemistry, including below two points. Each option shows its price difference and total squad chemistry difference relative to the current planned team, plus the candidate’s individual chemistry. Exact identity, position eligibility, unique players, and total budget still apply. Selecting a swap records the chemistry tradeoff for the add-to-squad step, which checks the accepted total again. Initial automatic team planning retains its existing chemistry protections.
+
+### Background swap suggestions (v0.21.22)
+
+After a Team recommendation completes, the panel prefetches alternatives for recommended selected positions sequentially. Opening Swap reuses ready results or shows the existing fetching message for the same in-flight request; queued positions opened by the user take priority. A selected swap starts a new cache because price and chemistry comparisons have changed. Changing the team discards stale responses. Mutations cancel queued work and wait for the current read; authentication/rate-limit failures stop the queue. Cached results expire with the plan and the add/swap operations still revalidate in EA. Prefetch continues while the existing panel is collapsed, but is not a persistent job across browser/extension reloads.
