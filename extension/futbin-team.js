@@ -12,7 +12,7 @@ export function teamPlayerPages(budget){
 export function readFutbinTeamPlayers(expectedURL){
   const expected=new URL(expectedURL),actual=new URL(location.href);
   const parameter=(url,key)=>url.searchParams.get(key)||(key==='page'?'1':null);
-  if(actual.origin!=='https://www.futbin.com'||actual.pathname!==expected.pathname||['page','ps_price'].some(key=>parameter(actual,key)!==parameter(expected,key)))return {error:'Waiting for the requested FC 27 player page.'};
+  if(actual.origin!=='https://www.futbin.com'||actual.pathname!==expected.pathname||['page','ps_price','nation','league','club'].some(key=>parameter(actual,key)!==parameter(expected,key)))return {error:'Waiting for the requested FC 27 player page.'};
   const body=(document.body?.innerText||'').slice(0,600);
   if(/Just a moment|security verification|verify (?:that )?you are human|checking your browser/i.test(`${document.title} ${body}`))return {error:'FUTBIN player data requires browser verification.',blocked:true};
   const parsePrice=value=>{

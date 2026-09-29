@@ -1,3 +1,4 @@
+import {teamLinkPages,teamCandidatePool,linkedTeamOptions} from './team-links.js';
 import {researchTraderCards} from './trading-evidence.js';
 import {getConsoleEstimates} from './team-prices.js';
 import {isEaWebAppURL,findEaTabs} from './ea-url.js';
@@ -352,9 +353,12 @@ async function cardArt(assetId,definitionId){
   cardArtPending.set(key,pending);
   try{return await pending;}finally{cardArtPending.delete(key);}
 }
-async function currentTeamPlayers(budget){
+const teamLinkCache=new Map();
+async function currentTeamPlayers(budget,requestedURLs=null){
   if(Date.now()<teamPlayerBlockedUntil)throw Error('FUTBIN player ratings are unavailable right now. No unverified Team recommendations were made. Retry later.');
-  const urls=teamPlayerPages(budget);
+  const urls=requestedURLs||teamPlayerPages(budget);
+  const cacheKey=JSON.stringify(urls),linkCached=requestedURLs&&teamLinkCache.get(cacheKey);
+  if(linkCached&&Date.now()-linkCached.at<10*60_000)return linkCached.pages;
   if(teamPlayerCache&&Date.now()-teamPlayerCache.at<10*60_000&&urls.every(url=>teamPlayerCache.urls.includes(url)))return teamPlayerCache.pages;
   if(tradingBusy||(await rawTradeState()).enabled)throw Error('Stop trading before checking FUTBIN team suggestions.');
   const tab=await chrome.tabs.create({url:urls[0],active:false});
@@ -371,12 +375,14 @@ async function currentTeamPlayers(budget){
         if(result?.blocked)break;
         if(attempt<23)await new Promise(resolve=>setTimeout(resolve,400));
       }
-      if(pages.length!==urls.indexOf(url)+1){
+      if(!pages.some(page=>page.url===url)&&!(pages.length===urls.indexOf(url)+1&&!requestedURLs)){
+        if(requestedURLs){if(/verification/i.test(reason))break;continue;}
         teamPlayerBlockedUntil=Date.now()+10*60_000;
         throw Error(`FUTBIN player ratings are unavailable: ${reason} No unverified Team recommendations were made. Retry later.`);
       }
     }
-    teamPlayerCache={at:Date.now(),urls:urls.slice(0,pages.length),pages};
+    if(requestedURLs){if(!pages.length)throw Error('Linked FUTBIN player searches were unavailable.');teamLinkCache.set(cacheKey,{at:Date.now(),pages});if(teamLinkCache.size>6)teamLinkCache.delete(teamLinkCache.keys().next().value);}
+    else teamPlayerCache={at:Date.now(),urls:urls.slice(0,pages.length),pages};
     return pages;
   }finally{await chrome.tabs.remove(tab.id).catch(()=>{});}
 }
@@ -447,27 +453,42 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
   });
   const selected=[...new Set(slots||[])].filter(index=>Number.isInteger(index)&&!manual.some(pick=>pick.index===index)&&team.players.some(player=>player.index===index)).slice(0,11);
   if(!selected.length&&!manual.length)throw Error('Choose a player or a position to build.');
+  const hasAnchors=manual.length>0||team.players.some(player=>player.concept&&!selected.includes(player.index));
   const total=Number(budget);
   if(!Number.isSafeInteger(total)||total<0)throw Error('Enter a valid planning budget.');
   teamProgress('Reading player rankings…');
   let pages,source='FUTBIN';
   try{pages=selected.length?await currentTeamPlayers(Math.max(total,500)):[];}
-  catch{teamProgress('Reading fallback player rankings…');source='FUT.GG';pages=await currentFutggBest(selected.map(index=>team.players.find(player=>player.index===index).position));}
+  catch{teamProgress('Reading fallback player rankings…');source='FUT.GG';pages=await currentFutggBest(selected.map(index=>team.players.find(player=>player.index===index).position),hasAnchors?120:30);}
   const fallbackPositions=source==='FUTBIN'?selected.map(index=>team.players.find(player=>player.index===index).position):[];
-  const supplemental=fallbackPositions.length?await currentFutggBest(fallbackPositions):new Map();
+  const supplemental=fallbackPositions.length?await currentFutggBest(fallbackPositions,hasAnchors?120:30):new Map();
+  const anchors=[...manual,...team.players.filter(player=>player.concept&&!selected.includes(player.index)&&!manual.some(pick=>pick.index===player.index))];
+  const linkURLs=teamLinkPages(total,anchors);let linkedPages=[],linkSearchError=null;
+  if(linkURLs.length&&selected.length){
+    teamProgress('Finding strong league, nation and club links for your chosen players…');
+    try{linkedPages=await currentTeamPlayers(Math.max(total,500),linkURLs);if(linkedPages.length<linkURLs.length)linkSearchError='Some link searches were unavailable.';}catch(error){linkSearchError=error.message;}
+  }
   const existing=team.players.map(player=>Number(player.definitionId)%0x1000000).filter(Boolean);
   const results=[];
   for(const slotIndex of selected){
     const player=team.players.find(row=>row.index===slotIndex);
     teamProgress(`Checking ${player.position} cards · position ${results.length+1}/${selected.length}`);
     const pool=source==='FUTBIN'?selectTeamPlayers(pages,player.position,Math.max(total,500),existing,24).map(card=>({...card,source}))
-      :selectFutggTeamPlayers(pages.get(futggBestURL(player.position)),existing,30);
-    const extras=selectFutggTeamPlayers(supplemental.get(futggBestURL(player.position)),existing,30);
-    const cards=[...new Map([...pool,...extras].map(card=>[card.definitionId||card.assetId,card])).values()].sort((a,b)=>Number(b.source==='FUT.GG')-Number(a.source==='FUT.GG')||(a.metaRank||99)-(b.metaRank||99)).slice(0,48);
-    const sourcePrices=new Map(pool.filter(card=>Number.isSafeInteger(card.price)).map(card=>[card.assetId,card]));
+      :selectFutggTeamPlayers(pages.get(futggBestURL(player.position)),existing,hasAnchors?120:30);
+    const extras=selectFutggTeamPlayers(supplemental.get(futggBestURL(player.position)),existing,hasAnchors?120:30);
+    const linked=selectTeamPlayers(linkedPages,player.position,Math.max(total,500),existing,48).map(card=>({...card,source:'FUTBIN'}));
+    const cards=teamCandidatePool([...pool,...extras],linked,hasAnchors?144:48);
+    const sourcePrices=new Map([...pool,...linked].filter(card=>Number.isSafeInteger(card.price)).map(card=>[card.assetId,card]));
     if(!cards.length){results.push({slotIndex,player,options:[],checked:0});continue;}
     let checked;
-    try{checked=await ea(tabId,'teamEvaluate',{slotIndex,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards},SBC_REQUEST_TIMEOUT);}
+    try{
+      checked={options:[],checked:0};
+      for(let offset=0;offset<cards.length;offset+=48){
+        const batch=await ea(tabId,'teamEvaluate',{slotIndex,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards:cards.slice(offset,offset+48)},SBC_REQUEST_TIMEOUT);
+        checked.options.push(...batch.options);checked.checked+=batch.checked||0;checked.screening=batch.screening;
+      }
+      checked.options=linkedTeamOptions(checked.options,anchors);
+    }
     catch(error){const step=error.stage==='team-club-search'?'club ownership':error.stage==='team-concept-search'?'concept cards':'cards';error.message=`EA could not check ${player.position} ${step}: ${error.message}`;throw error;}
     if(source==='FUTBIN'&&checked.options.length<8){
       teamProgress(`Broadening ${player.position} candidates…`);
@@ -529,7 +550,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
     let known=null;
     if(canPlanKnown){
       known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups,allowChemistryFallback:results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
-      if(known.plan&&known.plan.choices.length===results.length&&known.plan.choices.filter(card=>card.source==='FUT.GG').length>=groups.filter(group=>group.options.some(card=>card.source==='FUT.GG')).length){planned=known;break;}
+      if(known.plan&&known.plan.choices.length===results.length&&(!hasAnchors||known.plan.choices.filter(card=>card.locked).every(card=>card.slotChemistry>=3))){planned=known;break;}
     }
     if(round===maxPriceChecks||cardsPriced>=maxPriceChecks){
       planned=known||{plan:null,progressPlan:null};pricingIncomplete=true;
@@ -566,7 +587,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
     return recommendTeam(slots,budget,true,picks);
   }
   teamProgress('Team check complete.');
-  return {team,results,allowChemistryTradeoff:planned.plan?.chemistryTradeoff===true,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
+  return {team,results,linkSearchError,allowChemistryTradeoff:planned.plan?.chemistryTradeoff===true,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
 }
 async function applyTeamSuggestion(message){
   if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before adding concepts.');

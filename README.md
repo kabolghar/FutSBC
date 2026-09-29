@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.28**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.29**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -147,3 +147,11 @@ In Team → Total budget, choose **Future team budget** and enter the coins you 
 ### Build-around chemistry trade-offs (v0.21.28)
 
 When you keep an EA concept or choose a player in FutSBC, Team still prefers complete lineups meeting the chemistry target. If none checked meets every chemistry constraint, it can show a complete, priced alternative around those fixed cards. The result explicitly labels the chemistry trade-off and shows the previous and proposed totals, plus chosen cards below two chemistry. The budget, exact card versions, legal positions and duplicate-player rules remain enforced. The result is the best among the checked candidates, not an exhaustive search or a guarantee of 33 chemistry. Adding concepts rechecks the displayed chemistry before applying.
+
+### Link-aware build-around search (v0.21.29)
+
+Fixed EA concepts and menu picks now carry their EA league, nation and club IDs into Team planning. Separate FUTBIN searches collect linked players within the planning budget (up to two pages per link filter, nine distinct filters). Strong linked candidates get reserved shortlist space alongside general candidates; linked recruitment requires at least 80 overall and either FUTBIN rating 80+ or a checked FUT.GG ranking. A shared nation alone is never quality evidence. General candidates keep the existing meta eligibility rules.
+
+Build-around runs expand the existing FUT.GG position fallback to 120 entries, evaluate exact EA identities in batches, and preserve verified links when reducing to 48 choices per position. FUT.GG cheap-list provenance no longer automatically outranks FUTBIN quality evidence. The combined quality score is a heuristic, not a measured gameplay score.
+
+The bounded team search preserves branches containing links to chosen cards. Among complete candidates it first favors getting chosen players to at least two chemistry, then total chemistry, then player quality. Strict chemistry targets still take precedence over the explicitly labelled trade-off fallback. Prices, legal positions and unique players remain enforced. Source failures are labelled; unavailable pages are not bypassed. This is not an exhaustive player search or a guarantee that a chosen card reaches three chemistry.

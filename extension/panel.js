@@ -287,6 +287,7 @@ function renderTeam(){
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
     const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':teamResult.source==='FUTBIN + FUT.GG'?'FUTBIN + FUT.GG rankings':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'Third-party price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
+    if(teamResult.linkSearchError){const notice=document.createElement('p');notice.className='team-result-note';notice.textContent='Some targeted FUTBIN link searches were unavailable. League and nation coverage may be limited.';results.append(notice);}
     if(teamResult.plan||teamResult.progressPlan){
       const plan=teamResult.plan||teamResult.progressPlan;
       if(!teamResult.plan){const notice=document.createElement('p');notice.className='team-plan-failure';notice.textContent=`Full target not reached (${plan.targetChemistry}/33). Optional partial step: ${plan.baselineChemistry} → ${plan.chemistry} chemistry. This is not a finished meta XI.`;results.append(notice);}

@@ -204,13 +204,21 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   globalThis.UTSquadChemCalculatorUtils=class{calculate(){return {chemistry:33,getSlotChemistry:()=>({points:3})};}};
   const exactTarget=await eaOperation('teamPlan',targetPlan);
   assert.equal(exactTarget.plan.chemistry,33);assert.notEqual(exactTarget.plan.chemistryTradeoff,true,'prefer full chemistry when available');
+  const linkMid={...openPosition,assetId:26,definitionId:26,rating:84,nationId:52,leagueId:13};
+  globalThis.services.Item.searchConceptItems=()=>observed([concept,openPosition,linkMid]);
+  globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){return {chemistry:items[0].definitionId===1?33:30,getSlotChemistry:index=>({points:index===0?(items[2].definitionId===26?3:1):3})};}};
+  const anchorGroups=[lockedGroups[0],{slotIndex:2,allowRetained:false,options:[{...lockedGroups[1].options[0],source:'FUT.GG',metaRank:1},{assetId:26,definitionId:26,rating:84,source:'FUTBIN',futbinRating:85,price:2000,priceVerified:true}]}];
+  const linkedPlan=await eaOperation('teamPlan',{...targetPlan,groups:anchorGroups});
+  assert.equal(linkedPlan.plan.choices.find(card=>card.slotIndex===2).definitionId,26,'a strong linking midfielder beats an unrelated cheap rank-one card when it raises the fixed player chemistry');
+  assert.equal(linkedPlan.plan.choices[0].slotChemistry,3);
+  globalThis.services.Item.searchConceptItems=()=>observed([concept,noChem,openPosition]);
   globalThis.UTSquadChemCalculatorUtils=class{calculate(){return {chemistry:31,getSlotChemistry:index=>({points:index===1?1:3})};}};
   const keepsLowChem=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
   assert.equal(keepsLowChem.plan.chemistry,31,'an unchanged one-chemistry player must not block chemistry-preserving upgrades elsewhere');
   assert.equal(keepsLowChem.plan.slotChemistry[1],1);
   const mixed=groups.map(group=>({...group,options:group.options.map(card=>card.definitionId===22?{...card,source:'FUTBIN',futbinRating:99,metaRank:null}:card)}));
   const metaFirst=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups:mixed});
-  assert.equal(metaFirst.plan.choices.find(card=>card.slotIndex===0).definitionId,20,'do not compare FUTBIN numeric ratings with invented GG rank scores');
+  assert.equal(metaFirst.plan.choices.find(card=>card.slotIndex===0).definitionId,22,'a cheap-list source must not automatically beat a stronger FUTBIN-rated card');
   // Five affordable replacements must beat one star taking the whole budget.
   for(let index=0;index<5;index++){slots[index].generalPositionName='ST';if(index===2)slots[index].item={id:902,definitionId:902,assetId:902,rating:80,isValid:()=>true};}
   const fiveCards=Array.from({length:5},(_,index)=>({concept:true,assetId:40+index,definitionId:40+index,rating:84,preferredPosition:25}));

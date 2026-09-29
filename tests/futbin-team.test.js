@@ -26,6 +26,9 @@ test('reads position, console price, and FUTBIN rating from a verified FC 27 tab
   assert.equal(page.cards[0].futbinRating,82.1);
   assert.equal(page.cards[0].price,1800);
   assert.match(readFutbinTeamPlayers(url.replace('page=1','page=2')).error,/Waiting/);
+  assert.match(readFutbinTeamPlayers(url+'&nation=52').error,/Waiting/);
+  globalThis.location.href=url+'&nation=52';assert.equal(readFutbinTeamPlayers(location.href).kind,'team-players');
+  assert.match(readFutbinTeamPlayers(url+'&league=39').error,/Waiting/);
 });
 
 test('selects exact affordable position fits and excludes cards in the squad',()=>{
