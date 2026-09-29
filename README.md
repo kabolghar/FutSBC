@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.10**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.11**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -68,3 +68,7 @@ If the full chemistry target is unreachable in the checked shortlist, an optiona
 ### Price search correction (v0.21.10)
 
 The planner checks known prices before exploring optimistic unknown-price candidates. Reaching a price-check batch limit means incomplete coverage, not insufficient budget. Continue team search reuses recent quotes for the same squad and budget. Unknown prices are never included in a displayed affordable lineup.
+
+### Shared team budget (v0.21.11)
+
+Among teams passing chemistry checks, the planner prioritizes covering more selected positions before extra chemistry and source rank. Affordable intermediate combinations are kept so an expensive early pick cannot crowd out later positions. Known-price partial plans no longer end the search prematurely. Partial results explicitly list unchanged selected positions.

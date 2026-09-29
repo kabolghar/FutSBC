@@ -132,6 +132,20 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const keepsLowChem=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
   assert.equal(keepsLowChem.plan.chemistry,31,'an unchanged one-chemistry player must not block chemistry-preserving upgrades elsewhere');
   assert.equal(keepsLowChem.plan.slotChemistry[1],1);
+  // Five affordable replacements must beat one star taking the whole budget.
+  for(let index=0;index<5;index++){slots[index].generalPositionName='ST';if(index===2)slots[index].item={id:902,definitionId:902,assetId:902,rating:80,isValid:()=>true};}
+  const fiveCards=Array.from({length:5},(_,index)=>({concept:true,assetId:40+index,definitionId:40+index,rating:84,preferredPosition:25}));
+  const star={concept:true,assetId:99,definitionId:99,rating:90,preferredPosition:25};
+  globalThis.services.Item.searchConceptItems=()=>observed([...fiveCards,star]);
+  globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){const boosted=items.some(item=>item?.definitionId===99);return {chemistry:boosted?33:31,getSlotChemistry:index=>({points:index===10&&!boosted?1:3})};}};
+  const fiveSnapshot=await eaOperation('teamSnapshot');
+  const fiveGroups=fiveCards.map((card,index)=>({slotIndex:index,options:[{...card,name:'Budget card',source:'FUT.GG',metaRank:25,price:2000,priceVerified:true},...(index===0?[{...star,name:'Star',source:'FUT.GG',metaRank:1,price:10000,priceVerified:true}]:[])]}));
+  const balanced=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:fiveGroups});
+  assert.equal(balanced.plan.choices.length,5);
+  assert.equal(balanced.plan.cost,10000);
+  assert.equal(balanced.plan.chemistry,31);
+  assert.equal(balanced.plan.selectedCount,5);
+  assert.deepEqual(balanced.plan.unfilledSlots,[]);
   assert.equal(slots[0].item,original);
 });
 

@@ -452,7 +452,7 @@ async function recommendTeam(slots,budget){
     let known=null;
     if(canPlanKnown){
       known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups},SBC_REQUEST_TIMEOUT);
-      if(known.plan){planned=known;break;}
+      if(known.plan&&known.plan.choices.length===selected.length){planned=known;break;}
     }
     if(round===24||cardsPriced>=24){
       planned=known||{plan:null,progressPlan:null};pricingIncomplete=true;

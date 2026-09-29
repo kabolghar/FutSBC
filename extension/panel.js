@@ -278,6 +278,7 @@ function renderTeam(){
     if(teamResult.plan||teamResult.progressPlan){
       const plan=teamResult.plan||teamResult.progressPlan;
       if(!teamResult.plan){const notice=document.createElement('p');notice.className='team-plan-failure';notice.textContent=`Full target not reached (${plan.targetChemistry}/33). Optional partial step: ${plan.baselineChemistry} → ${plan.chemistry} chemistry. This is not a finished meta XI.`;results.append(notice);}
+      if(plan.choices.length<teamSelected.size){const coverage=document.createElement('p');coverage.className='team-plan-failure';coverage.textContent=`Partial result: ${plan.choices.length}/${teamSelected.size} selected positions covered. Still unchanged: ${team.players.filter(player=>teamSelected.has(player.index)&&!plan.choices.some(choice=>choice.slotIndex===player.index)).map(player=>`${player.position} (${player.name})`).join(', ')}. The displayed cost covers only the proposed changes.`;results.append(coverage);}
       const summary=document.createElement('div');summary.className='team-plan-summary';
       for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],[teamResult.priceMode==='estimate'?'EST. TO BUY':'TOTAL TO BUY',`${fmt(plan.cost)} coins`],['BUDGET LEFT',`${fmt(plan.remaining)} coins`]]){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);

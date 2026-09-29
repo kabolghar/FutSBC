@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async()=>{
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
-  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false,forceLimit=false;
+  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false,forceLimit=false,partialKnown=false;
   globalThis.chrome={
     runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
     action:{onClicked:{addListener:()=>{}}},sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},
@@ -30,7 +30,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
         assert(payload.budget<=50000);
-        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0])},combinationsChecked:4}}];
+        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:2)},combinationsChecked:4}}];
       }
       throw Error(`Unexpected EA action ${action}`);
     }}
@@ -48,6 +48,10 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const cached=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
   assert.equal(cached.ok,true,cached.error);
   assert.equal(calls.filter(call=>call.action==='teamQuote').length,2,'retry reuses checked prices for same squad and budget');
+  partialKnown=true;
+  const allPositions=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  assert.equal(allPositions.data.plan.choices.length,2,'a known partial plan must not stop the search for all selected positions');
+  partialKnown=false;
   failQuotes=true;
   const before=calls.filter(call=>call.action==='teamPlan').length;
   const limited=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:49000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));

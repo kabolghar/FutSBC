@@ -277,7 +277,7 @@ export async function eaOperation(action, payload = {}) {
       const completeXI=fixed.every(row=>hasCard(row.item));
       const minimumChemistry=Math.max(Number(baseline.chemistry),completeXI?30:0);
       const rankValue=option=>option.retained?0:option.source==='FUT.GG'?100-(Number(option.metaRank)-1)*1.25:Number(option.futbinRating)||75;
-      const compare=(a,b)=>b.chemistry-a.chemistry||b.meta-a.meta||a.cost-b.cost;
+      const compare=(a,b)=>(b.coverage||0)-(a.coverage||0)||b.chemistry-a.chemistry||b.meta-a.meta||a.cost-b.cost;
       // Bounded beam search preserves whole-team alternatives instead of reducing
       // each position to the cheapest two plus one highly ranked card.
       let beam=[{chosen:new Map(),used:new Set(fixedAssets),cost:0,meta:0,chemistry:Number(baseline.chemistry)}];
@@ -292,7 +292,8 @@ export async function eaOperation(action, payload = {}) {
           let chem;try{chem=calculator.calculate(formation,lineup,manager);}catch{continue;}
           if(!Number.isFinite(chem?.chemistry))continue;
           const meta=branch.meta+rankValue(choice.option)+Number(choice.option.rating)*.1;
-          const candidate={chosen,used,cost,meta,chemistry:Number(chem.chemistry)};
+          const coverage=[...chosen.values()].filter(value=>!value.option.retained).length;
+          const candidate={chosen,used,cost,meta,coverage,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
             if(candidate.chemistry<Number(baseline.chemistry)||![...chosen.values()].some(value=>!value.option.retained))continue;
@@ -302,13 +303,15 @@ export async function eaOperation(action, payload = {}) {
             const meetsTarget=candidate.chemistry>=minimumChemistry;
             const prior=meetsTarget?best:progress;
             if((meetsTarget||candidate.chemistry>Number(baseline.chemistry))&&(!prior||compare(candidate,prior)<0)){
-              const found={meta,score:meta,cost,chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)}))};
+              const found={meta,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)}))};
               if(meetsTarget)best=found;else progress=found;
             }
           }else expanded.push(candidate);
         }
         expanded.sort(compare);
-        beam=expanded.slice(0,256);
+        // Keep affordable branches alive for positions still to fill.
+        const affordable=[...expanded].sort((a,b)=>(b.coverage||0)-(a.coverage||0)||a.cost-b.cost||compare(a,b));
+        beam=[...new Set([...expanded.slice(0,128),...affordable.slice(0,128)])];
         if(step<bySlot.length-1&&!beam.length)break;
       }
       return {ok:true,progressPlan:!best&&progress?{...progress,remaining:limit-progress.cost,baselineChemistry:Number(baseline.chemistry),targetChemistry:minimumChemistry}:null,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
