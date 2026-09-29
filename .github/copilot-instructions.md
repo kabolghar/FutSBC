@@ -1,11 +1,14 @@
 ## Design Context
 
-FutSBC serves FC 27 console players completing SBCs and checking manual trades. It finds the lowest checked FUTBIN solution, places concept players, calculates after-tax trade margins, and leaves market transactions to the player.
+FutSBC helps FC 27 console players build SBCs, plan their XI, compare players, and review market opportunities inside the EA Web App.
 
-Use a sports broadcast graphic direction: focused, competitive, clear. Build a compact match overlay, not a marketing page or generic AI dashboard. Use dark, legible surfaces, scoreboard-like typography and data grouping, and lime only as a sparing functional accent.
+### Direction: the clubhouse
+Friendly, confident football identity. Deep green surfaces, warm off-white text, restrained warm orange for actions and selected states. A small club crest, Barlow Condensed headings, and Atkinson body text provide character without a marketing-page feel.
 
-- Fit the overlay to a single focused task; keep the game visible around it.
-- Put the active SBC, primary action, and checked price before explanatory copy.
-- Show estimates and comparison coverage precisely, without crowding the main action.
-- Avoid duplicated branding, slogans, numbered journey strips, oversized cards, decorative glow, and unnecessary rounded shapes.
-- Preserve keyboard access and readable text at narrow or short viewport sizes.
+### Principles
+- Lead with the next useful action; remove repeated explanations and slogans.
+- Keep names, prices, chemistry and ownership readable. Show card imagery when available, with a legible rating fallback.
+- Fold setup away after successful results. Put source details in disclosures, but keep uncertainty, errors and price estimates visible.
+- Use quiet roster rows and meaningful grouping instead of nested decorative cards.
+- Adapt to narrow widths, preserve keyboard focus and accessible labels, and respect reduced motion.
+- Keep actions in normal flow when floating controls would cover players. Retain the centered collapsible EA overlay.

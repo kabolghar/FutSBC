@@ -75,6 +75,9 @@ test('building a team prefetches swaps once, prioritizes an opened slot, and reu
   try{
     window.eval(script+`\nteam=${JSON.stringify(team)};teamSelected=new Set([0,1,2]);void findTeam();`);
     await tick();
+    assert.equal(window.document.getElementById('team-editor').open,false,'successful build folds setup away');
+    const firstInput=window.document.querySelector('#team-players input');
+    assert.equal(window.document.querySelector('.team-player-copy').htmlFor,firstInput.id,'player label toggles its own position');
     const buttons=()=>window.document.querySelectorAll('.team-swap-button');
     assert.equal(waiting.length,1);assert.equal(waiting[0].message.slotIndex,0,'starts after building without opening Swap');
     buttons()[0].click();await tick();

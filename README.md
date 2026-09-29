@@ -12,11 +12,11 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.29**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.30**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
-- **SBC:** Open an SBC in EA and click **Find + build squad**. FutSBC compares readable FUTBIN completed squads, matches exact EA cards, uses matching club cards, and adds concepts for missing players. Swap checks test cheaper candidates against EA's SBC requirements.
+- **SBC:** Open an SBC in EA and click **Build this SBC**. FutSBC compares readable FUTBIN completed squads, matches exact EA cards, uses matching club cards, and adds concepts for missing players. Swap checks test cheaper candidates against EA's SBC requirements.
 - **Buy missing cards:** Click **Check prices**, review the total, and choose **Buy** to approve that ceiling. The extension stops on an uncertain purchase. Final SBC submission always stays with you.
 - **Team:** Select positions, choose a total budget, and build a proposed XI. A complete recommendation requires at least 30 chemistry, two chemistry per new player, and no chemistry loss for retained players. The search is bounded to checked candidates; source rank is not proof of the best possible team. This feature does not buy cards. **Add concept players to squad** inserts the reviewed suggestions as concepts and saves the squad after a fresh chemistry check; unchanged positions stay in place.
 - **Team swaps:** Use **Swap** beside a selected position in a completed plan. Alternatives show the full team cost and chemistry, hold your other suggestions fixed, and are rechecked when selected. Swaps update the recommendation only. Refresh after ten minutes or if your actual squad changes.
@@ -155,3 +155,7 @@ Fixed EA concepts and menu picks now carry their EA league, nation and club IDs 
 Build-around runs expand the existing FUT.GG position fallback to 120 entries, evaluate exact EA identities in batches, and preserve verified links when reducing to 48 choices per position. FUT.GG cheap-list provenance no longer automatically outranks FUTBIN quality evidence. The combined quality score is a heuristic, not a measured gameplay score.
 
 The bounded team search preserves branches containing links to chosen cards. Among complete candidates it first favors getting chosen players to at least two chemistry, then total chemistry, then player quality. Strict chemistry targets still take precedence over the explicitly labelled trade-off fallback. Prices, legal positions and unique players remain enforced. Source failures are labelled; unavailable pages are not bypassed. This is not an exhaustive player search or a guarantee that a chosen card reaches three chemistry.
+
+### Clubhouse interface (v0.21.30)
+
+A deep-green and warm-orange interface with a club crest, icon navigation and readable player rows. My XI folds setup away after a successful build; chemistry and price stay visible, while detailed evidence opens on demand. Layouts adapt to narrow screens, and the add-to-squad action stays in the page flow so it cannot cover player cards.
