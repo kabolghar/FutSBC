@@ -107,3 +107,7 @@ main,.has-result main,.team-active main,.insights-active main,.trader-active mai
 @media(max-width:520px){.is-pitch .team-lineup-art{width:52px;min-width:52px;height:72px;background-size:192px 108px;background-position:-7px -20px}}
 .team-players>.field-note{grid-column:1/-1;padding:28px 0;text-align:center}.trader-check .ui-icon,.secondary .ui-icon{margin-right:7px}.is-pitch .player-details[open]{max-width:100%;overflow-wrap:anywhere}.team-player-copy:focus-within{outline-color:var(--accent)}
 #players{grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));margin-top:10px}.player{padding:12px 8px}.player .player-art:not(.has-art){background:var(--surface);border:1px solid var(--line);border-radius:8px 8px 22px 22px}.player .player-art strong{font:700 28px/1 BarlowCondensed,sans-serif}
+/* Reserve the artwork's actual width; the legacy grid reserved only 42px. */
+.insight-card-main{grid-template-columns:max-content minmax(0,1fr);column-gap:16px;align-items:start}
+.insight-card-head,.insight-card-meta{min-width:0;overflow-wrap:anywhere}
+.insight-card-head a{min-width:0;overflow-wrap:anywhere}
