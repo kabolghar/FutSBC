@@ -25,11 +25,12 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       const [action,payload]=args;calls.push({action,payload});
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
       if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
-      if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);return [{result:{ok:true,applied:2,chemistry:12}}];}
+      if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);assert.equal(payload.allowChemistryTradeoff,true);return [{result:{ok:true,applied:2,chemistry:12}}];}
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
       if(action==='teamPlan'){
         if(Number.isInteger(payload.alternativesForSlot)){
+          assert.equal(payload.allowChemistryTradeoff,true);
           assert(payload.groups.every(group=>group.allowRetained===false));
           const target=payload.groups.find(group=>group.slotIndex===payload.alternativesForSlot);
           return [{result:{ok:true,alternatives:target.options.filter(card=>expandedSwap?card.definitionId===264:!broaderSwap||card.definitionId===900).map(card=>({chemistry:12,cost:2000,remaining:payload.budget-2000,choices:payload.groups.map(group=>({...group.options[0],...(group===target?card:{}),slotIndex:group.slotIndex}))})),combinationsChecked:target.options.length}}];

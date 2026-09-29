@@ -307,16 +307,18 @@ function renderTeam(){
           const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.title='Swap player';swap.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg>';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending||!!teamResult.applied;swap.onclick=()=>loadTeamAlternatives(player.index);actions.append(swap);
           if(teamSwapView?.slotIndex===player.index){
             const picker=document.createElement('div');picker.className='team-swap-options';
-            const heading=document.createElement('strong');heading.textContent=teamSwapView.loading?'Checking fresh alternatives…':'Fits your planned team';picker.append(heading);
-            if(!teamSwapView.loading&&!teamSwapView.alternatives.length){const empty=document.createElement('p');empty.textContent=teamSwapView.reason||'No checked alternative meets this team’s chemistry and budget.';picker.append(empty);}
+            const heading=document.createElement('strong');heading.textContent=teamSwapView.loading?'Checking fresh alternatives…':'Compare swaps';picker.append(heading);
+            if(!teamSwapView.loading&&!teamSwapView.alternatives.length){const empty=document.createElement('p');empty.textContent=teamSwapView.reason||'No verified alternative is available within the remaining budget.';picker.append(empty);}
             for(const alternative of teamSwapView.alternatives){
               const button=document.createElement('button');button.type='button';button.className='team-swap-choice';button.disabled=teamPending;
               const candidate=alternative.card;
               const picture=cardArtElement('team-lineup-art',candidate.rating,player.position,candidate.assetId,candidate.definitionId,candidate.name);
               const description=document.createElement('span');description.className='team-swap-description';
               const title=document.createElement('strong');title.textContent=alternative.card.name;
-              const detail=document.createElement('span');detail.textContent=`${alternative.card.owned?'In club':`${fmt(alternative.card.price)} coins`} · ${alternative.chemistry}/33 chem · team ${fmt(alternative.cost)}`;
-              description.append(title,detail);button.append(picture,description);button.onclick=()=>chooseTeamAlternative(player.index,alternative.card.definitionId);picker.append(button);
+              const delta=value=>value===0?'±0':`${value>0?'+':'−'}${fmt(Math.abs(value))}`;
+              const detail=document.createElement('span');detail.textContent=`${candidate.owned?'In club':`${fmt(candidate.price)} coins`} · ${delta(alternative.cost-plan.cost)} coins vs current pick`;
+              const chemistry=document.createElement('span');chemistry.textContent=`Squad chemistry ${alternative.chemistry}/33 (${delta(alternative.chemistry-plan.chemistry)}) · Player ${candidate.slotChemistry??'—'}/3`;
+              description.append(title,detail,chemistry);button.append(picture,description);button.onclick=()=>chooseTeamAlternative(player.index,alternative.card.definitionId);picker.append(button);
             }
             const close=document.createElement('button');close.type='button';close.textContent='Close alternatives';close.onclick=()=>{teamSwapView=null;renderTeam();};picker.append(close);row.append(picker);
           }

@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.20**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.21**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -102,3 +102,7 @@ Swap expands the official FUT.GG ranking through its Load more control, up to 12
 ### Owned cards when adding Team suggestions (v0.21.20)
 
 Add concept players rechecks the club before applying the lineup. Exact owned cards are inserted as real items, including cards acquired since planning; only missing cards use concepts. Ownership changes update the displayed plan cost. If a previously owned card disappears or the club lookup fails, applying stops before editing the squad. Chemistry is checked using the actual items being added.
+
+### Choose swap chemistry tradeoffs (v0.21.21)
+
+Manual swap alternatives may reduce squad chemistry or individual player chemistry, including below two points. Each option shows its price difference and total squad chemistry difference relative to the current planned team, plus the candidate’s individual chemistry. Exact identity, position eligibility, unique players, and total budget still apply. Selecting a swap records the chemistry tradeoff for the add-to-squad step, which checks the accepted total again. Initial automatic team planning retains its existing chemistry protections.

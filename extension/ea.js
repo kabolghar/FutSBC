@@ -305,7 +305,8 @@ export async function eaOperation(action, payload = {}) {
       const fixed=players.filter(row=>!bySlot.some(group=>group.slot.index===row.index));
       const hasCard=item=>Number(item?.definitionId)>0;
       const completeXI=fixed.every(row=>hasCard(row.item));
-      const minimumChemistry=Math.max(Number(baseline.chemistry),completeXI?30:0);
+      const allowChemistryTradeoff=payload.allowChemistryTradeoff===true;
+      const minimumChemistry=allowChemistryTradeoff?0:Math.max(Number(baseline.chemistry),completeXI?30:0);
       const rankValue=option=>!option.retained&&option.source==='FUT.GG'?1000/(10+Number(option.metaRank)):0;
       const compare=(a,b)=>(b.coverage||0)-(a.coverage||0)||b.chemistry-a.chemistry||(b.metaEvidence||0)-(a.metaEvidence||0)||b.meta-a.meta||(b.fallbackMeta||0)-(a.fallbackMeta||0)||a.cost-b.cost;
       // Bounded beam search preserves whole-team alternatives instead of reducing
@@ -333,11 +334,11 @@ export async function eaOperation(action, payload = {}) {
           const candidate={chosen,used,cost,meta,fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
-            if(candidate.chemistry<Number(baseline.chemistry)){rejections.totalChemistry++;continue;}
+            if(!allowChemistryTradeoff&&candidate.chemistry<Number(baseline.chemistry)){rejections.totalChemistry++;continue;}
             if(![...chosen.values()].some(value=>!value.option.retained))continue;
             const points=index=>Number(chem.getSlotChemistry?.(index)?.points);
-            if([...chosen].some(([index,value])=>!Number.isFinite(points(index))||points(index)<(value.option.retained?Number(baseline.getSlotChemistry?.(index)?.points)||0:2))){rejections.newCardChemistry++;continue;}
-            if(fixed.some(row=>hasCard(row.item)&&(!Number.isFinite(points(row.index))||points(row.index)<(Number(baseline.getSlotChemistry?.(row.index)?.points)||0)))){rejections.retainedChemistry++;continue;}
+            if([...chosen].some(([index,value])=>!Number.isFinite(points(index))||points(index)<(allowChemistryTradeoff?0:value.option.retained?Number(baseline.getSlotChemistry?.(index)?.points)||0:2))){rejections.newCardChemistry++;continue;}
+            if(fixed.some(row=>hasCard(row.item)&&(!Number.isFinite(points(row.index))||points(row.index)<(allowChemistryTradeoff?0:Number(baseline.getSlotChemistry?.(row.index)?.points)||0)))){rejections.retainedChemistry++;continue;}
             const meetsTarget=candidate.chemistry>=minimumChemistry;
             if(!meetsTarget)rejections.belowTarget++;
             const prior=meetsTarget?best:progress;

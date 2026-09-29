@@ -15,7 +15,7 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
   window.chrome={runtime:{id:'test',sendMessage:async message=>{
     calls.push(message);
     if(message.type==='cardArt')return {ok:true,data:{imageURL:'https://game-assets.fut.gg/test-card.webp',pageURL:'https://www.fut.gg/players/2/27-2/'}};
-    if(message.type==='teamAlternatives')return {ok:true,data:{slotIndex:0,alternatives:[{card:second,chemistry:33,cost:1000,remaining:9000}]}};
+    if(message.type==='teamAlternatives')return {ok:true,data:{slotIndex:0,alternatives:[{card:second,chemistry:29,cost:1000,remaining:9000}]}};
     if(message.type==='teamApply')return {ok:true,data:{...result,applied:true}};
     if(message.type==='teamSwap')return fail?{ok:false,error:'Your squad changed.'}:{ok:true,data:{...result,plan:{...result.plan,choices:[second],cost:1000,remaining:9000}}};
     return {ok:true,data:{}};
@@ -33,7 +33,8 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(document.querySelector('.team-swap-options').textContent,/Alternative keeper/);
   assert(document.querySelector('.team-swap-choice .team-lineup-art.has-art'));
-  assert.match(document.querySelector('.team-swap-options').textContent,/33\/33 chem · team 1,000/);
+  assert.match(document.querySelector('.team-swap-options').textContent,/−1,000 coins vs current pick/);
+  assert.match(document.querySelector('.team-swap-options').textContent,/Squad chemistry 29\/33 \(−4\)/);
   fail=true;document.querySelector('.team-swap-options button').click();
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(document.querySelector('.team-lineup-card').textContent,/First suggestion/);

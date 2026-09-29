@@ -232,6 +232,17 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const clubFailure=await eaOperation('teamApply',applyPayload);
   assert.equal(clubFailure.status,401);assert.equal(clubFailure.stage,'team-apply-club');
   assert.deepEqual(slots.map(slot=>slot.item),beforeApply);assert.equal(saves,saveCount);
+  services.Club.search=()=>observed([]);
+  globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){const replaced=items[0].definitionId!==1;return {chemistry:replaced?23:31,getSlotChemistry:index=>({points:replaced?(index===0?0:2):3})};}};
+  const strict=await eaOperation('teamPlan',{...applyPayload,alternativesForSlot:0});
+  assert.equal(strict.alternatives.length,0,'initial automatic planning keeps its chemistry protections');
+  const tradeoff=await eaOperation('teamPlan',{...applyPayload,alternativesForSlot:0,allowChemistryTradeoff:true});
+  assert.equal(tradeoff.alternatives[0].chemistry,23);
+  assert.equal(tradeoff.alternatives[0].choices[0].slotChemistry,0,'show even zero-chemistry swaps for an informed choice');
+  assert.equal((await eaOperation('teamPlan',{...applyPayload,budget:1,alternativesForSlot:0,allowChemistryTradeoff:true})).alternatives.length,0,'chemistry tradeoffs cannot bypass the budget');
+  const chosenTradeoff=await eaOperation('teamApply',{...applyPayload,minimumChemistry:23,allowChemistryTradeoff:true});
+  assert.equal(chosenTradeoff.ok,true,chosenTradeoff.error);assert.equal(chosenTradeoff.chemistry,23);
+
 
 });
 

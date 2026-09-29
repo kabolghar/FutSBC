@@ -532,7 +532,7 @@ async function applyTeamSuggestion(message){
   const groups=saved.plan.choices.map(choice=>({slotIndex:choice.slotIndex,allowRetained:false,options:[choice]}));
   let applied;
   try{
-    applied=await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:Math.min(saved.totalBudget,team.balance),minimumChemistry:saved.plan.chemistry,groups},SBC_REQUEST_TIMEOUT);
+    applied=await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:Math.min(saved.totalBudget,team.balance),minimumChemistry:saved.plan.chemistry,allowChemistryTradeoff:saved.allowChemistryTradeoff===true,groups},SBC_REQUEST_TIMEOUT);
   }catch(error){
     if(error.stage==='team-apply-save')await chrome.storage.session.set({'futsbc-team-plan':{...saved,applyUncertain:true}});
     throw error;
@@ -608,18 +608,18 @@ async function swapTeamSuggestion(message){
   if(!requested.length)throw Error(priceError?`Alternative price checks failed: ${priceError}`:'No other exact, priced meta cards were found for this position.');
   const groups=choices.filter(choice=>choice.slotIndex!==slot).map(choice=>({slotIndex:choice.slotIndex,allowRetained:false,options:[choice]}));
   groups.push({slotIndex:slot,allowRetained:false,options:requested});
-  const checked=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget,groups,alternativesForSlot:slot},SBC_REQUEST_TIMEOUT);
+  const checked=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget,groups,alternativesForSlot:slot,allowChemistryTradeoff:true},SBC_REQUEST_TIMEOUT);
   const alternatives=(checked.alternatives||[]).filter(plan=>plan.choices.length===groups.length);
   if(message.type==='teamAlternatives'){
     const labels={invalidCards:'could not be matched to an eligible exact card',overBudget:'over budget',duplicatePlayer:'duplicate player',chemistryUnavailable:'chemistry could not be calculated',totalChemistry:'would lower total chemistry',newCardChemistry:'new cards below two chemistry',retainedChemistry:'would lower retained-player chemistry',belowTarget:'below the squad chemistry target'};
     const details=Object.entries(checked.rejections||{}).filter(([,count])=>count>0).map(([key,count])=>`${count} ${labels[key]||key}`).join('; ');
     const available=Math.max(0,budget-choices.filter(card=>card.slotIndex!==slot).reduce((sum,card)=>sum+(card.owned?0:card.price),0));
     const reason=`No verified swap in this candidate pool (${options.length} priced cards; ${available.toLocaleString()} coins available). ${details||checked.reason||'No complete alternative passed EA checks.'}${priceError?` ${priceError}`:''} This is not an exhaustive search of every card.`;
-    return {slotIndex:slot,reason,rejections:checked.rejections,alternatives:alternatives.map(plan=>({card:plan.choices.find(choice=>choice.slotIndex===slot),chemistry:plan.chemistry,cost:plan.cost,remaining:plan.remaining}))};
+    return {slotIndex:slot,reason,rejections:checked.rejections,alternatives:alternatives.map(plan=>({card:plan.choices.find(choice=>choice.slotIndex===slot),chemistry:plan.chemistry,chemistryChange:plan.chemistry-saved.plan.chemistry,cost:plan.cost,priceChange:plan.cost-saved.plan.cost,remaining:plan.remaining}))};
   }
   const plan=alternatives.find(plan=>plan.choices.some(choice=>choice.slotIndex===slot&&choice.definitionId===Number(message.definitionId)));
-  if(!plan)throw Error('This swap no longer fits your budget and chemistry. Your previous suggestions are unchanged.');
-  const result={...saved,planId:crypto.randomUUID(),team,plan,totalBudget:budget,combinationsChecked:checked.combinationsChecked};
+  if(!plan)throw Error('This swap could not be verified within your budget. Your previous suggestions are unchanged.');
+  const result={...saved,allowChemistryTradeoff:true,planId:crypto.randomUUID(),team,plan,totalBudget:budget,combinationsChecked:checked.combinationsChecked};
   await chrome.storage.session.set({'futsbc-team-plan':result});return result;
 }
 async function trendRankedTraderCards(pages,balance){
