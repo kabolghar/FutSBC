@@ -67,6 +67,26 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(snapshot.players[0].name,'Ada Example');
   assert.equal(snapshot.players[2].name,'Open position');
   assert.equal(snapshot.players[0].itemId,100);
+  slots[0].item={...concept,id:0,isValid:()=>false};
+  const pinnedSnapshot=await eaOperation('teamSnapshot');
+  assert.equal(pinnedSnapshot.players[0].name,'Upgrade');
+  assert.equal(pinnedSnapshot.players[0].definitionId,20);
+  assert.equal(pinnedSnapshot.players[0].concept,true);
+  assert.notEqual(pinnedSnapshot.fingerprint,snapshot.fingerprint);
+  const pinned=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:pinnedSnapshot.fingerprint,budget:20000,allowChemistryDrop:true,cards:[{...pinnedSnapshot.players[0],source:'User',price:null}]});
+  assert.equal(pinned.options.length,1);assert.equal(pinned.options[0].definitionId,20);assert.equal(pinned.options[0].owned,false);
+  const pinnedGroups=[{slotIndex:0,allowRetained:false,options:[{...pinned.options[0],locked:true,price:1200,priceVerified:true}]},{slotIndex:2,allowRetained:false,options:[{assetId:23,definitionId:23,rating:81,name:'CM',price:700,priceVerified:true}]}];
+  assert.equal((await eaOperation('teamPlan',{fingerprint:pinnedSnapshot.fingerprint,budget:1800,groups:pinnedGroups})).plan,null,'pinned concept cost counts against the whole budget');
+  const withPinned=await eaOperation('teamPlan',{fingerprint:pinnedSnapshot.fingerprint,budget:2000,groups:pinnedGroups});
+  assert.equal(withPinned.plan.cost,1900);assert.equal(withPinned.plan.choices.find(card=>card.slotIndex===0).definitionId,20);
+  const fakePinned=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:pinnedSnapshot.fingerprint,budget:20000,allowChemistryDrop:true,cards:[{...pinnedSnapshot.players[0],definitionId:24,assetId:24,rating:82,source:'User'}]});
+  assert.equal(fakePinned.options.length,0,'a user pick must match the exact concept already in that slot');
+  slots[0].item={...ownedConcept,id:0};
+  const clubPinSnapshot=await eaOperation('teamSnapshot');
+  const clubPin=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:clubPinSnapshot.fingerprint,budget:0,allowChemistryDrop:true,cards:[{...clubPinSnapshot.players[0],source:'User',price:null}]});
+  assert.equal(clubPin.options[0].owned,true);assert.equal(clubPin.options[0].price,0);
+  slots[0].item=original;
+
   const cards=[20,21,22].map(assetId=>({assetId,name:`Player ${assetId}`,url:`https://www.futbin.com/27/player/${assetId}/player`,price:10000,rating:{20:80,21:90,22:83}[assetId],futbinRating:82}));
   const conceptSearch=services.Item.searchConceptItems,clubSearch=services.Club.search;
   let conceptCalls=0,clubCalls=0;

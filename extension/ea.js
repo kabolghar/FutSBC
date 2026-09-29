@@ -37,18 +37,19 @@ export async function eaOperation(action, payload = {}) {
       if(players.length<11)throw Error('EA did not return a complete starting XI. Open your active squad and retry.');
       return {team,players};
     };
+    const hasTeamCard=item=>Number(item?.definitionId)>0&&(item?.isValid?.()||item?.concept===true);
     const teamPlayerName=item=>{
-      if(!item?.isValid?.())return 'Open position';
+      if(!hasTeamCard(item))return 'Open position';
       const data=item.getStaticData?.()||item._staticData||{};
       const display=String(data.commonName||data.name||[data.firstName,data.lastName].filter(Boolean).join(' ')||item.commonName||item.name||item.lastName||'').trim();
       return display||`Player ${Number(item.rating)||''}`.trim();
     };
-    const teamFingerprint=players=>players.map(slot=>`${slot.index}:${slot.item?.definitionId||0}:${slot.item?.id||0}`).join('|');
+    const teamFingerprint=players=>players.map(slot=>`${slot.index}:${slot.item?.definitionId||0}:${slot.item?.id||0}:${!!slot.item?.concept}:${slot.generalPositionName||''}`).join('|');
     if(action==='teamSnapshot'){
       const {team,players}=activeTeam();
       const balance=coinBalance();
       if(!Number.isSafeInteger(balance)||balance<0)throw Error('EA did not provide your coin balance.');
-      return {ok:true,id:team.getId?.(),name:String(team.getName?.()||'Current squad'),formation:team.getFormation()?.displayName||'',chemistry:Number(team.getChemistry?.())||0,balance,fingerprint:teamFingerprint(players),players:players.map(slot=>({index:slot.index,position:String(slot.generalPositionName||''),name:teamPlayerName(slot.item),rating:slot.item?.isValid?.()?Number(slot.item.rating)||0:0,assetId:slot.item?.isValid?.()?Number(slot.item.assetId)||Number(slot.item.definitionId)%0x1000000:0,definitionId:slot.item?.isValid?.()?Number(slot.item.definitionId)||0:0,itemId:slot.item?.isValid?.()?Number(slot.item.id)||0:0,chemistry:Number(slot.chemistry)||0}))};
+      return {ok:true,id:team.getId?.(),name:String(team.getName?.()||'Current squad'),formation:team.getFormation()?.displayName||'',chemistry:Number(team.getChemistry?.())||0,balance,fingerprint:teamFingerprint(players),players:players.map(slot=>({index:slot.index,position:String(slot.generalPositionName||''),name:teamPlayerName(slot.item),rating:hasTeamCard(slot.item)?Number(slot.item.rating)||0:0,assetId:hasTeamCard(slot.item)?Number(slot.item.assetId)||Number(slot.item.definitionId)%0x1000000:0,definitionId:hasTeamCard(slot.item)?Number(slot.item.definitionId)||0:0,itemId:hasTeamCard(slot.item)?Number(slot.item.id)||0:0,concept:!!slot.item?.concept,chemistry:Number(slot.chemistry)||0}))};
     }
     if(action==='teamEvaluate'){
       const {team,players}=activeTeam();
@@ -72,8 +73,10 @@ export async function eaOperation(action, payload = {}) {
       const wanted=candidates.filter(card=>{
         let reason=null;
         if(!Number.isSafeInteger(card.assetId)||card.assetId<=0)reason='id';
-        else if(!Number.isInteger(card.rating)||card.rating<75||card.rating>99)reason='rating';
-        else if(card.source==='FUT.GG'){
+        else if(!Number.isInteger(card.rating)||card.rating<(card.source==='User'?1:75)||card.rating>99)reason='rating';
+        else if(card.source==='User'){
+          if(!slot.item?.concept||Number(slot.item.definitionId)!==card.definitionId)reason='definition';
+        }else if(card.source==='FUT.GG'){
           if(!Number.isSafeInteger(card.definitionId)||card.definitionId<=0)reason='definition';
           else if(card.price!=null)reason='price';
           else if(!Number.isInteger(card.metaRank)||card.metaRank<1||card.metaRank>120)reason='rank';
@@ -95,12 +98,12 @@ export async function eaOperation(action, payload = {}) {
       };
       for(let offset=0;offset<wanted.length;offset+=12){
         const batch=wanted.slice(offset,offset+12);
-        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch.map(card=>card.source==='FUT.GG'?card.definitionId:card.assetId);criteria.count=100;criteria.offset=0;
+        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch.map(card=>['FUT.GG','User'].includes(card.source)?card.definitionId:card.assetId);criteria.count=100;criteria.offset=0;
         const response=await observe(services.Item.searchConceptItems(criteria),false,'team-concept-search');
         if(!Array.isArray(response.response?.items))throw Error('EA concept search changed. No upgrades were suggested.');
         addConceptRows(response.response.items,batch);
       }
-      const missing=wanted.filter(card=>card.source==='FUT.GG'&&!(byId.get(card.assetId)||[]).some(item=>Number(item.definitionId)===card.definitionId));
+      const missing=wanted.filter(card=>['FUT.GG','User'].includes(card.source)&&!(byId.get(card.assetId)||[]).some(item=>Number(item.definitionId)===card.definitionId));
       for(let offset=0;offset<missing.length;offset+=12){
         const batch=missing.slice(offset,offset+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=[...new Set(batch.map(card=>card.assetId))];criteria.count=100;criteria.offset=0;
@@ -131,7 +134,7 @@ export async function eaOperation(action, payload = {}) {
       for(const card of wanted){
         const rows=byId.get(card.assetId)||[];
         if(rows.length)screening.concept++;
-        const exact=rows.filter(item=>item.concept&&sameAsset(item,card)&&Number(item.rating)===Number(card.rating)&&(card.source!=='FUT.GG'||Number(item.definitionId)===card.definitionId)&&Number(item.definitionId)!==Number(slot.item?.definitionId));
+        const exact=rows.filter(item=>item.concept&&sameAsset(item,card)&&Number(item.rating)===Number(card.rating)&&(!['FUT.GG','User'].includes(card.source)||Number(item.definitionId)===card.definitionId)&&(card.source==='User'||Number(item.definitionId)!==Number(slot.item?.definitionId)));
         if(exact.length)screening.exact++;
         const positioned=item=>Number(item.preferredPosition)===targetPosition||[item.basePossiblePositions,item.possiblePositions].some(positions=>Array.isArray(positions)&&positions.some(position=>Number(position)===targetPosition));
         const matched=exact.filter(positioned);
@@ -294,7 +297,7 @@ export async function eaOperation(action, payload = {}) {
         }).map(option=>({option,item:concepts.get(Number(option.definitionId))}));
         rejections.invalidCards+=(group.options||[]).length-choices.length;
         // Keeping a selected player permits useful partial upgrades.
-        if(group.allowRetained!==false&&Number(slot.item?.definitionId)>0)choices.push({item:slot.item,option:{definitionId:Number(slot.item.definitionId),assetId:Number(slot.item.assetId||Number(slot.item.definitionId)%0x1000000),rating:Number(slot.item.rating),name:String(slot.item.name||slot.item.lastName||'Current player'),owned:true,price:0,priceVerified:true,retained:true}});
+        if(group.allowRetained!==false&&!slot.item?.concept&&Number(slot.item?.definitionId)>0)choices.push({item:slot.item,option:{definitionId:Number(slot.item.definitionId),assetId:Number(slot.item.assetId||Number(slot.item.definitionId)%0x1000000),rating:Number(slot.item.rating),name:String(slot.item.name||slot.item.lastName||'Current player'),owned:true,price:0,priceVerified:true,retained:true}});
         return {slot,choices};
       });
       bySlot.sort((a,b)=>a.choices.length-b.choices.length||a.slot.index-b.slot.index);

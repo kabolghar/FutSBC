@@ -39,11 +39,12 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         }
         if(forceLimit&&!payload.groups.some(group=>group.options.some(card=>card.pricePending)))return [{result:{ok:true,plan:null,reason:'No known fit'}}];
         if(payload.groups.some(group=>!group.options.length))return [{result:{ok:true,plan:null,reason:'Missing position data'}}];
-        assert.equal(payload.groups.length,2);
+        assert.equal(payload.groups.length,players[2].concept?3:2);
+        if(players[2].concept)assert.equal(payload.groups.find(group=>group.slotIndex===2).allowRetained,false);
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
         assert(payload.budget<=50000);
-        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:2)},combinationsChecked:4}}];
+        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept?3:2)},combinationsChecked:4}}];
       }
       throw Error(`Unexpected EA action ${action}`);
     }}
@@ -165,6 +166,14 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const doubleApply=await send('teamApply');assert.equal(doubleApply.ok,false);
   session['futsbc-team-plan'].checkedAt=Date.now()-11*60_000;
   const expiredSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(expiredSwap.ok,false);assert.match(expiredSwap.error,/expired/);
+  players[2].concept=true;fingerprint='with-concept';broaderSwap=false;expandedSwap=false;
+  const builtAround=await send('teamRecommend',{slots:[0,1],budget:50000});
+  assert.equal(builtAround.ok,true,builtAround.error);
+  assert.equal(builtAround.data.results.find(group=>group.slotIndex===2).locked,true);
+  assert.equal(builtAround.data.plan.choices.find(card=>card.slotIndex===2).definitionId,players[2].definitionId);
+  assert.ok(builtAround.data.plan.choices.find(card=>card.slotIndex===2).price>0);
+  const changePin=await send('teamAlternatives',{slotIndex:2});assert.equal(changePin.ok,false);assert.match(changePin.error,/build-around/);
+  players[2].concept=false;fingerprint='current';
   rankingGap=true;
   await import('../extension/background.js?team-partial-source');
   const partialSource=await send('teamRecommend',{slots:[0,1],budget:50000});

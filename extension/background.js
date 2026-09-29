@@ -477,6 +477,14 @@ async function recommendTeam(slots,budget,broaden=false){
     });
     results.push({slotIndex,player,options:checked.options,checked:checked.checked,screening:checked.screening});
   }
+  // Unselected concepts are explicit user choices, not free owned cards.
+  for(const player of team.players.filter(player=>player.concept&&!selected.includes(player.index))){
+    teamProgress(`Building around ${player.name}…`);
+    const checked=await ea(tabId,'teamEvaluate',{slotIndex:player.index,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards:[{...player,source:'User',price:null}]},SBC_REQUEST_TIMEOUT);
+    const option=checked.options?.find(option=>option.definitionId===player.definitionId);
+    if(!option)throw Error(`Could not keep ${player.name} at ${player.position}. Check that this exact card can play there in EA.`);
+    results.push({slotIndex:player.index,player,locked:true,options:[{...option,locked:true}],checked:1});
+  }
   const missingPrices=[...new Set(results.flatMap(group=>group.options.filter(option=>!option.owned&&!Number.isSafeInteger(option.estimatedPrice??option.price)).map(option=>option.definitionId)))];
   if(missingPrices.length){
     teamProgress(`Reading alternative console estimates · ${missingPrices.length} cards`);
@@ -500,7 +508,7 @@ async function recommendTeam(slots,budget,broaden=false){
     priceEstimated:!option.owned&&Number.isSafeInteger(option.estimatedPrice??option.price)}));
   for(let round=0;round<=maxPriceChecks;round++){
     teamProgress('Checking complete teams and chemistry…');
-    const groups=results.map(({slotIndex,options})=>({slotIndex,options:options.flatMap(option=>{
+    const groups=results.map(({slotIndex,options,locked})=>({slotIndex,allowRetained:!locked,options:options.flatMap(option=>{
       if(option.owned||option.priceEstimated)return [{...option,priceVerified:true}];
       const key=`${cachePrefix}:${option.definitionId}`,cached=teamQuoteCache.get(key);
       if(cached&&Date.now()-cached.checkedAt<5*60_000)quotes.set(option.definitionId,cached.quote);
@@ -514,7 +522,7 @@ async function recommendTeam(slots,budget,broaden=false){
     let known=null;
     if(canPlanKnown){
       known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups},SBC_REQUEST_TIMEOUT);
-      if(known.plan&&known.plan.choices.length===selected.length&&known.plan.choices.filter(card=>card.source==='FUT.GG').length>=groups.filter(group=>group.options.some(card=>card.source==='FUT.GG')).length){planned=known;break;}
+      if(known.plan&&known.plan.choices.length===results.length&&known.plan.choices.filter(card=>card.source==='FUT.GG').length>=groups.filter(group=>group.options.some(card=>card.source==='FUT.GG')).length){planned=known;break;}
     }
     if(round===maxPriceChecks||cardsPriced>=maxPriceChecks){
       planned=known||{plan:null,progressPlan:null};pricingIncomplete=true;
@@ -546,7 +554,7 @@ async function recommendTeam(slots,budget,broaden=false){
     const quote=quotes.get(option.definitionId);
     return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),priceChecked:!!quote};
   });
-  if(!broaden&&source==='FUTBIN'&&planned?.plan?.choices.length!==selected.length){
+  if(!broaden&&source==='FUTBIN'&&planned?.plan?.choices.length!==results.length){
     teamProgress('Expanding rankings for positions still to fill…');
     return recommendTeam(slots,budget,true);
   }
@@ -632,6 +640,7 @@ async function swapTeamSuggestion(message){
   if(team.fingerprint!==saved.team.fingerprint)throw Error('Your squad changed. Refresh Team before swapping.');
   const slot=Number(message.slotIndex),group=saved.results.find(row=>row.slotIndex===slot);
   if(!group)throw Error('Choose a selected position to swap.');
+  if(group.locked)throw Error('This is a build-around player. Select its position for replacement and build a new team to change it.');
   const budget=Math.min(saved.totalBudget,team.balance);
   const priceError=message.type==='teamAlternatives'?await refreshSwapCandidates(saved,group,team,tabId,budget):null;
   const choices=saved.plan.choices;

@@ -63,6 +63,7 @@ test('building a team prefetches swaps once, prioritizes an opened slot, and reu
   const team={name:'XI',formation:'4-4-2',balance:10000,players},result={planId:'prefetch-plan',team,checkedAt:Date.now(),plan:{choices,cost:3000,chemistry:30,remaining:7000}};
   window.chrome={runtime:{id:'test',sendMessage:async message=>{
     calls.push(message);
+    if(message.type==='teamSnapshot')return {ok:true,data:team};
     if(message.type==='teamRecommend')return {ok:true,data:result};
     if(message.type==='teamApply')return {ok:true,data:{...result,applied:true}};
     if(message.type==='teamAlternatives')return await new Promise(resolve=>waiting.push({message,resolve}));
@@ -102,5 +103,23 @@ test('building a team prefetches swaps once, prioritizes an opened slot, and reu
     window.eval('void findTeam();');await tick();
     waiting.shift().resolve({ok:false,error:'EA could not authenticate this request (401).'});await tick();
     assert.equal(waiting.length,0,'authentication rejection stops the prefetch queue');
+  }finally{dom.window.close();}
+});
+
+test('EA-added concepts are detected and removed from replacement selection',async()=>{
+  const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
+  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
+  const original={fingerprint:'empty',players:[{index:0,position:'CAM',definitionId:0,name:'Open position'}],balance:10000};
+  let current={...original,fingerprint:'messi',players:[{index:0,position:'CAM',definitionId:158023,assetId:158023,rating:85,name:'Messi',concept:true}]};
+  dom.window.chrome={runtime:{id:'test',sendMessage:async message=>({ok:true,data:message.type==='teamSnapshot'?current:{}})},storage:{onChanged:{addListener(){}}}};
+  try{
+    dom.window.eval(script+`\nteam=${JSON.stringify(original)};teamSelected=new Set([0]);activeView='team';renderTeam();`);
+    await dom.window.syncTeam();
+    assert.match(dom.window.document.querySelector('#team-players').textContent,/Messi · CONCEPT/);
+    assert.equal(dom.window.document.querySelector('#team-players input').checked,false);
+    const checkbox=dom.window.document.querySelector('#team-players input');checkbox.click();
+    await dom.window.syncTeam();
+    assert.equal(dom.window.document.querySelector('#team-players input').checked,true,'an explicit choice to replace a known concept is retained');
   }finally{dom.window.close();}
 });

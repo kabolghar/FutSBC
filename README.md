@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.24**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.25**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -125,3 +125,10 @@ A low price alone is watch-only. New automatic hunts require three recent daily 
 Risk labels are conservative heuristics, not calibrated loss probabilities. Eligible short flips are medium risk; missing/volatile evidence is high risk. No low-risk label is inferred from asking prices or game usage, since neither proves sale liquidity. A first installation may stay watch-only while daily history accumulates. No promise of profit, reliable prediction, or automatic event-demand matching is made.
 
 Research references: [FIFAUTeam weekly rewards](https://db.fifauteam.com/fc-27-trading-methods/weekly-rewards/), [Marquee Matchups investing](https://db.fifauteam.com/fc-27-trading-methods/marquee-matchups-investing/), [market crashes](https://db.fifauteam.com/fc-27-trading-methods/market-crashes/), [FUTBIN market methodology](https://www.futbin.com/market/), and [FUT.GG news](https://www.fut.gg/news/). These inform the rules; they are not hard-coded current buy tips. The public FUT.GG page was tested on September 29: 12 dated articles parsed, none fresh enough for the seven-day gate. It correctly supplied no current buy catalyst.
+
+
+### Build around your chosen concepts (v0.21.25)
+
+Use EA's player picker to place the exact card you want in its intended position (for example Messi at CAM). In FutSBC Team, leave that position unchecked and select the other positions to replace or fill. Unselected concepts are mandatory build-around cards: exact version and eligible position are checked, their purchase cost is included in the total, and an available exact club card is used at zero purchase cost. The complete XI is evaluated together for chemistry. A concept is never assumed to be owned merely because it is already in the XI. To change your chosen player, select that position for replacement and build again.
+
+The Team view checks for squad changes every five seconds while idle and on entry/focus; building also refreshes the squad first. Newly added concepts are removed from old replacement selections. Sync waits for active operations; entering Team can cancel background swap prefetch. Changes clear stale plans. The plan labels these choices BUILD AROUND and prevents swap prefetch from replacing them. No cards are purchased by this feature.
