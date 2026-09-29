@@ -369,7 +369,7 @@ async function currentFutggBest(positions){
         if(result?.kind==='futgg-best'){loaded=result;break;}
         if(attempt<19)await new Promise(resolve=>setTimeout(resolve,250));
       }
-      if(!loaded)throw Error('Both FUTBIN and FUT.GG player rankings are unavailable. No Team recommendations were made.');
+      if(!loaded)continue; // One unavailable position must not discard other rankings.
       futggTeamCache.set(url,loaded);pages.set(url,loaded);
     }
     return pages;
@@ -402,10 +402,10 @@ function teamProgress(status){
 }
 async function runTeamRecommendation(slots,budget){
   teamRun={running:true,cancelled:false,startedAt:Date.now(),status:'Reading your squad…'};
-  try{return await recommendTeam(slots,budget);}
+  try{const result={...await recommendTeam(slots,budget),planId:crypto.randomUUID()};await chrome.storage.session.set({'futsbc-team-plan':result});return result;}
   finally{teamRun={...teamRun,running:false};}
 }
-async function recommendTeam(slots,budget){
+async function recommendTeam(slots,budget,broaden=false){
   if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before building a team.');
   const {tabId,team}=await connectedTeam();
   const selected=[...new Set(slots||[])].filter(index=>Number.isInteger(index)&&team.players.some(player=>player.index===index)).slice(0,11);
@@ -416,6 +416,8 @@ async function recommendTeam(slots,budget){
   let pages,source='FUTBIN';
   try{pages=await currentTeamPlayers(Math.max(total,500));}
   catch{teamProgress('Reading fallback player rankings…');source='FUT.GG';pages=await currentFutggBest(selected.map(index=>team.players.find(player=>player.index===index).position));}
+  const fallbackPositions=source==='FUTBIN'?selected.map(index=>team.players.find(player=>player.index===index).position).filter(position=>broaden||selectTeamPlayers(pages,position,Math.max(total,500),[],24).length<12):[];
+  const supplemental=fallbackPositions.length?await currentFutggBest(fallbackPositions):new Map();
   const existing=team.players.map(player=>Number(player.definitionId)%0x1000000).filter(Boolean);
   const results=[];
   for(const slotIndex of selected){
@@ -423,11 +425,21 @@ async function recommendTeam(slots,budget){
     teamProgress(`Checking ${player.position} cards · position ${results.length+1}/${selected.length}`);
     const pool=source==='FUTBIN'?selectTeamPlayers(pages,player.position,Math.max(total,500),existing,24).map(card=>({...card,source}))
       :selectFutggTeamPlayers(pages.get(futggBestURL(player.position)),existing,30);
-    const cards=pool;
+    const extras=selectFutggTeamPlayers(supplemental.get(futggBestURL(player.position)),existing,30);
+    const cards=[...new Map([...extras,...pool].map(card=>[card.definitionId||card.assetId,card])).values()].slice(0,48);
     if(!cards.length){results.push({slotIndex,player,options:[],checked:0});continue;}
     let checked;
     try{checked=await ea(tabId,'teamEvaluate',{slotIndex,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards},SBC_REQUEST_TIMEOUT);}
     catch(error){throw Error(`EA could not check ${player.position} cards: ${error.message}`);}
+    if(source==='FUTBIN'&&checked.options.length<8){
+      teamProgress(`Broadening ${player.position} candidates…`);
+      const extraPages=await currentFutggBest([player.position]);
+      const more=selectFutggTeamPlayers(extraPages.get(futggBestURL(player.position)),existing,30).filter(card=>!checked.options.some(option=>option.definitionId===card.definitionId));
+      if(more.length){
+        const extra=await ea(tabId,'teamEvaluate',{slotIndex,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards:more},SBC_REQUEST_TIMEOUT);
+        checked={...checked,options:[...checked.options,...extra.options].slice(0,48),checked:checked.checked+extra.checked};
+      }
+    }
     results.push({slotIndex,player,options:checked.options,checked:checked.checked,screening:checked.screening});
   }
   const missingPrices=[...new Set(results.flatMap(group=>group.options.filter(option=>!option.owned&&!Number.isSafeInteger(option.estimatedPrice??option.price)).map(option=>option.definitionId)))];
@@ -445,12 +457,13 @@ async function recommendTeam(slots,budget){
   }
   // Estimates are sufficient for recommendations. Unknown fallback prices are
   // optimistic only inside planning; never expose an unpriced lineup as affordable.
+  const maxPriceChecks=Math.min(120,Math.max(24,selected.length*12));
   const quotes=new Map();let priceCheckedAt=null,cardsPriced=0,planned,pricingIncomplete=false;
   const cachePrefix=JSON.stringify([tabId,team.fingerprint,total]);
   for(const result of results)result.options=result.options.map(option=>({...option,
     price:option.owned?0:option.estimatedPrice??option.price,
     priceEstimated:!option.owned&&Number.isSafeInteger(option.estimatedPrice??option.price)}));
-  for(let round=0;round<25;round++){
+  for(let round=0;round<=maxPriceChecks;round++){
     teamProgress('Checking complete teams and chemistry…');
     const groups=results.map(({slotIndex,options})=>({slotIndex,options:options.flatMap(option=>{
       if(option.owned||option.priceEstimated)return [{...option,priceVerified:true}];
@@ -468,7 +481,7 @@ async function recommendTeam(slots,budget){
       known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups},SBC_REQUEST_TIMEOUT);
       if(known.plan&&known.plan.choices.length===selected.length){planned=known;break;}
     }
-    if(round===24||cardsPriced>=24){
+    if(round===maxPriceChecks||cardsPriced>=maxPriceChecks){
       planned=known||{plan:null,progressPlan:null};pricingIncomplete=true;
       planned={...planned,reason:'Price coverage is incomplete; this does not mean your budget is too low. Run the team search again to continue with recent prices saved.'};
       break;
@@ -478,7 +491,7 @@ async function recommendTeam(slots,budget){
     if(!pending.length)break;
     const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
     if(paused>Date.now())throw Error('EA paused live prices. FUTBIN estimates remain available; retry fallback prices later.');
-    for(const id of pending.slice(0,24-cardsPriced)){
+    for(const id of pending.slice(0,maxPriceChecks-cardsPriced)){
       if(cardsPriced)await new Promise(resolve=>setTimeout(resolve,1000));
       teamProgress(`Pricing proposed lineup · ${cardsPriced+1} cards checked`);
       let batch;
@@ -498,8 +511,37 @@ async function recommendTeam(slots,budget){
     const quote=quotes.get(option.definitionId);
     return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),priceChecked:!!quote};
   });
+  if(!broaden&&source==='FUTBIN'&&planned?.plan?.choices.length!==selected.length){
+    teamProgress('Expanding rankings for positions still to fill…');
+    return recommendTeam(slots,budget,true);
+  }
   teamProgress('Team check complete.');
-  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
+  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
+}
+// Reuse trusted, worker-saved candidates; never accept prices or lineups from the UI.
+async function swapTeamSuggestion(message){
+  if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before changing recommendations.');
+  const saved=(await chrome.storage.session.get('futsbc-team-plan'))['futsbc-team-plan'];
+  if(!saved||message.planId!==saved.planId)throw Error('These suggestions changed in another panel. Build the team again before swapping.');
+  if(!saved?.plan||Date.now()-saved.checkedAt>10*60_000)throw Error('Refresh team recommendations before swapping; these prices have expired.');
+  const {tabId,team}=await connectedTeam();
+  if(team.fingerprint!==saved.team.fingerprint)throw Error('Your squad changed. Refresh Team before swapping.');
+  const slot=Number(message.slotIndex),group=saved.results.find(row=>row.slotIndex===slot);
+  if(!group)throw Error('Choose a selected position to swap.');
+  const budget=Math.min(saved.totalBudget,team.balance);
+  const choices=saved.plan.choices;
+  const options=group.options.filter(option=>option.priceVerified&&!option.pricePending&&(option.owned||Number.isSafeInteger(option.price))&&Number(option.definitionId)!==Number(choices.find(choice=>choice.slotIndex===slot)?.definitionId));
+  const requested=message.type==='teamSwap'?options.filter(option=>option.definitionId===Number(message.definitionId)):options;
+  if(!requested.length)throw Error('No other priced candidates are available for this position.');
+  const groups=choices.filter(choice=>choice.slotIndex!==slot).map(choice=>({slotIndex:choice.slotIndex,allowRetained:false,options:[choice]}));
+  groups.push({slotIndex:slot,allowRetained:false,options:requested});
+  const checked=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget,groups,alternativesForSlot:slot},SBC_REQUEST_TIMEOUT);
+  const alternatives=(checked.alternatives||[]).filter(plan=>plan.chemistry>=saved.plan.chemistry&&plan.choices.length===groups.length);
+  if(message.type==='teamAlternatives')return {slotIndex:slot,alternatives:alternatives.map(plan=>({card:plan.choices.find(choice=>choice.slotIndex===slot),chemistry:plan.chemistry,cost:plan.cost,remaining:plan.remaining}))};
+  const plan=alternatives.find(plan=>plan.choices.some(choice=>choice.slotIndex===slot&&choice.definitionId===Number(message.definitionId)));
+  if(!plan)throw Error('This swap no longer fits your budget and chemistry. Your previous suggestions are unchanged.');
+  const result={...saved,planId:crypto.randomUUID(),team,plan,totalBudget:budget,combinationsChecked:checked.combinationsChecked};
+  await chrome.storage.session.set({'futsbc-team-plan':result});return result;
 }
 async function trendRankedTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);
@@ -681,6 +723,7 @@ async function dispatch(message) {
   if(message.type==='teamRunState')return teamRun;
   if(message.type==='teamCancel'){teamRun={...teamRun,cancelled:true,status:'Stopping after the current EA request…'};return teamRun;}
   if(message.type==='teamRecommend')return runTeamRecommendation(message.slots,message.budget);
+  if(message.type==='teamAlternatives'||message.type==='teamSwap')return swapTeamSuggestion(message);
   if(message.type==='teamPriceCheck'){
     const {tabId,team}=await connectedTeam();
     return ea(tabId,'teamQuote',{fingerprint:team.fingerprint,definitionIds:message.definitionIds,maxPrice:Math.min(Number(message.maxPrice),team.balance)},SBC_REQUEST_TIMEOUT);

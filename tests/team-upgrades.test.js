@@ -146,6 +146,20 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(balanced.plan.chemistry,31);
   assert.equal(balanced.plan.selectedCount,5);
   assert.deepEqual(balanced.plan.unfilledSlots,[]);
+  // Swapping locks the other four suggestions and cannot retain the old card silently.
+  const swapGroups=fiveGroups.map(group=>({...group,allowRetained:false}));
+  const alternatives=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:18000,groups:swapGroups,alternativesForSlot:0});
+  assert.equal(alternatives.alternatives.length,2);
+  assert(alternatives.alternatives.every(plan=>plan.choices.length===5));
+  assert(alternatives.alternatives.every(plan=>plan.choices.slice(1).map(card=>card.definitionId).join(',')==='41,42,43,44'));
+  const constrained=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:swapGroups,alternativesForSlot:0});
+  assert.deepEqual(constrained.alternatives.map(plan=>plan.choices[0].definitionId),[40]);
+  const invalidSwap=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:1000,groups:swapGroups,alternativesForSlot:0});
+  assert.equal(invalidSwap.plan,null);
+  assert.deepEqual(invalidSwap.alternatives,[]);
+  const stale=await eaOperation('teamPlan',{fingerprint:'stale',budget:18000,groups:swapGroups,alternativesForSlot:0});
+  assert.equal(stale.ok,false);
+  assert.match(stale.error,/squad changed/);
   assert.equal(slots[0].item,original);
 });
 

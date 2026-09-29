@@ -12,13 +12,15 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.12**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.13**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
 - **SBC:** Open an SBC in EA and click **Find + build squad**. FutSBC compares readable FUTBIN completed squads, matches exact EA cards, uses matching club cards, and adds concepts for missing players. Swap checks test cheaper candidates against EA's SBC requirements.
 - **Buy missing cards:** Click **Check prices**, review the total, and choose **Buy** to approve that ceiling. The extension stops on an uncertain purchase. Final SBC submission always stays with you.
-- **Team:** Select positions, choose a total budget, and build a proposed XI. A complete recommendation requires at least 30 chemistry, two chemistry per player, and no chemistry loss for retained players. The search is bounded to checked candidates; source rank is not proof of the best possible team. This feature does not buy cards or apply a squad.
+- **Team:** Select positions, choose a total budget, and build a proposed XI. A complete recommendation requires at least 30 chemistry, two chemistry per new player, and no chemistry loss for retained players. The search is bounded to checked candidates; source rank is not proof of the best possible team. This feature does not buy cards or apply a squad.
+- **Team swaps:** Use **Swap** beside a selected position in a completed plan. Alternatives show the full team cost and chemistry, hold your other suggestions fixed, and are rechecked when selected. Swaps update the recommendation only. Refresh after ten minutes or if your actual squad changes.
+- **Team coverage:** Sparse FUTBIN results use additional FUT.GG candidates automatically. The planner prioritizes covering all selected positions, reserves budget for remaining slots, and preserves affordable chemistry-link combinations. Provider outages and incompatible retained players can still prevent a complete result; the search is not an exhaustive proof that no team exists.
 - **Team progress:** The panel shows its current stage and card count. **Stop team check** stops after the current request. Recent quotes can be reused for five minutes for the same squad and budget in the same running worker. A first full check can take several minutes.
 - **Market:** Review sampled prices and conditional trade ideas. Optional Gemini notes interpret the collected evidence; they do not guarantee future prices or profits.
 - **Trader:** Optional automated bidding/listing. It is off until started. Read the displayed checks and limits before using it. Live auction transactions have not been verified in the release audit.

@@ -14,7 +14,7 @@ export function parseConsolePrices(data,ids,now=Date.now()){
   });
 }
 export async function getConsoleEstimates(ids,cache={},fetcher=fetch,now=Date.now()){
-  const wanted=[...new Set(ids)].filter(id=>Number.isSafeInteger(id)&&id>0).slice(0,330);
+  const wanted=[...new Set(ids)].filter(id=>Number.isSafeInteger(id)&&id>0).slice(0,528);
   const quotes=new Map(),next={};
   for(const [key,quote] of Object.entries(cache))if(validEstimate(quote,Number(key),now))next[key]=quote;
   for(const id of wanted)if(next[id])quotes.set(id,next[id]);

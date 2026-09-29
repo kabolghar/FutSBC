@@ -11,6 +11,7 @@ const $=id=>document.getElementById(id);
 const preview=!globalThis.chrome?.runtime?.id;
 let state={},busy=false,mapping=[],activeView='sbc',trader={enabled:false},traderPending=false,buy={enabled:false},buyPending=false;
 let insights={},insightsPending=false,insightsUiError='';
+let teamSwapView=null;
 let team={},teamResult=null,teamSelected=new Set(),teamPending=false,teamUiError='',teamRunActive=false,teamProgressText='';
 let recovering=false;
 const recoveryKey='futsbc-last-context-reload';
@@ -274,7 +275,7 @@ function renderTeam(){
   if(!team.players?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='Refresh to load your starting XI from EA.';playerList.append(empty);}
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
-    const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'Third-party price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
+    const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':teamResult.source==='FUTBIN + FUT.GG'?'FUTBIN + FUT.GG rankings':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'Third-party price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
     if(teamResult.plan||teamResult.progressPlan){
       const plan=teamResult.plan||teamResult.progressPlan;
       if(!teamResult.plan){const notice=document.createElement('p');notice.className='team-plan-failure';notice.textContent=`Full target not reached (${plan.targetChemistry}/33). Optional partial step: ${plan.baselineChemistry} → ${plan.chemistry} chemistry. This is not a finished meta XI.`;results.append(notice);}
@@ -299,7 +300,23 @@ function renderTeam(){
         if(option?.priceSource)detail.textContent+=` · ${option.priceSource} estimate (${Math.max(0,Math.round((Date.now()-option.priceUpdatedAt)/60000))}m old)`;
         content.append(position,name,detail);
         const price=document.createElement('strong');price.className='team-lineup-price';price.textContent=option?(option.owned?'IN CLUB':fmt(option.price)):player.definitionId?'IN XI':'OPEN';
-        row.append(art,content,price);lineup.append(row);
+        row.append(art,content,price);
+        if(teamResult.plan&&teamSelected.has(player.index)){
+          const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.textContent='Swap';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending;swap.onclick=()=>loadTeamAlternatives(player.index);row.append(swap);
+          if(teamSwapView?.slotIndex===player.index){
+            const picker=document.createElement('div');picker.className='team-swap-options';
+            const heading=document.createElement('strong');heading.textContent='Fits your planned team';picker.append(heading);
+            if(!teamSwapView.alternatives.length){const empty=document.createElement('p');empty.textContent='No checked alternative keeps this team’s chemistry and budget.';picker.append(empty);}
+            for(const alternative of teamSwapView.alternatives){
+              const button=document.createElement('button');button.type='button';button.disabled=teamPending;
+              const title=document.createElement('strong');title.textContent=alternative.card.name;
+              const detail=document.createElement('span');detail.textContent=`${alternative.card.owned?'In club':`${fmt(alternative.card.price)} coins`} · ${alternative.chemistry}/33 chem · team ${fmt(alternative.cost)}`;
+              button.append(title,detail);button.onclick=()=>chooseTeamAlternative(player.index,alternative.card.definitionId);picker.append(button);
+            }
+            const close=document.createElement('button');close.type='button';close.textContent='Close alternatives';close.onclick=()=>{teamSwapView=null;renderTeam();};picker.append(close);row.append(picker);
+          }
+        }
+        lineup.append(row);
       }
       results.append(lineup);
     }else{
@@ -308,6 +325,17 @@ function renderTeam(){
     }
   }
   reportSize();
+}
+async function loadTeamAlternatives(slotIndex){
+  if(teamPending)return;teamPending=true;teamUiError='';teamSwapView=null;renderTeam();
+  try{teamSwapView=await call('teamAlternatives',{slotIndex,planId:teamResult.planId});}catch(error){teamUiError=error.message;}
+  finally{teamPending=false;renderTeam();}
+}
+async function chooseTeamAlternative(slotIndex,definitionId){
+  if(teamPending)return;teamPending=true;teamUiError='';renderTeam();
+  try{teamResult=await call('teamSwap',{slotIndex,definitionId,planId:teamResult.planId});team=teamResult.team;teamSwapView=null;}
+  catch(error){teamUiError=error.message;}
+  finally{teamPending=false;renderTeam();}
 }
 async function refreshTeam(){
   if(preview||teamPending)return;teamPending=true;teamUiError='';renderTeam();
@@ -322,7 +350,7 @@ async function findTeam(){
     return;
   }
   if(teamPending)return;
-  teamPending=true;teamRunActive=true;teamProgressText='Reading your squad…';teamUiError='';renderTeam();
+  teamSwapView=null;teamPending=true;teamRunActive=true;teamProgressText='Reading your squad…';teamUiError='';renderTeam();
   let timer,polling=false,idlePolls=0,rejectInterrupted;
   const startedAt=Date.now();
   const interrupted=new Promise((_,reject)=>{rejectInterrupted=reject;});
@@ -337,7 +365,7 @@ async function findTeam(){
   try{
     teamResult=await Promise.race([interrupted,call('teamRecommend',{slots:[...teamSelected],budget:teamBudget()}),new Promise((_,reject)=>{timer=setTimeout(()=>{void call('teamCancel').catch(()=>{});reject(Error('Team check took too long. Reopen the menu and retry; no team was applied.'));},9*60_000);})]);
     team=teamResult.team;
-  }catch(error){teamUiError=error.message;teamResult=null;}
+  }catch(error){teamUiError=error.message;}
   finally{clearInterval(poll);clearTimeout(timer);teamPending=false;teamRunActive=false;renderTeam();}
 }
 
@@ -375,8 +403,8 @@ $('team-refresh').onclick=()=>refreshTeam();
 $('team-find').onclick=()=>findTeam();
 $('team-select-empty').onclick=()=>{for(const player of team.players||[])if(!player.definitionId)teamSelected.add(player.index);teamResult=null;renderTeam();};
 $('team-select-clear').onclick=()=>{teamSelected.clear();teamResult=null;renderTeam();};
-$('team-budget').onchange=()=>{$('team-custom-budget').hidden=$('team-budget').value!=='custom';renderTeam();};
-$('team-custom-budget').oninput=()=>renderTeam();
+$('team-budget').onchange=()=>{teamResult=null;teamSwapView=null;$('team-custom-budget').hidden=$('team-budget').value!=='custom';renderTeam();};
+$('team-custom-budget').oninput=()=>{teamResult=null;teamSwapView=null;renderTeam();};
 $('insights-refresh').onclick=()=>refreshInsights();
 $('insights-save-key').onclick=async()=>{if(insightsPending)return;insightsPending=true;renderInsights();try{insights=await call('marketInsightsSetKey',{key:$('insights-key').value});$('insights-key').value='';insightsUiError='';}catch(error){insightsUiError=error.message;}finally{insightsPending=false;renderInsights();}};
 $('insights-clear-key').onclick=async()=>{if(insightsPending)return;insightsPending=true;renderInsights();try{insights=await call('marketInsightsSetKey',{key:''});$('insights-key').value='';insightsUiError='';}catch(error){insightsUiError=error.message;}finally{insightsPending=false;renderInsights();}};

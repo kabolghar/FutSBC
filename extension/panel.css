@@ -236,3 +236,9 @@ footer p{margin:8px 0;line-height:1.5}
 }
 @media(max-width:420px){main,.has-result main,.trader-active main{padding:16px}h1{font-size:26px}.player-name{font-size:15px}.player-name small{font-size:12px}.trader-heading h1{font-size:29px}.trader-metrics strong{font-size:25px}.trader-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.trader-check{text-align:center}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+.team-swap-button{grid-column:2 / -1;justify-self:start;padding:8px 16px;min-height:40px;font-size:15px}
+.team-swap-options{grid-column:1 / -1;display:grid;gap:8px;padding:16px 0;border-top:1px solid var(--line,#38382b)}
+.team-swap-options button{display:grid;gap:5px;text-align:left;padding:12px;min-height:44px}
+.team-swap-options button span{font-size:14px;font-weight:400;line-height:1.5}
+.team-swap-options p{font-size:15px;line-height:1.5}

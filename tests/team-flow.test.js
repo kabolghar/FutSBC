@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async()=>{
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
+  const session={};let fingerprint='current',rankingGap=false;
   const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false,forceLimit=false,partialKnown=false;
   globalThis.fetch=async()=>({ok:true,json:async()=>({prices:{},updated:{}})});
   globalThis.chrome={
     runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
     action:{onClicked:{addListener:()=>{}}},sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},
-    storage:{session:{get:async()=>({state:{}}),set:async()=>{}},local:{get:async()=>({}),set:async()=>{}}},
+    storage:{session:{get:async key=>key==='futsbc-team-plan'?session:{state:{}},set:async value=>{Object.assign(session,value);}},local:{get:async()=>({}),set:async()=>{}}},
     alarms:{create:()=>{},clear:async()=>{},onAlarm:{addListener:()=>{}}},
     tabs:{onUpdated:{addListener:()=>{}},query:async()=>[{id:1,url:EA,active:true}],get:async id=>({id,url:id===1?EA:tabURL,status:'complete'}),create:async({url})=>{tabURL=url;return {id:2,url};},update:async(_,value)=>{tabURL=value.url;return {id:2,url:tabURL};},remove:async()=>{}},
     scripting:{executeScript:async({target,func,args=[]})=>{
@@ -17,16 +18,23 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       if(target.tabId===2&&func.name==='readFutbinTeamPlayers')return [{result:estimates?{kind:'team-players',checkedAt:Date.now(),cards:[{assetId:200,rating:85,name:'Estimate GK',url:'https://www.futbin.com/27/player/200/gk',price:1000,futbinRating:90,revision:'Normal',positions:['GK']},{assetId:300,rating:85,name:'Estimate RB',url:'https://www.futbin.com/27/player/300/rb',price:1200,futbinRating:90,revision:'Normal',positions:['RB']}]}:{blocked:true,error:'Browser verification'}}];
       if(target.tabId===2&&func.name==='readFutggBest'){
         const position=tabURL.includes('/gk/')?'GK':'RB';
+        if(rankingGap&&position==='GK')return [{result:{error:'Unavailable ranking'}}];
         return [{result:{kind:'futgg-best',url:tabURL,checkedAt:Date.now(),cards:Array.from({length:30},(_,i)=>({assetId:(position==='GK'?200:300)+i,definitionId:(position==='GK'?200:300)+i,rating:85-Math.floor(i/5),name:`${position} ${i}`,url:`https://www.fut.gg/players/${(position==='GK'?200:300)+i}-card/27-${(position==='GK'?200:300)+i}/`,metaRank:i+1,source:'FUT.GG'}))}}];
       }
       if(target.tabId!==1)throw Error(`Unexpected tab ${target.tabId}`);
       const [action,payload]=args;calls.push({action,payload});
-      if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint:'current',formation:'4-4-2',name:'Current XI'}}];
+      if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
       if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:false,chemistryChange:-1,slotChemistryChange:-1}))}}];
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
       if(action==='teamPlan'){
+        if(Number.isInteger(payload.alternativesForSlot)){
+          assert(payload.groups.every(group=>group.allowRetained===false));
+          const target=payload.groups.find(group=>group.slotIndex===payload.alternativesForSlot);
+          return [{result:{ok:true,alternatives:target.options.map(card=>({chemistry:12,cost:2000,remaining:payload.budget-2000,choices:payload.groups.map(group=>({...group.options[0],...(group===target?card:{}),slotIndex:group.slotIndex}))})),combinationsChecked:target.options.length}}];
+        }
         if(forceLimit&&!payload.groups.some(group=>group.options.some(card=>card.pricePending)))return [{result:{ok:true,plan:null,reason:'No known fit'}}];
+        if(payload.groups.some(group=>!group.options.length))return [{result:{ok:true,plan:null,reason:'Missing position data'}}];
         assert.equal(payload.groups.length,2);
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
@@ -60,7 +68,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.match(limited.error,/Could not price the proposed lineup/);
   assert(calls.filter(call=>call.action==='teamPlan').length>=before);
   failQuotes=false;holdQuote=true;
-  const send=(type,extra={})=>new Promise(resolve=>listener({type,...extra},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  const send=(type,extra={})=>new Promise(resolve=>listener({type,planId:session['futsbc-team-plan']?.planId,...extra},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
   const running=send('teamRecommend',{slots:[0,1],budget:48000});
   for(let attempt=0;attempt<100&&!releaseQuote;attempt++)await new Promise(resolve=>setImmediate(resolve));
   assert.equal(typeof releaseQuote,'function');
@@ -101,5 +109,25 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.equal(alternative.data.priceMode,'estimate');
   assert.equal(calls.filter(call=>call.action==='teamQuote').length,liveBefore,'batch estimates avoid all live price checks');
   assert(alternative.data.plan.choices.every(card=>card.priceSource==='fodder.gg'&&card.priceUpdatedAt));
-
+  const oldPanel=await send('teamAlternatives',{slotIndex:0,planId:'outdated'});assert.equal(oldPanel.ok,false);assert.match(oldPanel.error,/another panel/);
+  const suggestions=await send('teamAlternatives',{slotIndex:0});
+  assert.equal(suggestions.ok,true,suggestions.error);
+  assert(suggestions.data.alternatives.length>0);
+  const originalRB=alternative.data.plan.choices.find(card=>card.slotIndex===1).definitionId;
+  const newCard=suggestions.data.alternatives[0].card;
+  const swapped=await send('teamSwap',{slotIndex:0,definitionId:newCard.definitionId,price:1,budget:9999999});
+  assert.equal(swapped.ok,true,swapped.error);
+  assert.equal(swapped.data.plan.choices.find(card=>card.slotIndex===0).price,1000,'UI price overrides are ignored');
+  assert.equal(swapped.data.plan.choices.find(card=>card.slotIndex===1).definitionId,originalRB);
+  const unknown=await send('teamSwap',{slotIndex:0,definitionId:999999});assert.equal(unknown.ok,false);
+  fingerprint='different';
+  const staleSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(staleSwap.ok,false);assert.match(staleSwap.error,/squad changed/);
+  fingerprint='current';session['futsbc-team-plan'].checkedAt=Date.now()-11*60_000;
+  const expiredSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(expiredSwap.ok,false);assert.match(expiredSwap.error,/expired/);
+  rankingGap=true;
+  await import('../extension/background.js?team-partial-source');
+  const partialSource=await send('teamRecommend',{slots:[0,1],budget:50000});
+  assert.equal(partialSource.ok,true,partialSource.error);
+  assert.equal(partialSource.data.results[0].options.length,0);
+  assert.equal(partialSource.data.results[1].options.length,30,'one failed ranking page must not discard other positions');
 });
