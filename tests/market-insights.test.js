@@ -31,7 +31,7 @@ test('a first-day brief stays watch-only and rejects stale or distorted prices',
   const now=Date.parse('2026-09-27T12:00:00Z');
   const {snapshot,history}=recordMarketSnapshot([], [page(now,900)],now);
   assert.equal(buildMarketBrief(snapshot,history,2000,[],now).candidates[0].stance,'watch');
-  assert.equal(buildMarketBrief(snapshot,history,2000,[],now).candidates[0].risk,'high');
+  assert.equal(buildMarketBrief(snapshot,history,2000,[],now).candidates[0].risk,'unrated');
   assert.equal(buildMarketBrief(snapshot,history,2000,[],now).candidates[0].hold.label,'Review in 24h');
   assert.throws(()=>recordMarketSnapshot([], [{...page(now,900),checkedAt:now-11*60_000}],now),/No fresh/);
   assert.equal(buildMarketBrief(snapshot,history,500,[],now).candidates.length,0);

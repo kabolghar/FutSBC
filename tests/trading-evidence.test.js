@@ -12,7 +12,7 @@ const history=[26,27,28].map(day=>({day:`2026-09-${day}`,cards:[{...card,price:1
 const signals={123:{positive:90,negative:10,games:50000}};
 const brief=(overrides={})=>buildMarketBrief({...snapshot,...overrides.snapshot},overrides.history||history,5000,overrides.news||news,now,overrides.signals||signals);
 test('discounts alone cannot authorize a new trade and no price-only fallback survives',()=>{
- const b=brief({signals:{}});assert.equal(b.candidates[0].stance,'watch');assert.equal(b.candidates[0].risk,'high');
+ const b=brief({signals:{}});assert.equal(b.candidates[0].stance,'watch');assert.equal(b.candidates[0].risk,'unrated');
  assert.match(b.candidates[0].evidence.reason,/demand/);
  assert.deepEqual(researchTraderCards([card],b),[]);
 });
@@ -40,4 +40,29 @@ test('FUT.GG collector reads dated article cards, ignoring navigation and undate
  globalThis.document=dom.window.document;globalThis.location=dom.window.location;
  const result=readFutggHeadlines();assert.equal(result.headlines.length,1);assert.equal(result.headlines[0].at,Date.parse('2026-09-28'));
  dom.window.close();delete globalThis.document;delete globalThis.location;
+});
+
+test('stable supported short flips can be low risk, with explicit conditions and confidence',()=>{
+ const stableHistory=[23,24,25,26,27,28].map(day=>({day:`2026-09-${day}`,cards:[{...card,price:1000}]}));
+ const b=brief({history:stableHistory,snapshot:{cards:[{...card,updatedSeconds:30}]}}),idea=b.candidates[0];
+ assert.equal(idea.risk,'low');assert.equal(idea.confidence,'strong');assert.equal(idea.stance,'consider');
+ assert.equal(idea.hold.maxDays,3);assert(idea.evidence.stressedNet>=100);assert.match(idea.riskReason,/buy ceiling/);
+ assert.equal(brief({history:stableHistory}).candidates[0].risk,'medium','unknown quote age cannot qualify as low risk');
+ assert.equal(brief({history:stableHistory,signals:{}}).candidates[0].risk,'unrated');
+ const falling=brief({history:stableHistory,snapshot:{cards:[{...card,price:850,trend:-6,updatedSeconds:30}]}}).candidates[0];
+ assert.equal(falling.risk,'high');assert.equal(falling.stance,'watch');
+ const noNews=brief({history:stableHistory,news:[],snapshot:{cards:[{...card,updatedSeconds:30}]}}).candidates[0];
+ assert.equal(noNews.confidence,'limited');assert.equal(noNews.risk,'unrated');
+});
+test('missing evidence and concrete hazards remain separate and ungraded cards cannot enter trader',()=>{
+ const idea=brief({history:[],signals:{},news:[]}).candidates[0];assert.equal(idea.risk,'unrated');assert.equal(idea.confidence,'limited');assert(idea.evidence.dataGaps.length>=3);
+ const bad=brief({history:[],signals:{},news:[],snapshot:{cards:[{...card,trend:10}]}}).candidates[0];assert.equal(bad.risk,'high');assert.equal(bad.confidence,'limited');
+ assert.deepEqual(researchTraderCards([card],{candidates:[{...idea,stance:'consider',evidence:{eligible:true}}]}),[]);
+});
+test('low-risk qualification rejects stale quotes and an inadequate stressed margin',()=>{
+ const h=[23,24,25,26,27,28].map(day=>({day:`2026-09-${day}`,cards:[{...card,price:1000}]}));
+ assert.equal(brief({history:h,snapshot:{cards:[{...card,updatedSeconds:601}]}}).candidates[0].risk,'medium');
+ const cheapHistory=h.map(row=>({...row,cards:[{...card,price:500}]}));
+ const cheap=brief({history:cheapHistory,snapshot:{cards:[{...card,price:500,eaAverage:500,updatedSeconds:30}]}}).candidates[0];
+ assert.equal(cheap.risk,'medium');assert(cheap.evidence.stressedNet<100);
 });

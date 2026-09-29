@@ -57,20 +57,24 @@ export function buildMarketBrief(snapshot,history,balance,headlines=[],now=Date.
     if(card.price/card.eaAverage<.7||card.price/card.eaAverage>1.15||card.trend>12||card.trend< -15)continue;
     const dipped=baseline&&card.price<=baseline*.92&&card.trend>=-8;
     const related=relatedHeadline(card,cleanHeadlines);
-    const evidence=assessTradeEvidence({card,samplePrices,dayChange,trendMedian,signal:signals[card.assetId],headlines:cleanHeadlines,related});
-    let stance=evidence.eligible?'consider':'watch';
     const ceiling=floorMarketPrice(Math.min(card.price*.84,(baseline||card.price)*.80));
+    const quoteFresh=Number.isSafeInteger(card.updatedSeconds)&&card.updatedSeconds>=0&&now-snapshot.at>=0&&now-snapshot.at+card.updatedSeconds*1000<=600000;
+    const evidence=assessTradeEvidence({card,samplePrices,dayChange,trendMedian,signal:signals[card.assetId],headlines:cleanHeadlines,related,quoteFresh,buyCeiling:ceiling});
+    let stance=evidence.eligible?'consider':'watch';
     if(ceiling<150)continue;
-    const score=(dipped?30:0)+Math.max(-10,Math.min(15,discount))*2+(dayChange!==null&&dayChange<0?Math.min(12,-dayChange):0)-Math.abs(card.trend)*.5+(samplePrices.length>=2?10:0);
+    const score=(dipped?30:0)+Math.max(-10,Math.min(15,discount))*2+(dayChange!==null&&dayChange<0?Math.min(12,-dayChange):0)-Math.abs(card.trend)*.5+(samplePrices.length>=2?10:0)+(samplePrices.length>=5&&evidence.range<=8&&!evidence.hazards.length?50:0);
     const sellTarget=card.price;
     const projectedNet=Math.floor(sellTarget*.95)-ceiling;
-    const hold=holdPlan(card,samplePrices.length,stance,signals[card.assetId],related);
+    let hold=holdPlan(card,samplePrices.length,stance,signals[card.assetId],related);
+    if(evidence.risk==='low')hold={...hold,label:'1–3 days',minDays:1,maxDays:3,basis:'Conditional short flip below the buy ceiling; check live listings and reassess within 24h.'};
     const risk=hold.maxDays>=21?'high':evidence.risk;
+    const riskReason=hold.maxDays>=21?'A multi-week hold adds exposure to changing meta and pack supply.':evidence.riskReason;
     if(risk==='high')stance='watch';
     const opinionBoost=hold.approval===null?0:Math.max(-8,Math.min(8,(hold.approval-50)/4));
-    candidates.push({assetId:card.assetId,name:card.name,url:card.url,price:card.price,eaAverage:card.eaAverage,trend:card.trend,dayChange,baseline,historyDays:samplePrices.length,stance,buyCeiling:ceiling,sellTarget,projectedNet,risk,hold,filter:`Normal player · max ${ceiling.toLocaleString()} coins`,evidence,score:Math.round((evidence.eligible?100:0)+score+opinionBoost),sourceURL:card.sourceURL});
+    candidates.push({assetId:card.assetId,name:card.name,url:card.url,price:card.price,eaAverage:card.eaAverage,trend:card.trend,dayChange,baseline,historyDays:samplePrices.length,stance,buyCeiling:ceiling,sellTarget,projectedNet,risk,riskReason,confidence:evidence.confidence,hold,filter:`Normal player · max ${ceiling.toLocaleString()} coins`,evidence,score:Math.round((evidence.eligible?100:0)+score+opinionBoost),sourceURL:card.sourceURL});
   }
-  candidates.sort((a,b)=>b.score-a.score||a.price-b.price);
+  const tier={low:0,medium:1,unrated:2,high:3};
+  candidates.sort((a,b)=>tier[a.risk]-tier[b.risk]||b.score-a.score||a.price-b.price);
   return {at:now,day:snapshot.day,market:'FC 27 console',sampleSize:snapshot.cards.length,trendMedian,balance,historyDays:previous.length,candidates:candidates.slice(0,12),headlines:cleanHeadlines,model:null};
 }
 

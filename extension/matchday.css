@@ -111,3 +111,6 @@ main,.has-result main,.team-active main,.insights-active main,.trader-active mai
 .insight-card-main{grid-template-columns:max-content minmax(0,1fr);column-gap:16px;align-items:start}
 .insight-card-head,.insight-card-meta{min-width:0;overflow-wrap:anywhere}
 .insight-card-head a{min-width:0;overflow-wrap:anywhere}
+.insight-card-head em[data-risk=high]{color:var(--danger)}
+.insight-card-head em[data-risk=medium]{color:var(--text)}
+.insight-card-head em[data-risk=unrated]{color:var(--muted)}

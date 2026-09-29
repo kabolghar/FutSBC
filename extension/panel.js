@@ -220,7 +220,7 @@ function renderInsights(){
     const art=cardArtElement('player-art','FC','27',card.assetId,card.assetId,card.name,true);
     const head=document.createElement('div');head.className='insight-card-head';
     const link=document.createElement('a');link.href=card.url;link.target='_blank';link.rel='noreferrer';link.textContent=card.name;
-    const stance=document.createElement('em');stance.textContent=`${card.risk?.toUpperCase()||'HIGH'} RISK`;head.append(link,stance);
+    const stance=document.createElement('em');stance.textContent=card.risk==='unrated'?'NOT RATED':`${card.risk?.toUpperCase()||'HIGH'} RISK`;stance.dataset.risk=card.risk||'unrated';stance.title=card.riskReason||card.evidence?.reason||'';head.append(link,stance);
     const meta=document.createElement('p');meta.className='insight-card-meta';meta.textContent=`FUTBIN ${fmt(card.price)} · today ${card.trend>0?'+':''}${card.trend}%${card.dayChange===null?' · first daily sample':` · since last sample ${card.dayChange>0?'+':''}${card.dayChange}%`}`;main.append(art,head,meta);
     const price=document.createElement('strong');price.className='insight-card-price';price.textContent=fmt(card.price);
     const plan=document.createElement('div');plan.className='insight-trade-plan';
@@ -233,7 +233,7 @@ function renderInsights(){
     if(catalyst){catalyst.className='insight-card-catalyst';catalyst.href=card.hold.sourceURL;catalyst.target='_blank';catalyst.rel='noreferrer';catalyst.textContent='Player-linked content ↗';}
     const reason=document.createElement('p');reason.className='insight-card-reason';reason.textContent=card.evidence?`${card.evidence.strategy}: ${card.evidence.reason} ${card.evidence.exitRule}`:model?.reason||'Refresh for current demand and price evidence.';
     const filter=document.createElement('p');filter.className='insight-card-filter';filter.textContent=`SEARCH FILTER  ${card.filter} · checked price only, not a live EA listing`;
-    const details=document.createElement('details');details.className='insight-research';const more=document.createElement('summary');more.textContent='Why this card & search filter';details.append(more,opinion,reason,filter);if(catalyst)details.append(catalyst);deadline.prepend(uiIcon('clock'));stance.prepend(uiIcon('shield'));row.append(main,price,plan,deadline,details);cards.append(row);
+    const details=document.createElement('details');details.className='insight-research';const more=document.createElement('summary');more.textContent='Why this card & search filter';const confidence=document.createElement('p');confidence.className='insight-card-meta';confidence.textContent=`Data confidence: ${card.confidence||'not assessed'} · ${card.historyDays??0} prior daily samples`;const rationale=document.createElement('p');rationale.className='insight-card-reason';rationale.textContent=card.riskReason||card.evidence?.reason||'Refresh to assess risk.';details.append(more,rationale,opinion,reason,filter);if(catalyst)details.append(catalyst);deadline.prepend(uiIcon('clock'));stance.prepend(uiIcon('shield'));row.append(main,price,plan,deadline,confidence,details);cards.append(row);
   }
   const news=$('insights-news');news.replaceChildren();
   if(!brief?.headlines?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='No recent trading-source headlines were readable. Add no event premium to these prices.';news.append(empty);}

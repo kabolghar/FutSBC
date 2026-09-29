@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.33**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.34**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -163,3 +163,11 @@ A deep-green and warm-orange interface with a club crest, icon navigation and re
 ### Visual squad lab (v0.21.31)
 
 Restores the original charcoal and lime colors. My XI now has a selectable pitch and a list toggle, card chemistry diamonds, a budget meter, and a separate swap comparison area. Pitch rows group player roles; they do not represent old-style adjacency chemistry. SBCs display a card tray. Market cards foreground entry, exit and hold windows with supporting research in disclosures. Trader status has an active-only scan indicator that respects reduced motion.
+
+### Risk and evidence confidence (v0.21.34)
+
+Market ideas separate risk from evidence coverage. Missing price history, usage or editorial coverage is **Not rated / limited confidence**, while observed volatility, rumours and longer holding exposure can still be high risk. Unrated cards remain watch-only.
+
+Low risk is a relative, conditional short-flip category, not a promise of profit. It requires at least five prior daily prices, no more than 8% sampled range including today's quote, daily movement and current trend within 3%, fresh quotes within ten minutes, supported community demand (100 votes, 80% positive, 50,000 games), and a stressed after-tax margin of at least 100 coins and 10% of entry. The stress check assumes resale 5% below the lowest sampled price, then deducts the 5% fee. Entry must be at or below the buy ceiling; review within 24h and plan a 1–3 day window. Community use and listings do not prove completed sales liquidity.
+
+Stable candidates receive shortlist priority; qualified low/medium-risk ideas appear before ungraded or high-risk watchlist entries. Refresh Market to rebuild an older saved brief under these rules.
