@@ -228,7 +228,10 @@ test('page hunt bids on multiple expiring auctions and retries delayed Transfer 
     list:(item,_start,sell)=>{listed.push({id:item.getAuctionData().tradeId,sell});return obs({success:true});}
   }};
   const evidence={assetId:10,name:'Test Player',consolePrice:1600,checkedAt:Date.now(),url:'https://www.futbin.com/27/player/10/test-player'};
-  const hunt=await eaOperation('tradeAuctionHunt',{cards:[evidence]});
+  const blocked=await eaOperation('tradeAuctionHunt',{cards:[{...evidence,researchBidCeiling:900}]});
+  assert.equal(blocked.bids.length,0);assert.equal(actions.length,0);pages.length=0;
+  const hunt=await eaOperation('tradeAuctionHunt',{cards:[{...evidence,researchBidCeiling:950}]});
+  assert.ok(hunt.bids.every(order=>order.researchBidCeiling===950));
   assert.equal(hunt.ok,true);
   assert.deepEqual(pages,[1,2]);
   assert.equal(hunt.bids.length,2);
@@ -244,6 +247,10 @@ test('page hunt bids on multiple expiring auctions and retries delayed Transfer 
   const checked=await eaOperation('tradeWatchBatch',{orders:hunt.bids.map((order,index)=>({...order,misses:pending.updates[index].misses}))});
   assert.deepEqual(checked.updates.map(update=>update.phase).sort(),['highest','listed']);
   assert.deepEqual(listed,[{id:'99',sell:1400}]);
+  second.getAuctionData().isHighestBid=()=>false;second.getAuctionData().currentBid=1000;
+  const count=actions.length;
+  const capped=await eaOperation('tradeWatchBatch',{orders:hunt.bids.filter(order=>order.tradeId==='100')});
+  assert.equal(capped.updates[0].phase,'outbid-cap');assert.equal(actions.length,count);
 });
 
 test('market authentication failure is identified before any auction bid',async()=>{

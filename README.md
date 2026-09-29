@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.23**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.24**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -114,3 +114,14 @@ After a Team recommendation completes, the panel prefetches alternatives for rec
 ### Add players takes priority over background reads (v0.21.23)
 
 Add concept players now actively cancels the in-progress swap search as well as clearing queued searches. The worker stops between requests, and the EA read stops after its current response instead of checking the remaining batches. The existing plan is retained and applied once the read releases its lock. An already-sent EA request may still need to finish or time out; cancellation does not start a concurrent squad mutation.
+
+
+### Evidence-based trading research (v0.21.24)
+
+The Market brief reads dated FUTBIN and FUT.GG news, console prices, recent daily price snapshots, and FUTBIN community votes/usage. News and player signals are cached for 30 minutes. Old-edition, undated, future-dated and older-than-seven-day news cannot authorize a new recommendation. Blocked sources are reported, not bypassed.
+
+A low price alone is watch-only. New automatic hunts require three recent daily samples, positive community usage, current editorial coverage, and stable player/sample-market trends. Price-only fallback picks have been removed, including previously saved shortlists. The research entry ceiling carries through initial bids and rebids; existing auction reconciliation still runs when research is unavailable. Readable headlines are context, not verified SBC requirements. A player-named SBC may replace that card, and rumours never authorize a new trade.
+
+Risk labels are conservative heuristics, not calibrated loss probabilities. Eligible short flips are medium risk; missing/volatile evidence is high risk. No low-risk label is inferred from asking prices or game usage, since neither proves sale liquidity. A first installation may stay watch-only while daily history accumulates. No promise of profit, reliable prediction, or automatic event-demand matching is made.
+
+Research references: [FIFAUTeam weekly rewards](https://db.fifauteam.com/fc-27-trading-methods/weekly-rewards/), [Marquee Matchups investing](https://db.fifauteam.com/fc-27-trading-methods/marquee-matchups-investing/), [market crashes](https://db.fifauteam.com/fc-27-trading-methods/market-crashes/), [FUTBIN market methodology](https://www.futbin.com/market/), and [FUT.GG news](https://www.fut.gg/news/). These inform the rules; they are not hard-coded current buy tips. The public FUT.GG page was tested on September 29: 12 dated articles parsed, none fresh enough for the seven-day gate. It correctly supplied no current buy catalyst.

@@ -227,12 +227,12 @@ function renderInsights(){
     const opinion=document.createElement('p');opinion.className='insight-card-opinion';opinion.textContent=card.hold?.approval===null||card.hold?.approval===undefined?'Community rating unavailable':`Community ${card.hold.approval}% positive · ${card.hold.votes} votes${card.hold.games?` · ${fmt(card.hold.games)} games used`:''}`;
     const catalyst=card.hold?.sourceURL?document.createElement('a'):null;
     if(catalyst){catalyst.className='insight-card-catalyst';catalyst.href=card.hold.sourceURL;catalyst.target='_blank';catalyst.rel='noreferrer';catalyst.textContent='Player-linked content ↗';}
-    const reason=document.createElement('p');reason.className='insight-card-reason';reason.textContent=model?.reason||((card.historyDays>=2&&card.stance==='consider')?'Prior sampled prices support this entry. Verify live EA supply before buying.':'Early signal: fewer than two prior daily samples. Treat this as a conditional search, not a confirmed rise.');
+    const reason=document.createElement('p');reason.className='insight-card-reason';reason.textContent=card.evidence?`${card.evidence.strategy}: ${card.evidence.reason} ${card.evidence.exitRule}`:model?.reason||'Refresh for current demand and price evidence.';
     const filter=document.createElement('p');filter.className='insight-card-filter';filter.textContent=`SEARCH FILTER  ${card.filter} · checked price only, not a live EA listing`;
     row.append(main,price,plan,deadline,opinion,reason,filter);if(catalyst)row.append(catalyst);cards.append(row);
   }
   const news=$('insights-news');news.replaceChildren();
-  if(!brief?.headlines?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='No recent FUTBIN headlines were readable. Add no event premium to these prices.';news.append(empty);}
+  if(!brief?.headlines?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='No recent trading-source headlines were readable. Add no event premium to these prices.';news.append(empty);}
   for(const item of brief?.headlines||[]){const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noreferrer';const tag=document.createElement('span');tag.className=item.kind==='rumour'?'rumour':'';tag.textContent=item.kind==='rumour'?'RUMOUR':item.topic||'NEWS';link.append(tag,document.createTextNode(item.title));news.append(link);}
   reportSize();
 }

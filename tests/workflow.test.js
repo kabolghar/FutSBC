@@ -7,6 +7,7 @@ const squad='https://www.futbin.com/27/squad/100013678/sbc';
 
 test('one build action connects, compares, inserts concepts and unlocks manual shopping',async()=>{
  let listener,tabUpdated,onInstalled,alarmListener,saved={},tradeSaved={},tabURL='',inserted=false,marketStatus=null;
+ const localExtra={'futsbc-market-insights-v1':{history:[1,2,3].map(days=>({day:new Date(Date.now()-days*86400000).toISOString().slice(0,10),cards:[{assetId:101,price:1500}]}))}};
  const clearedAlarms=[];
  const actions=[],futbinReads=[];
  const overlayCalls=[];
@@ -14,7 +15,7 @@ test('one build action connects, compares, inserts concepts and unlocks manual s
  globalThis.chrome={
   runtime:{id:'test-extension',getURL:path=>`chrome-extension://test-extension/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:fn=>{onInstalled=fn;}}},
   sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},action:{onClicked:{addListener:()=>{}}},
-  storage:{session:{get:async()=>({state:saved}),set:async value=>{saved=value.state;}},local:{get:async()=>({'futsbc-auto-trade-v1':tradeSaved}),set:async value=>{tradeSaved=value['futsbc-auto-trade-v1'];}}},
+  storage:{session:{get:async()=>({state:saved}),set:async value=>{saved=value.state;}},local:{get:async()=>({...localExtra,'futsbc-auto-trade-v1':tradeSaved}),set:async value=>{Object.assign(localExtra,value);if('futsbc-auto-trade-v1' in value)tradeSaved=value['futsbc-auto-trade-v1'];}}},
   alarms:{create:()=>{},clear:async name=>{clearedAlarms.push(name);},onAlarm:{addListener:fn=>{alarmListener=fn;}}},
   tabs:{onUpdated:{addListener:fn=>{tabUpdated=fn;}},query:async()=>[{id:1,url:EA,active:true}],get:async id=>({id,url:id===1?EA:tabURL,status:'complete',active:id===1}),create:async({url})=>{tabURL=url;return {id:2,url};},update:async(id,value)=>{if(id===2&&value.url)tabURL=value.url;return {id,url:id===2?tabURL:EA};},remove:async()=>{}},
   scripting:{executeScript:async({target,func,args})=>{
@@ -39,6 +40,8 @@ test('one build action connects, compares, inserts concepts and unlocks manual s
       return [{result}];
     }
     if(func.name==='readFutbinMarket'){futbinReads.push(tabURL);return [{result:marketStatus==='futbin-blocked'?{error:'FUTBIN requires browser verification.',blocked:true}:{kind:'market',url:tabURL,checkedAt:Date.now(),rowCount:1,cards:[{assetId:101,name:'Player',url:'https://www.futbin.com/27/player/101/player',consolePrice:1500,eaAverage:1400,updatedSeconds:20,trend:2,revision:'Normal'}]}}];}
+    if(['readFutbinHeadlines','readFutggHeadlines'].includes(func.name))return [{result:{kind:'news',headlines:[{title:'FC 27 market review',url:'https://www.fut.gg/news/market-review/',at:Date.now()}]}}];
+    if(func.name==='readFutbinPlayerSignal')return [{result:{kind:'player-signal',positive:90,negative:10,games:50000}}];
     if(func.name!=='readFutbin')throw Error('Unexpected FUTBIN reader');
     const result=tabURL.includes('/squad-building-challenge/ea/')?{kind:'lookup',url:completed}:tabURL.includes('/squad-building-challenges/')?{kind:'comparison',challengeId:46,solutions:[{url:squad,consolePrice:750,title:'Solution'}]}:{kind:'squad',year:27,market:'console',name:'England v Spain',challengeId:46,players:[{futbinSlot:1,slotPosition:'ST',name:'Player',baseId:188545,rarity:0,rating:84,position:'ST',price:750}],total:750,url:squad,checkedAt:Date.now()};
     return [{result}];

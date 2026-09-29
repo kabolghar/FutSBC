@@ -18,3 +18,18 @@ export function readFutbinHeadlines(){
   }
   return rows.length?{kind:'news',checkedAt:Date.now(),url:location.href,headlines:rows}:{error:'FUTBIN news headlines did not load.'};
 }
+
+export const FUTGG_NEWS_URL='https://www.fut.gg/news/';
+export function readFutggHeadlines(){
+  if(location.origin!=='https://www.fut.gg'||location.pathname!=='/news/')return {error:'Waiting for FUT.GG news.'};
+  if(/Just a moment|verify.*human|security verification/i.test(document.title+' '+(document.body?.innerText||'').slice(0,600)))return {error:'FUT.GG news requires browser verification.',blocked:true};
+  const rows=[],seen=new Set();
+  for(const anchor of document.querySelectorAll('a[href^="/news/"]')){
+    const title=anchor.querySelector('h2,h3')?.textContent?.trim();
+    const at=Date.parse(anchor.querySelector('time[datetime]')?.getAttribute('datetime'));
+    const url=new URL(anchor.getAttribute('href'),location.origin);
+    if(!title||!Number.isFinite(at)||!/^\/news\/[^/]+\/$/.test(url.pathname)||seen.has(url.href))continue;
+    rows.push({title,url:url.href,at});seen.add(url.href);
+  }
+  return rows.length?{kind:'news',checkedAt:Date.now(),headlines:rows.slice(0,24)}:{error:'No dated FUT.GG articles were readable.'};
+}

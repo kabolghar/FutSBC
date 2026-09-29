@@ -1,3 +1,4 @@
+import {researchTraderCards} from './trading-evidence.js';
 import {getConsoleEstimates} from './team-prices.js';
 import {isEaWebAppURL,findEaTabs} from './ea-url.js';
 import {resumeComparison} from './sbc-checkpoint.js';
@@ -5,7 +6,7 @@ import {readFutbinTab} from './tab-reader.js';
 import {eaOperation} from './ea.js';
 import {futbinURL,rankSolutions,comparisonCandidates,challengeLookupURL,validatePlan,validateSavedPlan,validateMapping,suggestMapping} from './core.js';
 import {FUTBIN_MARKET_URL,marketBands,readFutbinMarket,selectMarketCards} from './futbin-market.js';
-import {FUTBIN_NEWS_URL,readFutbinHeadlines} from './futbin-news.js';
+import {FUTBIN_NEWS_URL,readFutbinHeadlines,FUTGG_NEWS_URL,readFutggHeadlines} from './futbin-news.js';
 import {readFutbinSquadBatch} from './futbin-batch.js';
 import {recordMarketSnapshot,buildMarketBrief,validateModelBrief} from './market-insights.js';
 import {normalizeGeminiKey,geminiRequestError} from './gemini-market.js';
@@ -226,13 +227,13 @@ async function collectFutbinMarket(tabId,balance,urls=marketBands(balance)){
   }
   return {pages,cards:selectMarketCards(pages,balance)};
 }
-async function collectFutbinNews(){
-  const tab=await chrome.tabs.create({url:FUTBIN_NEWS_URL,active:false});
+async function collectNewsSource(url,reader){
+  const tab=await chrome.tabs.create({url,active:false});
   try{
     let lastError='FUTBIN news did not load.';
     for(let attempt=0;attempt<20;attempt++){
       try{
-        const result=(await chrome.scripting.executeScript({target:{tabId:tab.id},func:readFutbinHeadlines}))[0]?.result;
+        const result=(await chrome.scripting.executeScript({target:{tabId:tab.id},func:reader}))[0]?.result;
         if(result?.kind==='news')return result;
         if(result?.error)lastError=result.error;
         if(result?.blocked)break;
@@ -242,9 +243,17 @@ async function collectFutbinNews(){
     return {error:lastError,headlines:[]};
   }finally{await chrome.tabs.remove(tab.id).catch(()=>{});}
 }
+async function collectFutbinNews(){
+  const key='futsbc-trading-news-v1',cached=(await chrome.storage.local.get(key))[key];
+  if(cached&&Date.now()-cached.checkedAt<30*60_000)return cached;
+  const results=await Promise.allSettled([collectNewsSource(FUTBIN_NEWS_URL,readFutbinHeadlines),collectNewsSource(FUTGG_NEWS_URL,readFutggHeadlines)]);
+  const values=results.map((result,index)=>({...result.value,error:result.status==='rejected'?result.reason.message:result.value?.error,source:index?'FUT.GG':'FUTBIN'}));
+  const news={checkedAt:Date.now(),headlines:values.flatMap(value=>value.headlines||[]),error:values.filter(value=>value.error).map(value=>`${value.source}: ${value.error}`).join(' · ')||null};
+  await chrome.storage.local.set({[key]:news});return news;
+}
 async function generateMarketNotes(brief,key){
-  const evidence={day:brief.day,market:brief.market,sampleSize:brief.sampleSize,medianTrend:brief.trendMedian,historyDays:brief.historyDays,candidates:brief.candidates.map(({assetId,name,price,eaAverage,trend,dayChange,baseline,historyDays,stance,buyCeiling,hold,risk})=>({assetId,name,price,eaAverage,trend,dayChange,baseline,historyDays,stance,buyCeiling,hold,risk})),headlines:brief.headlines};
-  const prompt=`You are an FC 27 Ultimate Team market research assistant. Interpret ONLY this supplied FC 27 CONSOLE evidence. FUTBIN prices are estimates; the sampled cards are not the whole market. A headline marked rumour is unverified and cannot establish that an SBC will release or a card will rise. Do not invent a player, price, requirement, fixture, leak, date, filter, profit, or holding period. Rank up to six supplied assetIds as watch, consider, or avoid. Use consider only if the card has at least two historical daily prices and a measurable discount; otherwise watch/avoid. Explain the supplied hold window using price history, verified player-linked content, and community votes or usage where available; never present it as guaranteed. Keep the reason under 35 words and explain one concrete evidence point plus the main uncertainty. Only copy a catalystURL from supplied headlines if directly relevant to that card; otherwise omit it. Return JSON: {"ideas":[{"assetId":123,"stance":"watch","reason":"...","catalystURL":null}]}\n\nEvidence: ${JSON.stringify(evidence)}`;
+  const evidence={day:brief.day,market:brief.market,sampleSize:brief.sampleSize,medianTrend:brief.trendMedian,historyDays:brief.historyDays,candidates:brief.candidates.map(({assetId,name,price,eaAverage,trend,dayChange,baseline,historyDays,stance,buyCeiling,hold,risk,evidence})=>({assetId,name,price,eaAverage,trend,dayChange,baseline,historyDays,stance,buyCeiling,hold,risk,evidence})),headlines:brief.headlines};
+  const prompt=`You are an FC 27 Ultimate Team market research assistant. Interpret ONLY this supplied FC 27 CONSOLE evidence. FUTBIN prices are estimates; the sampled cards are not the whole market. A headline marked rumour is unverified and cannot establish that an SBC will release or a card will rise. Do not invent a player, price, requirement, fixture, leak, date, filter, profit, or holding period. Rank up to six supplied assetIds as watch, consider, or avoid. Use consider only if evidence.eligible is true; otherwise watch/avoid. News headlines are context, not proof that a specific card is needed. Explain evidence reasons and exitRule. Never infer liquidity from asking prices. Explain the supplied hold window using price history, verified player-linked content, and community votes or usage where available; never present it as guaranteed. Keep the reason under 35 words and explain one concrete evidence point plus the main uncertainty. Only copy a catalystURL from supplied headlines if directly relevant to that card; otherwise omit it. Return JSON: {"ideas":[{"assetId":123,"stance":"watch","reason":"...","catalystURL":null}]}\n\nEvidence: ${JSON.stringify(evidence)}`;
   const request=async model=>{
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30_000);
     try{
@@ -269,6 +278,15 @@ async function generateMarketNotes(brief,key){
     }
   }
 }
+async function tradingSignals(options){
+  const key='futsbc-trading-signals-v1',stored=(await chrome.storage.local.get(key))[key]||{},now=Date.now();
+  const cache=Object.fromEntries(Object.entries(stored).filter(([,value])=>now-value.at<30*60_000&&value.at<=now));
+  const missing=options.filter(card=>!cache[card.url]);
+  const fresh=missing.length?await teamSignals(missing):{};
+  for(const card of missing)cache[card.url]={at:now,signal:fresh[card.assetId]||null};
+  await chrome.storage.local.set({[key]:cache});
+  return Object.fromEntries(options.filter(card=>cache[card.url]?.signal).map(card=>[card.assetId,cache[card.url].signal]));
+}
 async function refreshMarketInsights(){
   const trade=await tradeState();
   if(tradingBusy||trade.enabled||sbcBuying||(await rawSbcBuy()).enabled)throw Error('Stop active trading or SBC buying before refreshing market research.');
@@ -290,7 +308,7 @@ async function refreshMarketInsights(){
     const news=await collectFutbinNews();
     const firstPass=buildMarketBrief(snapshot,history,balance,news.headlines);
     let signals={};
-    try{signals=await teamSignals(firstPass.candidates.slice(0,8));}catch{}
+    try{signals=await tradingSignals(firstPass.candidates.slice(0,8));}catch{}
     const brief=buildMarketBrief(snapshot,history,balance,news.headlines,Date.now(),signals);
     const config=await insightsConfig();
     let modelError=null;
@@ -639,14 +657,14 @@ async function swapTeamSuggestion(message){
 async function trendRankedTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);
   if(!eligible.length)return [];
-  try{
-    const saved=await insightsState();
-    const {snapshot,history}=recordMarketSnapshot(saved.history,pages);
-    const brief=buildMarketBrief(snapshot,history,balance);
-    const byId=new Map(eligible.map(card=>[card.assetId,card]));
-    const ranked=brief.candidates.map(idea=>byId.get(idea.assetId)).filter(Boolean);
-    return [...ranked,...eligible.filter(card=>!ranked.some(item=>item.assetId===card.assetId))].slice(0,4);
-  }catch{return eligible.slice(0,4);}
+  const saved=await insightsState();
+  const {snapshot,history}=recordMarketSnapshot(saved.history,pages);
+  await saveInsights({...saved,history});
+  const news=await collectFutbinNews();
+  const preliminary=buildMarketBrief(snapshot,history,balance,news.headlines);
+  let signals={};try{signals=await tradingSignals(preliminary.candidates.slice(0,8));}catch{}
+  const brief=buildMarketBrief(snapshot,history,balance,news.headlines,Date.now(),signals);
+  return researchTraderCards(eligible,brief);
 }
 const HUNT_INTERVAL_MS=20_000;
 const WATCH_INTERVAL_MS=8_000;
@@ -729,19 +747,19 @@ async function runAutoTrade(){
       armTrade(nextAt);return;
     }
     let evidence=session.marketEvidence;
-    if(!Array.isArray(evidence?.cards)||!evidence.cards.length||now-evidence.checkedAt>60_000){
+    if(!Array.isArray(evidence?.cards)||!evidence.cards.length||evidence.researchVersion!==2||now-evidence.checkedAt>60_000){
       await saveTrade({...session,inFlight:true,inFlightAt:now,candidate:null,status:'Refreshing FUTBIN console prices…'});
       const futbinTabId=await marketTab(session);
       const market=await collectFutbinMarket(futbinTabId,current.balance);
       const cards=await trendRankedTraderCards(market.pages,current.balance);
-      evidence={checkedAt:Date.now(),sourceURL:market.pages.at(-1)?.url,rows:market.pages.reduce((sum,page)=>sum+page.rowCount,0),shortlisted:cards.length,bands:market.pages.length,assetId:cards[0]?.assetId??null,cards};
+      evidence={checkedAt:Date.now(),sourceURL:market.pages.at(-1)?.url,rows:market.pages.reduce((sum,page)=>sum+page.rowCount,0),researchVersion:2,shortlisted:cards.length,bands:market.pages.length,assetId:cards[0]?.assetId??null,cards};
       session={...await tradeState(),futbinTabId,marketEvidence:evidence,inFlight:false,inFlightAt:null};
       await saveTrade(session);
       if(!session.enabled)return;
     }
     if(!evidence.cards.length){
       const nextAt=Date.now()+HUNT_INTERVAL_MS;
-      await saveTrade({...session,lastHuntAt:Date.now(),nextAt,status:`Checked ${evidence.rows} FUTBIN rows; no card passed the price checks.`});
+      await saveTrade({...session,lastHuntAt:Date.now(),nextAt,status:`Checked ${evidence.rows} FUTBIN rows; no card has sufficient price history, community demand and current news coverage for a new bid.`});
       armTrade(nextAt);return;
     }
     const card=evidence.cards[(session.huntIndex||0)%evidence.cards.length];

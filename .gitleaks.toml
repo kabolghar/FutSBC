@@ -4,4 +4,4 @@ useDefault = true
 [[allowlists]]
 description = "Public browser-storage namespace labels, not credentials"
 regexTarget = "secret"
-regexes = ['''^futsbc-(trade-desk|market-insights)-v1$''']
+regexes = ['''^futsbc-(trade-desk|market-insights|trading-news|trading-signals)-v1$''']

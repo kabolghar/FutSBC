@@ -17,13 +17,13 @@ test('daily snapshots keep fresh console prices and compare the same card across
   assert.equal(day3.history.length,3);
   const brief=buildMarketBrief(day3.snapshot,day3.history,2000,[],third);
   assert.equal(brief.historyDays,2);
-  assert.equal(brief.candidates[0].stance,'consider');
+  assert.equal(brief.candidates[0].stance,'watch');
   assert.equal(brief.candidates[0].dayChange,-14.3);
   assert.equal(brief.candidates[0].buyCeiling,750);
   assert.equal(brief.candidates[0].sellTarget,900);
   assert.equal(brief.candidates[0].projectedNet,105);
-  assert.equal(brief.candidates[0].risk,'medium');
-  assert.equal(brief.candidates[0].hold.label,'1–3 days');
+  assert.equal(brief.candidates[0].risk,'high');
+  assert.equal(brief.candidates[0].hold.label,'1–2 days');
   assert.match(brief.candidates[0].filter,/max 750 coins/);
 });
 
