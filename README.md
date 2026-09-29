@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.36**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.37**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -188,3 +188,13 @@ See [business logic audit](docs/business-logic-audit.md) for scope and remaining
 The EA lookup URL can return a not-found page or an empty document even while FUTBIN itself is working. FutSBC now detects that condition, retries a blank navigation once, and searches published FC 27 SBC directory/group links for the exact EA challenge ID. It uses the existing inactive tab, follows directory pagination within bounded limits, and never substitutes a similarly named challenge.
 
 Arc inspection of the reported EA #49 lookup reproduced FUTBIN's “The page could not be found” message. The two active-directory pages inspected listed Challenge 1, but not Challenge 2. The fallback fixes discovery when a matching directory entry exists; it cannot manufacture an unavailable solution or bypass verification. Missing matches now report the actual discovery failure instead of polling an empty document for player cards.
+
+
+### Club-only SBC fallback (v0.21.37)
+
+When automatic FUTBIN discovery finds no exact challenge, Build this SBC tries a squad from your club using EA's own requirement checks. You can skip FUTBIN with **Options → Build from my club**. Browser verification errors still stop FUTBIN discovery; the explicit club action works independently of that source.
+
+- Automatically selects owned basic bronze, silver and gold cards rated up to 82. Protects active-squad players, loans, evolution cards and specials. Cards you already placed in the SBC remain fixed; eligible exact owned copies replace existing concepts.
+- Searches league, nation and club combinations, then requires EA to confirm every requirement and eligibility before saving. No buying or submission occurs. Review the cards in EA before submitting yourself.
+- Checks up to 3,000 club items and 6,000 combinations, with a ten-second computation limit after loading the club. This is a bounded solver, not a guaranteed solution or a valuation of the cards consumed. Failed searches restore the original squad; a failed save asks you to reopen the SBC to verify its server state.
+- Club results show zero **purchase** cost and label their source. This does not mean the owned cards have no market or opportunity cost. High-rated SBCs and clubs with too few eligible players can still have no result.

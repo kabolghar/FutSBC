@@ -85,7 +85,7 @@ async function call(type,extra={},prefetch=false) {
   }
 }
 async function run(type,extra={}) {
-  if(busy)return;busy=true;render();notice({connect:'Reading the open SBC…',build:'Checking FUTBIN squads…',complete:'Checking your club…',market:'Opening EA market…',swapOptions:'Finding cheaper, valid swaps…',swapApply:'Checking and saving the swap…',sbcPrepare:'Checking live EA prices…'}[type]||'Updating…');
+  if(busy)return;busy=true;render();notice({connect:'Reading the open SBC…',build:'Checking FUTBIN squads…',clubBuild:'Building from your club…',complete:'Checking your club…',market:'Opening EA market…',swapOptions:'Finding cheaper, valid swaps…',swapApply:'Checking and saving the swap…',sbcPrepare:'Checking live EA prices…'}[type]||'Updating…');
   try {state=await call(type,extra);mapping=[];if(type==='connect')$('source').value='';notice({market:'EA market search opened.'}[type]||'');}catch(e){if(!recovering){try{state=await call('state');}catch{}if(!recovering)notice(e.message,true);}}
   finally{busy=false;render();}
 }
@@ -94,15 +94,15 @@ function render() {
   $('challenge').textContent=state.challenge?.name||'Choose a challenge';
   $('sbc-visual').hidden=!!state.plan;
   $('formation').textContent=state.challenge?`${state.challenge.formation||'SBC'} · #${state.challenge.id}`:'Open an SBC in EA.';
-  for(const id of ['connect','compare','source','reset'])$(id).disabled=busy;
+  for(const id of ['connect','compare','club-build','source','reset'])$(id).disabled=busy;
   $('compare').firstElementChild.textContent=state.plan?'Find another squad':'Build this SBC';
   $('result').hidden=!state.plan;
   if(!state.plan){$('swap-panel').hidden=true;$('buy-section').hidden=true;reportSize();return;}
   const p=state.plan;
   $('plan-name').textContent=p.name===state.challenge?.name?'Lineup':p.name;
-  $('price-label').textContent=p.eaSkippedCount?'LOWEST EA-MATCHED':'LOWEST VERIFIED';
+  $('price-label').textContent=p.source==='club'?'CLUB BUILD · NO PURCHASES':p.eaSkippedCount?'LOWEST EA-MATCHED':'LOWEST VERIFIED';
   $('total').textContent=fmt(p.total);
-  $('coverage').textContent=`${p.attemptedCount||p.recheckedCount}/${p.listedCount} checked · ${p.recheckedCount} complete${p.incompleteCount?` · ${p.incompleteCount} incomplete`:''}${p.eaSkippedCount?` · ${p.eaSkippedCount} unavailable in EA`:''}`;
+  $('coverage').textContent=p.source==='club'?`${p.checks} combinations checked · EA requirements passed`:`${p.attemptedCount||p.recheckedCount}/${p.listedCount} checked · ${p.recheckedCount} complete${p.incompleteCount?` · ${p.incompleteCount} incomplete`:''}${p.eaSkippedCount?` · ${p.eaSkippedCount} unavailable in EA`:''}`;
   $('freshness').textContent=`Checked ${new Date(p.checkedAt).toLocaleTimeString()}`;
   $('players').replaceChildren();
   const players=state.resolved||p.players;
@@ -111,7 +111,7 @@ function render() {
   $('lineup-action').textContent=state.approved?'PRICE / MARKET':'EST. PRICE';
   const slots=state.challenge?.slots||[];
   if(mapping.length!==players.length){try{mapping=suggestMapping(players,slots);}catch{mapping=[];}}
-  $('build-status').textContent=state.approved?'✓ Squad ready · buy missing players in EA':state.inserted?'Squad added · checking requirements':state.resolved?'Cards matched · review slots':'Cards found · ready to match';
+  $('build-status').textContent=p.source==='club'?'✓ Club squad ready · review and submit in EA':state.approved?'✓ Squad ready · buy missing players in EA':state.inserted?'Squad added · checking requirements':state.resolved?'Cards matched · review slots':'Cards found · ready to match';
   $('shopping-note').hidden=!state.approved||ownedCount===players.length;
   players.forEach((player,index)=>{
     const row=document.createElement('div');row.className='player';const main=document.createElement('div');main.className='player-main';const assetId=Number(player.baseId)||Number(player.definitionId)%0x1000000;const art=cardArtElement('player-art',player.rating,player.position,assetId,Number(player.definitionId),player.name);const title=document.createElement('div');title.className='player-name';title.textContent=player.name;const detail=document.createElement('small');detail.textContent=player.position;title.append(detail);const price=document.createElement('span');price.className='player-price';price.textContent=player.owned?'IN CLUB':fmt(player.price);main.append(art,title,price);row.append(main);
@@ -134,8 +134,8 @@ function render() {
   reportSize();
 }
 function renderSbcBuy(){
-  $('buy-section').hidden=!state.approved;
-  if(!state.approved)return;
+  $('buy-section').hidden=!state.approved||state.plan?.source==='club';
+  if(!state.approved||state.plan?.source==='club')return;
   const checkout=state.checkout,ready=checkout&&Date.now()-checkout.preparedAt<120000&&checkout.fingerprint===state.challenge?.fingerprint;
   $('price-check').disabled=busy||buyPending||buy.enabled||!!buy.pending;
   $('checkout-summary').hidden=!ready;
@@ -602,6 +602,7 @@ $('trader-reset').onclick=async()=>{
   catch(error){if(!recovering){$('trader-error').textContent=error.message;$('trader-error').hidden=false;}}
   finally{traderPending=false;renderTrader();}
 };
+$('club-build').onclick=()=>run('clubBuild');
 $('connect').onclick=()=>run('connect');$('compare').onclick=()=>run('build',{url:$('source').value.trim()});$('complete').onclick=()=>run('complete',state.resolved&&!state.inserted?{mapping:[...mapping]}:{});$('reset').onclick=()=>run('reset');
 $('swap-close').onclick=()=>run('swapDismiss');
 $('price-check').onclick=()=>run('sbcPrepare');

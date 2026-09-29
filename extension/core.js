@@ -25,11 +25,11 @@ export function validatePlan(plan, now = Date.now()) {
 export function validateSavedPlan(plan) {
   if (!plan || plan.year !== 27 || plan.market !== 'console') throw Error('An FC 27 console squad is required.');
   if (!Number.isInteger(plan.challengeId) || plan.challengeId < 1) throw Error('Missing challenge ID.');
-  futbinURL(plan.url, 'solution');
+  if(plan.source!=='club')futbinURL(plan.url, 'solution');
   if (!Array.isArray(plan.players) || !plan.players.length || plan.players.length > 11) throw Error('Invalid squad size.');
   const ids = new Set();
   for (const p of plan.players) {
-    if (!Number.isSafeInteger(p.baseId) || p.baseId < 1 || !Number.isInteger(p.rating) || p.rating < 1 || p.rating > 99 || !Number.isInteger(p.rarity) || p.rarity < 0 || !Number.isSafeInteger(p.price) || p.price <= 0 || !p.name || ids.has(p.baseId)) throw Error('A player identity or console price could not be verified.');
+    if (!Number.isSafeInteger(p.baseId) || p.baseId < 1 || !Number.isInteger(p.rating) || p.rating < 1 || p.rating > 99 || !Number.isInteger(p.rarity) || p.rarity < 0 || !Number.isSafeInteger(p.price) || (plan.source==='club'?p.price!==0||p.owned!==true||!Number.isSafeInteger(p.ownedId)||p.ownedId<1||!Number.isSafeInteger(p.definitionId)||p.definitionId<1:p.price<=0) || !p.name || ids.has(p.baseId)) throw Error('A player identity or console price could not be verified.');
     ids.add(p.baseId);
   }
   if (plan.total !== plan.players.reduce((sum,p)=>sum+p.price,0)) throw Error('Squad total does not match player prices.');

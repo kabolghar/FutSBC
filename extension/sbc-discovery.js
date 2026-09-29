@@ -56,5 +56,6 @@ export async function discoverSbc(api,tabId,challenge,{attempts=30,delay=()=>new
     try{const found=match(await visit(group.url));if(found)return found;}
     catch(error){if(error.verificationBlocked)throw error;unread++;}
   }
-  throw Error(`FUTBIN’s lookup is unavailable and its directory did not expose an exact match for ${challenge.name} (EA ${challenge.id}). ${unread?`${unread} group pages could not be read. `:''}No squad changes were made. A direct Completed Challenges link can still be used.`);
+  const error=Error(`FUTBIN’s lookup is unavailable and its directory did not expose an exact match for ${challenge.name} (EA ${challenge.id}). ${unread?`${unread} group pages could not be read. `:''}No squad changes were made. A direct Completed Challenges link can still be used.`);
+  error.sbcUnavailable=true;throw error;
 }

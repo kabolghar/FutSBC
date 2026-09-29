@@ -1072,7 +1072,7 @@ async function dispatch(message) {
   }
   const buySession=await rawSbcBuy();
   if(buySession.enabled||sbcBuying)throw Error('Stop SBC buying before changing the squad or starting another action.');
-  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','complete','reset'].includes(message.type))throw Error('Check New Items and your club, then clear the buying session before continuing.');
+  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','complete','reset'].includes(message.type))throw Error('Check New Items and your club, then clear the buying session before continuing.');
   if(message.type==='swapOptions'){
     if((await tradeState()).enabled||tradingBusy)throw Error('Stop the trader before checking SBC swaps.');
     const session=await state();
@@ -1128,9 +1128,25 @@ async function dispatch(message) {
   if(message.type==='swapDismiss'){
     const session=await state();const next={...session,swapOptions:null};await save(next);return next;
   }
+  if(message.type==='clubBuild'){
+    if(tradingBusy||(await rawTradeState()).enabled)throw Error('Stop trading before building an SBC from your club.');
+    await dispatch({type:'connect'});
+    const current=await state();
+    await save({...current,progress:'Building from your club · checking EA requirements…'});
+    try{
+      const result=await ea(current.tabId,'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint});
+      const plan={source:'club',year:27,market:'console',challengeId:result.challenge.id,name:result.challenge.name,players:result.players,total:0,checkedAt:Date.now(),checks:result.checks};
+      const next={...current,challenge:result.challenge,plan,resolved:result.players,mapping:result.players.map(player=>player.slotIndex),alternatives:[],listedSolutions:[],swapOptions:null,checkout:null,inserted:true,approved:true,progress:null};
+      await save(next);return next;
+    }catch(clubError){await save({...await state(),progress:null});throw clubError;}
+  }
   if(message.type==='build') {
     await dispatch({type:'connect'});
-    await dispatch({type:'compare',url:message.url,mode:message.mode});
+    try{await dispatch({type:'compare',url:message.url,mode:message.mode});}
+    catch(error){
+      if(!error.sbcUnavailable||String(message.url||'').trim())throw error;
+      return dispatch({type:'clubBuild'});
+    }
     return dispatch({type:'complete'});
   }
   if(message.type==='complete') {

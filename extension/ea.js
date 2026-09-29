@@ -857,6 +857,114 @@ export async function eaOperation(action, payload = {}) {
     };
     if(action==='status') return {ok:true,challenge:snapshot()};
     if(challenge.id!==payload.challengeId || challenge.hasExpired() || challenge.isCompleted()) throw Error('The open challenge changed, expired, or is completed. Reconnect and compare again.');
+    if(action==='sbcClubBuild'){
+      if(snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed. Refresh before building from your club.');
+      if(!Array.isArray(challenge.eligibilityRequirements)||typeof challenge.isRequirementMet!=='function')throw Error('EA requirement checks are unavailable. No squad changes were made.');
+      if(typeof services.Squad?.requestSquadByType!=='function'||typeof services.Club?.search!=='function')throw Error('EA club protection checks are unavailable. No squad changes were made.');
+      const active=await observe(services.Squad.requestSquadByType('active'));
+      const protectedSlots=active.data?.squad?.getPlayers?.();
+      if(!Array.isArray(protectedSlots)||!protectedSlots.length)throw Error('EA could not identify your active squad. No club cards were selected.');
+      const asset=item=>Number(item?.assetId)||Number(item?.definitionId)%0x1000000;
+      const protectedAssets=new Set(protectedSlots.map(slot=>asset(slot.item)).filter(id=>id>0));
+      const usable=item=>item&&!item.concept&&Number(item.id)>0&&Number(item.definitionId)>0&&item.isValid?.()===true&&
+        !item.isLimitedUse?.()&&!item.isEnrolledInAcademy?.()&&!(Number(item.loans)>=0)&&!(Number(item.endTime)>0);
+      const automatic=item=>usable(item)&&[0,1].includes(Number(item.rareflag))&&Number(item.rating)>=1&&Number(item.rating)<=82&&!protectedAssets.has(asset(item));
+      const original=slots.map(slot=>slot.item),fixed=new Map();
+      for(const [index,item] of original.entries()){
+        if(item?.isValid?.()&&!item.concept){
+          if(!usable(item))throw Error('An existing SBC card is not eligible for submission. No squad changes were made.');
+          fixed.set(index,item);
+        }
+      }
+      const pool=new Map();let clubComplete=false;
+      for(let page=0;page<30;page++){
+        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.count=100;criteria.offset=page*100;
+        const response=await observe(services.Club.search(criteria));
+        const rows=response.response?.items;
+        if(!Array.isArray(rows))throw Error('EA club results changed. No squad changes were made.');
+        for(const item of rows)if(automatic(item)){
+          const key=asset(item),existing=pool.get(key);
+          if(!existing||Number(item.rating)<Number(existing.rating)||item.rating===existing.rating&&!item.tradable&&existing.tradable)pool.set(key,item);
+        }
+        if(response.response.retrievedAll===true||rows.length<criteria.count){clubComplete=true;break;}
+      }
+      if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed while reading your club. Nothing was added.');
+      const fixedAssets=new Set([...fixed.values()].map(asset));
+      if(fixedAssets.size!==fixed.size)throw Error('The existing SBC contains duplicate players. No squad changes were made.');
+      // Preserve explicitly placed concepts only when the exact owned version is available.
+      for(const [index,item] of original.entries())if(item?.concept&&Number(item.definitionId)>0){
+        const owned=pool.get(asset(item));
+        if(!owned||Number(owned.definitionId)!==Number(item.definitionId)||fixedAssets.has(asset(owned)))throw Error('An existing concept has no eligible owned copy. Remove it or use a FUTBIN solution.');
+        fixed.set(index,owned);fixedAssets.add(asset(owned));
+      }
+      const candidates=[...pool.values()].filter(item=>!fixedAssets.has(asset(item))).sort((a,b)=>a.rating-b.rating||Number(a.tradable)-Number(b.tradable)||a.id-b.id);
+      if(candidates.length<slots.length-fixed.size)throw Error(`Not enough eligible club players: ${candidates.length} available for ${slots.length-fixed.size} slots. Active-squad players, specials, loans and cards above 82 are protected. No squad changes were made.`);
+      const fits=(item,index)=>{const target=positionIds[slots[index].generalPositionName];return Number(item.preferredPosition)===target||[item.basePossiblePositions,item.possiblePositions].some(list=>Array.isArray(list)&&list.some(value=>Number(value)===target));};
+      const themes=[{key:null,id:null}];
+      for(const key of ['leagueId','nationId','teamId']){
+        const counts=new Map();for(const item of candidates){const id=Number(item[key]);if(id>0)counts.set(id,(counts.get(id)||0)+1);}
+        themes.push(...[...counts].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([id])=>({key,id})));
+      }
+      let previewActive=false;
+      const apply=lineup=>{previewActive=true;lineup.forEach((item,index)=>squad.addItemToSlot(slots[index].index,item));};
+      const restore=()=>{if(previewActive){original.forEach((item,index)=>squad.addItemToSlot(slots[index].index,item));previewActive=false;}};
+      let checks=0,best=null;const deadline=Date.now()+10000;
+      const score=lineup=>{
+        apply(lineup);checks++;
+        const valid=!!challenge.meetsRequirements()&&(typeof squad.isSBCSquadEligible!=='function'||squad.isSBCSquadEligible());
+        const met=challenge.eligibilityRequirements.filter(rule=>challenge.isRequirementMet(rule)).length;
+        const chemistry=Number(squad.getChemistry?.())||0;
+        const ratingCost=lineup.reduce((sum,item)=>sum+Number(item.rating||0),0);
+        // EA decides validity; chemistry is only a search heuristic, never a substitute.
+        return {valid,value:met*100+chemistry-ratingCost/10000,lineup:[...lineup]};
+      };
+      try{
+        for(const theme of themes){
+          if(Date.now()>deadline||checks>=6000)break;
+          const used=new Set(fixedAssets),lineup=Array(slots.length);
+          for(const [index,item] of fixed)lineup[index]=item;
+          const order=slots.map((_,index)=>index).filter(index=>!fixed.has(index)).sort((a,b)=>candidates.filter(item=>fits(item,a)).length-candidates.filter(item=>fits(item,b)).length);
+          for(const index of order){
+            const eligible=candidates.filter(item=>!used.has(asset(item)));
+            eligible.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||(theme.key?Number(Number(b[theme.key])===theme.id)-Number(Number(a[theme.key])===theme.id):0)||a.rating-b.rating||a.id-b.id);
+            lineup[index]=eligible[0];used.add(asset(eligible[0]));
+          }
+          let currentScore=score(lineup);
+          if(currentScore.valid){best=currentScore;break;}
+          for(let pass=0;pass<3&&!best;pass++){
+            let improved=false;
+            for(const index of order){
+              const available=candidates.filter(item=>!lineup.some((other,otherIndex)=>otherIndex!==index&&asset(other)===asset(item)));
+              available.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||(theme.key?Number(Number(b[theme.key])===theme.id)-Number(Number(a[theme.key])===theme.id):0)||a.rating-b.rating);
+              let chosen=currentScore;
+              for(const item of available.slice(0,70)){
+                if(Date.now()>deadline||checks>=6000)break;
+                const next=[...lineup];next[index]=item;const result=score(next);
+                if(result.valid){best=result;break;}
+                if(result.value>chosen.value)chosen=result;
+              }
+              if(best)break;
+              if(chosen.value>currentScore.value){lineup.splice(0,lineup.length,...chosen.lineup);currentScore=chosen;improved=true;}
+            }
+            if(!improved||Date.now()>deadline||checks>=6000)break;
+          }
+          restore();
+          if(best)break;
+          // Yield only after restoring the original squad, then detect user edits.
+          await new Promise(resolve=>setTimeout(resolve,0));
+          if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed during the club search. Nothing was added.');
+        }
+      }finally{restore();}
+      if(!best)throw Error(`No valid club squad found in ${checks} checked combinations${clubComplete?'':' (club scan capped)'}. This is a bounded search, not proof your club cannot solve it. No squad changes were made.`);
+      if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed before adding players. Nothing was added.');
+      const output=best.lineup.map((item,index)=>({name:teamPlayerName(item),baseId:asset(item),definitionId:Number(item.definitionId),ownedId:Number(item.id),owned:true,rating:Number(item.rating),rarity:Number(item.rareflag),price:0,position:slots[index].generalPositionName,slotPosition:slots[index].generalPositionName,futbinSlot:slots[index].index,slotIndex:slots[index].index}));
+      try{
+        apply(best.lineup);
+        if(!challenge.meetsRequirements()||(typeof squad.isSBCSquadEligible==='function'&&!squad.isSBCSquadEligible()))throw Error('EA did not confirm this squad.');
+        await observe(services.SBC.saveChallenge(challenge),false,'sbc-club-save');
+      }catch(error){restore();throw Error(`${error.message} Reopen the SBC to verify its saved state. No submission was attempted.`);}
+      return {ok:true,challenge:snapshot(),players:output,checks,clubComplete};
+    }
     if(action==='sbcQuote'){
       const player=payload.player,balance=coinBalance();
       if(!Number.isSafeInteger(player?.definitionId)||player.definitionId<1||!Number.isSafeInteger(balance)||balance<0)throw Error('EA cannot check this card or the current coin balance.');
