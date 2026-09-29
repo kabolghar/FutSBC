@@ -252,7 +252,7 @@ function teamNoFitReason(group){
 }
 function renderTeam(){
   $('team-refresh').disabled=teamPending;$('team-find').disabled=(teamPending&&!teamRunActive)||!teamSelected.size;
-  $('team-find').firstElementChild.textContent=teamRunActive?'Stop team check':teamPending?'Reading squad…':'Build a meta XI';
+  $('team-find').firstElementChild.textContent=teamRunActive?'Stop team check':teamPending?'Reading squad…':teamResult?.pricingIncomplete?'Continue team search':'Build a meta XI';
   $('team-name').textContent=team.name||'Open your active squad';
   $('team-chemistry').textContent=Number.isFinite(team.chemistry)?`${team.chemistry}/33 chemistry`:'— chemistry';
   $('team-balance').textContent=Number.isFinite(team.balance)?`${fmt(team.balance)} coins`:'— coins';

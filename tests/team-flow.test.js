@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async()=>{
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
-  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false;
+  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false,forceLimit=false;
   globalThis.chrome={
     runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
     action:{onClicked:{addListener:()=>{}}},sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},
@@ -16,7 +16,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       if(target.tabId===2&&func.name==='readFutbinTeamPlayers')return [{result:estimates?{kind:'team-players',checkedAt:Date.now(),cards:[{assetId:200,rating:85,name:'Estimate GK',url:'https://www.futbin.com/27/player/200/gk',price:1000,futbinRating:90,revision:'Normal',positions:['GK']},{assetId:300,rating:85,name:'Estimate RB',url:'https://www.futbin.com/27/player/300/rb',price:1200,futbinRating:90,revision:'Normal',positions:['RB']}]}:{blocked:true,error:'Browser verification'}}];
       if(target.tabId===2&&func.name==='readFutggBest'){
         const position=tabURL.includes('/gk/')?'GK':'RB';
-        return [{result:{kind:'futgg-best',url:tabURL,checkedAt:Date.now(),cards:Array.from({length:6},(_,i)=>({assetId:(position==='GK'?200:300)+i,definitionId:(position==='GK'?200:300)+i,rating:85-i,name:`${position} ${i}`,url:`https://www.fut.gg/players/${(position==='GK'?200:300)+i}-card/27-${(position==='GK'?200:300)+i}/`,metaRank:i+1,source:'FUT.GG'}))}}];
+        return [{result:{kind:'futgg-best',url:tabURL,checkedAt:Date.now(),cards:Array.from({length:30},(_,i)=>({assetId:(position==='GK'?200:300)+i,definitionId:(position==='GK'?200:300)+i,rating:85-Math.floor(i/5),name:`${position} ${i}`,url:`https://www.fut.gg/players/${(position==='GK'?200:300)+i}-card/27-${(position==='GK'?200:300)+i}/`,metaRank:i+1,source:'FUT.GG'}))}}];
       }
       if(target.tabId!==1)throw Error(`Unexpected tab ${target.tabId}`);
       const [action,payload]=args;calls.push({action,payload});
@@ -25,11 +25,12 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
       if(action==='teamPlan'){
+        if(forceLimit&&!payload.groups.some(group=>group.options.some(card=>card.pricePending)))return [{result:{ok:true,plan:null,reason:'No known fit'}}];
         assert.equal(payload.groups.length,2);
-        assert(payload.groups.every(group=>group.options.length===(estimates?1:6)),'keep candidates for combined chemistry planning');
+        assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
         assert(payload.budget<=50000);
-        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>group.options[0])},combinationsChecked:4}}];
+        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0])},combinationsChecked:4}}];
       }
       throw Error(`Unexpected EA action ${action}`);
     }}
@@ -40,6 +41,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.equal(result.data.plan.chemistry,12);
   assert.equal(result.data.results.length,2);
   assert.equal(result.data.cardsPriced,2);
+  assert(calls.filter(call=>call.action==='teamPlan').some(call=>call.payload.groups.every(group=>group.options.length===1&&!group.options[0].pricePending)),'return a priced plan before chasing more unknown cards');
   assert.equal(result.data.results.flatMap(group=>group.options).filter(option=>option.priceVerified).length,2);
   assert.equal(calls.filter(call=>call.action==='teamQuote').flatMap(call=>call.payload.definitionIds).length,2);
   await new Promise(resolve=>setImmediate(resolve));
@@ -64,6 +66,18 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.equal((await send('teamRunState')).data.running,false);
   assert(calls.filter(call=>call.action==='teamPlan').length>=before);
 
+  forceLimit=true;
+  const countBeforeLimit=calls.filter(call=>call.action==='teamQuote').length;
+  const incomplete=await send('teamRecommend',{slots:[0,1],budget:47000});
+  assert.equal(incomplete.ok,true,incomplete.error);
+  assert.equal(incomplete.data.pricingIncomplete,true);
+  assert.equal(incomplete.data.plan,null,'never return optimistic prices when coverage is incomplete');
+  assert.match(incomplete.data.planReason,/does not mean your budget is too low/);
+  assert.equal(calls.filter(call=>call.action==='teamQuote').length-countBeforeLimit,24);
+  forceLimit=false;
+  const resumed=await send('teamRecommend',{slots:[0,1],budget:47000});
+  assert.equal(resumed.ok,true,resumed.error);
+  assert.equal(resumed.data.cardsPriced,0,'reuse saved quotes on continuation');
   estimates=true;
   await import('../extension/background.js?team-estimates');
   const priceCalls=calls.filter(call=>call.action==='teamQuote').length;

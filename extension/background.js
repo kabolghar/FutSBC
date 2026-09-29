@@ -431,7 +431,7 @@ async function recommendTeam(slots,budget){
   }
   // Estimates are sufficient for recommendations. Unknown fallback prices are
   // optimistic only inside planning; never expose an unpriced lineup as affordable.
-  const quotes=new Map();let priceCheckedAt=null,cardsPriced=0,planned;
+  const quotes=new Map();let priceCheckedAt=null,cardsPriced=0,planned,pricingIncomplete=false;
   const cachePrefix=JSON.stringify([tabId,team.fingerprint,total]);
   for(const result of results)result.options=result.options.map(option=>({...option,
     price:option.owned?0:option.estimatedPrice??option.price,
@@ -446,13 +446,25 @@ async function recommendTeam(slots,budget){
       if(quote)return Number.isSafeInteger(quote.price)?[{...option,price:quote.price,priceVerified:true}]:[];
       return [{...option,price:150,priceVerified:true,pricePending:true}];
     })}));
+    // Unknown prices must not keep displacing an already affordable team.
+    const knownGroups=groups.map(group=>({...group,options:group.options.filter(option=>!option.pricePending)}));
+    const canPlanKnown=knownGroups.every(group=>group.options.length||team.players.find(player=>player.index===group.slotIndex)?.definitionId);
+    let known=null;
+    if(canPlanKnown){
+      known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups},SBC_REQUEST_TIMEOUT);
+      if(known.plan){planned=known;break;}
+    }
+    if(round===24||cardsPriced>=24){
+      planned=known||{plan:null,progressPlan:null};pricingIncomplete=true;
+      planned={...planned,reason:'Price coverage is incomplete; this does not mean your budget is too low. Run the team search again to continue with recent prices saved.'};
+      break;
+    }
     planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups},SBC_REQUEST_TIMEOUT);
     const pending=[...new Set(((planned.plan||planned.progressPlan)?.choices||[]).filter(option=>option.pricePending).map(option=>option.definitionId))];
     if(!pending.length)break;
-    if(round===24||cardsPriced+pending.length>24)throw Error('No fully priced lineup found within 24 targeted checks. Try fewer positions or a larger budget.');
     const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
     if(paused>Date.now())throw Error('EA paused live prices. FUTBIN estimates remain available; retry fallback prices later.');
-    for(const id of pending){
+    for(const id of pending.slice(0,24-cardsPriced)){
       if(cardsPriced)await new Promise(resolve=>setTimeout(resolve,1000));
       teamProgress(`Pricing proposed lineup · ${cardsPriced+1} cards checked`);
       let batch;
@@ -473,7 +485,7 @@ async function recommendTeam(slots,budget){
     return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),priceChecked:!!quote};
   });
   teamProgress('Team check complete.');
-  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:source==='FUTBIN'?'estimate':'live'};
+  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:source==='FUTBIN'?'estimate':'live'};
 }
 async function trendRankedTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);
