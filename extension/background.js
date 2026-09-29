@@ -530,13 +530,14 @@ async function applyTeamSuggestion(message){
   const {tabId,team}=await connectedTeam();
   if(team.fingerprint!==saved.team.fingerprint)throw Error('Your squad changed. Refresh Team before adding concepts.');
   const groups=saved.plan.choices.map(choice=>({slotIndex:choice.slotIndex,allowRetained:false,options:[choice]}));
+  let applied;
   try{
-    await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:Math.min(saved.totalBudget,team.balance),minimumChemistry:saved.plan.chemistry,groups},SBC_REQUEST_TIMEOUT);
+    applied=await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:Math.min(saved.totalBudget,team.balance),minimumChemistry:saved.plan.chemistry,groups},SBC_REQUEST_TIMEOUT);
   }catch(error){
     if(error.stage==='team-apply-save')await chrome.storage.session.set({'futsbc-team-plan':{...saved,applyUncertain:true}});
     throw error;
   }
-  const result={...saved,applied:true,planId:crypto.randomUUID()};
+  const result={...saved,plan:applied.plan||saved.plan,applied:true,planId:crypto.randomUUID()};
   await chrome.storage.session.set({'futsbc-team-plan':result});return result;
 }
 async function refreshSwapCandidates(saved,group,team,tabId,budget){

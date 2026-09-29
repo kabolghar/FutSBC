@@ -250,6 +250,33 @@ export async function eaOperation(action, payload = {}) {
         if(!Array.isArray(found.response?.items))throw Error('EA concept search changed.');
         for(const item of found.response.items)if(item?.concept&&batch.includes(Number(item.definitionId)))concepts.set(Number(item.definitionId),item);
       }
+      const ownedForApply=new Map();
+      if(action==='teamApply'){
+        if(typeof services.Club?.search!=='function')throw Error('EA club search is unavailable. No squad changes were made.');
+        const occupied=new Set(players.map(slot=>Number(slot.item?.id)).filter(id=>id>0));
+        for(let start=0;start<ids.length;start+=12){
+          const batch=ids.slice(start,start+12);
+          for(let page=0;page<5;page++){
+            const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch;criteria.count=100;criteria.offset=page*100;
+            const found=await observe(services.Club.search(criteria),false,'team-apply-club');
+            const rows=found.response?.items;
+            if(!Array.isArray(rows))throw Error('EA club results changed. No squad changes were made.');
+            for(const item of rows){
+              const id=Number(item.id),definitionId=Number(item.definitionId);
+              if(!Number.isSafeInteger(id)||id<1||item.concept||occupied.has(id)||!batch.includes(definitionId)||item.isValid?.()===false)continue;
+              if(!groups.some(group=>group.options?.some(option=>Number(option.definitionId)===definitionId&&Number(option.rating)===Number(item.rating))))continue;
+              if(!ownedForApply.has(definitionId))ownedForApply.set(definitionId,item);
+            }
+            if(found.response?.retrievedAll===true||rows.length<criteria.count)break;
+            if(page===4)throw Error('EA club search was incomplete. No squad changes were made.');
+          }
+        }
+        for(const group of groups)for(const option of group.options||[]){
+          if(option.owned&&!ownedForApply.has(Number(option.definitionId)))throw Error(`${option.name||'An owned card'} is no longer available in your club. Refresh Team before adding players. No squad changes were made.`);
+        }
+        // Evaluate and insert the actual owned instance, including its chemistry data.
+        for(const [id,item] of ownedForApply)concepts.set(id,item);
+      }
       if(new Set(groups.map(group=>group.slotIndex)).size!==groups.length)throw Error('Choose each squad position once.');
       const rejections={invalidCards:0,overBudget:0,duplicatePlayer:0,chemistryUnavailable:0,totalChemistry:0,newCardChemistry:0,retainedChemistry:0,belowTarget:0};
       const bySlot=groups.map(group=>{
@@ -257,7 +284,7 @@ export async function eaOperation(action, payload = {}) {
         if(!slot)throw Error('A selected squad slot changed. Refresh Team.');
         const positionIds={GK:0,RWB:2,RB:3,CB:5,LB:7,LWB:8,CDM:10,RM:12,CM:14,LM:16,CAM:18,CF:21,RW:23,ST:25,LW:27};
         const target=positionIds[String(slot.generalPositionName||'').toUpperCase()];
-        const choices=(group.options||[]).filter(option=>{
+        const choices=(group.options||[]).map(option=>action==='teamApply'&&ownedForApply.has(Number(option.definitionId))?{...option,owned:true,ownedId:Number(ownedForApply.get(Number(option.definitionId)).id),price:0,priceVerified:true}:option).filter(option=>{
           const item=concepts.get(Number(option.definitionId));
           return item&&Number(item.rating)===Number(option.rating)&&(Number(item.assetId)===Number(option.assetId)||Number(item.definitionId)%0x1000000===Number(option.assetId))&&
             (Number(item.preferredPosition)===target||[item.basePossiblePositions,item.possiblePositions].some(positions=>Array.isArray(positions)&&positions.some(position=>Number(position)===target)))&&
@@ -354,7 +381,7 @@ export async function eaOperation(action, payload = {}) {
           error.message+=saving?' The local squad was restored; reopen your squad in EA to check whether the save succeeded.':' The local squad was restored.';
           throw error;
         }
-        return {ok:true,applied:best.choices.length,chemistry:best.chemistry};
+        return {ok:true,applied:best.choices.length,owned:best.choices.filter(choice=>choice.owned).length,chemistry:best.chemistry,plan:{...best,remaining:limit-best.cost}};
       }
       return {ok:true,rejections,alternatives:[...alternatives.values()].sort(compare).slice(0,30).map(plan=>({...plan,remaining:limit-plan.cost})),progressPlan:!best&&progress?{...progress,remaining:limit-progress.cost,baselineChemistry:Number(baseline.chemistry),targetChemistry:minimumChemistry}:null,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
     }

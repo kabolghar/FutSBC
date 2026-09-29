@@ -209,6 +209,30 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const applied=await eaOperation('teamApply',applyPayload);
   assert.equal(applied.ok,true,applied.error);assert.equal(applied.applied,5);assert.equal(saves,1);
   assert(slots.slice(0,5).every(slot=>slot.item.concept));assert.equal(slots[5].item,unchanged);
+  for(let index=0;index<slots.length;index++)slots[index].item=beforeApply[index];
+  const newlyOwned={...fiveCards[0],id:8000,concept:false,isValid:()=>true};
+  const alreadyOwned={...fiveCards[1],id:8001,concept:false,isValid:()=>true};
+  const wrongVersion={...fiveCards[2],id:8002,rating:83,concept:false,isValid:()=>true};
+  services.Club.search=()=>observed([newlyOwned,alreadyOwned,wrongVersion]);
+  const mixedPayload={...applyPayload,groups:applyPayload.groups.map((group,index)=>index===1?{...group,options:group.options.map(card=>({...card,owned:true,ownedId:8001,price:0}))}:group)};
+  const mixedApplied=await eaOperation('teamApply',mixedPayload);
+  assert.equal(mixedApplied.ok,true,mixedApplied.error);
+  assert.equal(slots[0].item,newlyOwned,'use cards acquired since the recommendation was built');
+  assert.equal(slots[1].item,alreadyOwned,'insert the actual owned instance, not its concept');
+  assert(slots.slice(2,5).every(slot=>slot.item.concept),'wrong-rating copies do not replace the selected version');
+  assert.equal(mixedApplied.owned,2);assert.equal(mixedApplied.plan.cost,6000);
+  assert.equal(mixedApplied.plan.choices[0].ownedId,8000);
+  for(let index=0;index<slots.length;index++)slots[index].item=beforeApply[index];
+  services.Club.search=()=>observed([]);
+  const saveCount=saves;
+  const disappeared=await eaOperation('teamApply',mixedPayload);
+  assert.equal(disappeared.ok,false);assert.match(disappeared.error,/no longer available/);
+  assert.deepEqual(slots.map(slot=>slot.item),beforeApply);assert.equal(saves,saveCount);
+  services.Club.search=()=>({observe(owner,callback){queueMicrotask(()=>callback(this,{success:false,status:401}));},unobserve(){}});
+  const clubFailure=await eaOperation('teamApply',applyPayload);
+  assert.equal(clubFailure.status,401);assert.equal(clubFailure.stage,'team-apply-club');
+  assert.deepEqual(slots.map(slot=>slot.item),beforeApply);assert.equal(saves,saveCount);
+
 });
 
 test('market price ceiling rounds down to an EA price step without exceeding balance',async()=>{

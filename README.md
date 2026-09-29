@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.19**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.20**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -98,3 +98,7 @@ Swap searches FUTBIN candidates even when FUT.GG already returns a full ranking.
 ### Deeper ranked swaps without FUTBIN (v0.21.19)
 
 Swap expands the official FUT.GG ranking through its Load more control, up to 120 verified ranked cards. Initial team searches remain bounded to 30. The expanded cache cannot be satisfied by an earlier 30-card page. Deeper cards retain their actual rank, exact FC 27 identity, price checks, and EA chemistry validation; no ranks or prices are invented. Pagination clicks are bounded and a stalled rendered batch is not clicked repeatedly.
+
+### Owned cards when adding Team suggestions (v0.21.20)
+
+Add concept players rechecks the club before applying the lineup. Exact owned cards are inserted as real items, including cards acquired since planning; only missing cards use concepts. Ownership changes update the displayed plan cost. If a previously owned card disappears or the club lookup fails, applying stops before editing the squad. Chemistry is checked using the actual items being added.
