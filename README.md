@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.6**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.7**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -52,3 +52,7 @@ The preview is visual only at `http://127.0.0.1:4173`; load `extension/` to test
 Latest validation: 134 automated tests passed. Live checks verified SBC concept building and price quotes, plus Team progress and cancellation. The latest expanded Team run did not complete all live quotes. No live purchases or SBC submissions were made in that verification.
 
 Bundled font licenses are in `extension/fonts/`. Local research, screenshots, development dependencies, and private settings are excluded from the public repository.
+
+### Web App not detected
+
+Update to v0.21.7 or later, allow FutSBC access to EA in the browser’s extension settings, then refresh the EA tab. Regional EA URLs and addresses without a trailing slash are supported. If it still fails, include the full EA tab URL when reporting the issue.

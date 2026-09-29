@@ -1,3 +1,4 @@
+import {isEaWebAppURL,findEaTabs} from './ea-url.js';
 import {resumeComparison} from './sbc-checkpoint.js';
 import {readFutbinTab} from './tab-reader.js';
 import {eaOperation} from './ea.js';
@@ -12,16 +13,14 @@ import {cardArtPage,readCardArt} from './card-art.js';
 import {teamPlayerPages,readFutbinTeamPlayers,selectTeamPlayers} from './futbin-team.js';
 import {futggBestURL,readFutggBest,selectFutggTeamPlayers} from './futgg-team.js';
 import {openOverlay} from './panel-overlay.js';
-const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*';
-const EA_PREFIX=EA.slice(0,-1);
 function showLauncher(tabId,replace=false){
   return chrome.scripting.executeScript({target:{tabId},func:openOverlay,args:[{initiallyOpen:false,replace}]}).catch(()=>{});
 }
 chrome.tabs.onUpdated?.addListener((tabId,change,tab)=>{
-  if(change.status==='complete'&&(change.url||tab.url)?.startsWith(EA_PREFIX))void showLauncher(tabId);
+  if(change.status==='complete'&&isEaWebAppURL(change.url||tab.url))void showLauncher(tabId);
 });
 async function showLauncherInOpenTabs(){
-  const tabs=await chrome.tabs.query({url:EA});
+  const tabs=await findEaTabs(chrome.tabs);
   await Promise.allSettled(tabs.map(tab=>showLauncher(tab.id,true)));
 }
 chrome.runtime.onInstalled?.addListener(()=>{void showLauncherInOpenTabs();});
@@ -76,7 +75,7 @@ const state=async()=> (await chrome.storage.session.get('state')).state || {};
 const save=async value=>chrome.storage.session.set({state:value});
 async function ea(tabId,action,payload,timeoutMs=0) {
   const tab=await chrome.tabs.get(tabId);
-  if(!tab.url?.startsWith(EA.slice(0,-1))) throw Error('The connected tab is no longer the FC Web App.');
+  if(!isEaWebAppURL(tab.url)) throw Error('The connected tab is no longer the FC Web App.');
   const request=chrome.scripting.executeScript({target:{tabId},world:'MAIN',func:eaOperation,args:[action,payload||{}]});
   let timer;
   const results=timeoutMs?await Promise.race([request,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(`EA ${action} did not respond within ${Math.round(timeoutMs/1000)} seconds.`)),timeoutMs);})]).finally(()=>clearTimeout(timer)):await request;
@@ -263,7 +262,7 @@ async function refreshMarketInsights(){
   const previous=await insightsState();
   await saveInsights({...previous,status:'Reading current FC 27 console prices…'});
   try{
-    const tabs=await chrome.tabs.query({url:EA});
+    const tabs=await findEaTabs(chrome.tabs);
     let balance,reason='Open your signed-in FC 27 console Web App to refresh the market brief.';
     for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))){
       try{balance=(await ea(tab.id,'tradeStatus',null,TRADE_REQUEST_TIMEOUT)).balance;break;}catch(error){reason=error.message;}
@@ -292,7 +291,7 @@ async function refreshMarketInsights(){
   }catch(error){await saveInsights({...await insightsState(),status:`Market refresh failed: ${error.message}`});throw error;}
 }
 async function connectedTeam(){
-  const tabs=await chrome.tabs.query({url:EA});
+  const tabs=await findEaTabs(chrome.tabs);
   let reason='Open your signed-in FC 27 Web App and active squad.';
   for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))){
     try{return {tabId:tab.id,team:await ea(tab.id,'teamSnapshot',null,SBC_REQUEST_TIMEOUT)};}catch(error){reason=error.message;}
@@ -495,7 +494,7 @@ async function runAutoTrade(){
     if(session.mode!=='auction')throw Error('The saved trader mode changed. Restart the auction trader.');
     if(session.inFlight)throw Error('A previous auction request was interrupted. Check Transfer Targets and New Items.');
     const tab=await chrome.tabs.get(session.tabId);
-    if(!tab.url?.startsWith(EA_PREFIX))throw Error('The FC Web App tab closed or navigated away.');
+    if(!isEaWebAppURL(tab.url))throw Error('The FC Web App tab closed or navigated away.');
     const current=await ea(session.tabId,'tradeStatus',null,TRADE_REQUEST_TIMEOUT);
     if(!(await tradeState()).enabled)return;
     let activeBids=Array.isArray(session.activeBids)?session.activeBids:(session.activeBid?[session.activeBid]:[]);
@@ -689,7 +688,7 @@ async function dispatch(message) {
     if(previous.enabled||previous.inFlight)throw Error('Stop the auto trader before checking FUTBIN separately.');
     tradingBusy=true;
     try{
-      const tabs=await chrome.tabs.query({url:EA});
+      const tabs=await findEaTabs(chrome.tabs);
       let balance,lastError='Open the signed-in FC 27 console Web App first.';
       for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))){
         try{balance=(await ea(tab.id,'tradeStatus',null,TRADE_REQUEST_TIMEOUT)).balance;break;}catch(error){lastError=error.message;}
@@ -713,7 +712,7 @@ async function dispatch(message) {
     if(previous.cooldownUntil>Date.now())throw Error('EA has limited market searches. Wait for the pause shown in FutSBC before checking again.');
     tradingBusy=true;
     try {
-      const tabs=await chrome.tabs.query({url:EA});
+      const tabs=await findEaTabs(chrome.tabs);
       let tabId,balance,lastError='Open the FC 27 Web App and sign in first.';
       for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))){
         try{balance=(await ea(tab.id,'tradeStatus',null,TRADE_REQUEST_TIMEOUT)).balance;tabId=tab.id;break;}catch(error){lastError=error.message;}
@@ -769,7 +768,7 @@ async function dispatch(message) {
     if(previous.recoveryRequired) throw Error('Check Transfer Targets and New Items, then mark the auction as reviewed before restarting.');
     if(previous.activeBid||previous.activeBids?.length) throw Error('Check active auctions in Transfer Targets before restarting.');
     if(previous.cooldownUntil>Date.now())throw Error('EA has limited market searches. Wait for the pause shown in FutSBC before restarting.');
-    const tabs=await chrome.tabs.query({url:EA});
+    const tabs=await findEaTabs(chrome.tabs);
     let result,tabId,lastError='Open the FC 27 Web App and sign in first.';
     for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))){
       try{result=await ea(tab.id,'tradeStatus',null,TRADE_REQUEST_TIMEOUT);tabId=tab.id;break;}catch(error){lastError=error.message;}
@@ -907,7 +906,7 @@ async function dispatch(message) {
     return dispatch({type:'approve'});
   }
   if(message.type==='connect') {
-    const tabs=await chrome.tabs.query({url:EA});
+    const tabs=await findEaTabs(chrome.tabs);
     let lastError='Open the FC 27 Web App and an SBC squad first.';
     for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))) {
       try {const result=await ea(tab.id,'status');const s=await state();const unchanged=s.tabId===tab.id&&s.challenge?.id===result.challenge.id&&s.challenge?.fingerprint===result.challenge.fingerprint;const next=unchanged?{...s,challenge:result.challenge}:{...s,tabId:tab.id,challenge:result.challenge,plan:null,resolved:null,alternatives:[],listedSolutions:[],incompleteSolutions:[],swapOptions:null,checkout:null,inserted:false,approved:false};await save(next);return next;}catch(e){lastError=e.message;}

@@ -1,16 +1,18 @@
 {
   "manifest_version": 3,
   "name": "FutSBC \u00b7 FC 27 Console",
-  "version": "0.21.6",
+  "version": "0.21.7",
   "description": "Build FC 27 SBC squads, review conditional console trade plans, and find chemistry-safe team upgrades.",
   "permissions": [
     "storage",
     "scripting",
     "sidePanel",
-    "alarms"
+    "alarms",
+    "activeTab"
   ],
   "host_permissions": [
-    "https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*",
+    "https://www.ea.com/*",
+    "https://ea.com/*",
     "https://www.futbin.com/*",
     "https://www.fut.gg/*",
     "https://generativelanguage.googleapis.com/*"
@@ -21,7 +23,8 @@
         "panel.html"
       ],
       "matches": [
-        "https://www.ea.com/*"
+        "https://www.ea.com/*",
+        "https://ea.com/*"
       ]
     }
   ],

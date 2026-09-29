@@ -54,6 +54,9 @@ test('one build action connects, compares, inserts concepts and unlocks manual s
  onInstalled();
  await new Promise(resolve=>setImmediate(resolve));
  assert.deepEqual(overlayCalls[1],{initiallyOpen:false,replace:true});
+ tabUpdated(1,{status:'complete'},{id:1,url:'https://www.ea.com/en-gb/ea-sports-fc/ultimate-team/web-app'});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(overlayCalls.at(-1),{initiallyOpen:false,replace:false});
  const send=(type,extra={})=>new Promise(resolve=>listener({type,...extra},{id:'test-extension',url:'chrome-extension://test-extension/panel.html'},resolve));
  const result=await send('build',{mode:'quick'});
  assert.equal(result.ok,true,result.error);
