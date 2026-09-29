@@ -307,8 +307,8 @@ function renderTeam(){
           const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.title='Swap player';swap.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg>';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending||!!teamResult.applied;swap.onclick=()=>loadTeamAlternatives(player.index);actions.append(swap);
           if(teamSwapView?.slotIndex===player.index){
             const picker=document.createElement('div');picker.className='team-swap-options';
-            const heading=document.createElement('strong');heading.textContent='Fits your planned team';picker.append(heading);
-            if(!teamSwapView.alternatives.length){const empty=document.createElement('p');empty.textContent='No checked alternative keeps this team’s chemistry and budget.';picker.append(empty);}
+            const heading=document.createElement('strong');heading.textContent=teamSwapView.loading?'Checking fresh alternatives…':'Fits your planned team';picker.append(heading);
+            if(!teamSwapView.loading&&!teamSwapView.alternatives.length){const empty=document.createElement('p');empty.textContent=teamSwapView.reason||'No checked alternative meets this team’s chemistry and budget.';picker.append(empty);}
             for(const alternative of teamSwapView.alternatives){
               const button=document.createElement('button');button.type='button';button.className='team-swap-choice';button.disabled=teamPending;
               const candidate=alternative.card;
@@ -342,8 +342,8 @@ async function applyTeamConcepts(){
   finally{teamPending=false;renderTeam();}
 }
 async function loadTeamAlternatives(slotIndex){
-  if(teamPending)return;teamPending=true;teamUiError='';teamSwapView=null;renderTeam();
-  try{teamSwapView=await call('teamAlternatives',{slotIndex,planId:teamResult.planId});}catch(error){teamUiError=error.message;}
+  if(teamPending)return;teamPending=true;teamUiError='';teamSwapView={slotIndex,loading:true,alternatives:[]};renderTeam();
+  try{teamSwapView=await call('teamAlternatives',{slotIndex,planId:teamResult.planId});}catch(error){teamSwapView=null;teamUiError=error.message;}
   finally{teamPending=false;renderTeam();}
 }
 async function chooseTeamAlternative(slotIndex,definitionId){

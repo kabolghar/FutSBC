@@ -16,6 +16,16 @@ test('meta fit leads after chemistry is preserved, and weak cards are excluded',
   assert.equal(ranked[1].approval,90);
 });
 
+test('meta ranking is independent of overall rating and gender',()=>{
+  const base={source:'FUT.GG',price:1000,estimatedPrice:1000,chemistryChange:0,slotChemistryChange:0};
+  const ranked=rankTeamUpgrades([{...base,assetId:1,rating:91,gender:'female',metaRank:20},{...base,assetId:2,rating:81,gender:'male',metaRank:2}]);
+  assert.equal(ranked[0].assetId,2);
+  const opposite=rankTeamUpgrades([{...base,assetId:1,rating:91,gender:'male',metaRank:20},{...base,assetId:2,rating:81,gender:'female',metaRank:2}]);
+  assert.deepEqual(opposite.map(card=>card.score),ranked.map(card=>card.score));
+  const tied=rankTeamUpgrades([{...base,assetId:1,rating:91,metaRank:2},{...base,assetId:2,rating:81,metaRank:2}]);
+  assert.equal(tied[0].score,tied[1].score,'overall rating is not a gameplay performance bonus');
+});
+
 test('club ownership labels a FUTBIN candidate without boosting its rank',()=>{
   const common={rating:84,futbinRating:86,estimatedPrice:10000,chemistryChange:0,slotChemistryChange:0};
   const [first,second]=rankTeamUpgrades([{...common,assetId:1,price:0,owned:true},{...common,assetId:2,price:10000,owned:false}]);
@@ -132,6 +142,9 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const keepsLowChem=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
   assert.equal(keepsLowChem.plan.chemistry,31,'an unchanged one-chemistry player must not block chemistry-preserving upgrades elsewhere');
   assert.equal(keepsLowChem.plan.slotChemistry[1],1);
+  const mixed=groups.map(group=>({...group,options:group.options.map(card=>card.definitionId===22?{...card,source:'FUTBIN',futbinRating:99,metaRank:null}:card)}));
+  const metaFirst=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups:mixed});
+  assert.equal(metaFirst.plan.choices.find(card=>card.slotIndex===0).definitionId,20,'do not compare FUTBIN numeric ratings with invented GG rank scores');
   // Five affordable replacements must beat one star taking the whole budget.
   for(let index=0;index<5;index++){slots[index].generalPositionName='ST';if(index===2)slots[index].item={id:902,definitionId:902,assetId:902,rating:80,isValid:()=>true};}
   const fiveCards=Array.from({length:5},(_,index)=>({concept:true,assetId:40+index,definitionId:40+index,rating:84,preferredPosition:25}));

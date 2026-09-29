@@ -277,8 +277,8 @@ export async function eaOperation(action, payload = {}) {
       const hasCard=item=>Number(item?.definitionId)>0;
       const completeXI=fixed.every(row=>hasCard(row.item));
       const minimumChemistry=Math.max(Number(baseline.chemistry),completeXI?30:0);
-      const rankValue=option=>option.retained?0:option.source==='FUT.GG'?100-(Number(option.metaRank)-1)*1.25:Number(option.futbinRating)||75;
-      const compare=(a,b)=>(b.coverage||0)-(a.coverage||0)||b.chemistry-a.chemistry||b.meta-a.meta||a.cost-b.cost;
+      const rankValue=option=>!option.retained&&option.source==='FUT.GG'?31-Number(option.metaRank):0;
+      const compare=(a,b)=>(b.coverage||0)-(a.coverage||0)||b.chemistry-a.chemistry||(b.metaEvidence||0)-(a.metaEvidence||0)||b.meta-a.meta||(b.fallbackMeta||0)-(a.fallbackMeta||0)||a.cost-b.cost;
       // Bounded beam search preserves whole-team alternatives instead of reducing
       // each position to the cheapest two plus one highly ranked card.
       const reserveByStep=Array(bySlot.length+1).fill(0);
@@ -294,11 +294,13 @@ export async function eaOperation(action, payload = {}) {
           const lineup=players.map(row=>chosen.get(row.index)?.item||row.item);
           let chem;try{chem=calculator.calculate(formation,lineup,manager);}catch{continue;}
           if(!Number.isFinite(chem?.chemistry))continue;
-          const meta=branch.meta+rankValue(choice.option)+Number(choice.option.rating)*.1;
+          const meta=branch.meta+rankValue(choice.option);
+          const fallbackMeta=[...chosen.values()].reduce((sum,value)=>sum+(!value.option.retained&&value.option.source!=='FUT.GG'?(Number(value.option.futbinRating)||75):0),0);
+          const metaEvidence=[...chosen.values()].filter(value=>!value.option.retained&&value.option.source==='FUT.GG'&&Number.isInteger(value.option.metaRank)).length;
           const coverage=[...chosen.values()].filter(value=>!value.option.retained).length;
           const reserve=reserveByStep[step+1];
           const canComplete=coverage===chosen.size&&cost+reserve<=limit;
-          const candidate={chosen,used,cost,meta,coverage,canComplete,chemistry:Number(chem.chemistry)};
+          const candidate={chosen,used,cost,meta,fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
             if(candidate.chemistry<Number(baseline.chemistry)||![...chosen.values()].some(value=>!value.option.retained))continue;
@@ -308,7 +310,7 @@ export async function eaOperation(action, payload = {}) {
             const meetsTarget=candidate.chemistry>=minimumChemistry;
             const prior=meetsTarget?best:progress;
             if(meetsTarget||candidate.chemistry>Number(baseline.chemistry)){
-              const found={meta,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)})).sort((a,b)=>a.slotIndex-b.slotIndex)};
+              const found={meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)})).sort((a,b)=>a.slotIndex-b.slotIndex)};
               if(!prior||compare(candidate,prior)<0){if(meetsTarget)best=found;else progress=found;}
               if(meetsTarget&&Number.isInteger(payload.alternativesForSlot)){
                 const id=chosen.get(payload.alternativesForSlot)?.option.definitionId;
