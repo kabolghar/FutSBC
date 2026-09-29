@@ -152,7 +152,7 @@ test('menu picker selects an exact version and sends a locked pick without editi
  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
  dom.window.chrome={runtime:{id:'test',sendMessage:async()=>({ok:true,data:{}})},storage:{onChanged:{addListener(){}}}};
  try{
- dom.window.eval(script+`\nteam={balance:10000,players:[]};teamSelected=new Set([0]);window.showFutureResult=()=>{teamResult={checkedAt:Date.now(),plan:{choices:[],cost:80000,remaining:20000,chemistry:33}};renderTeam();};`);
+ dom.window.eval(script+`\nteam={balance:10000,players:[]};teamSelected=new Set([0]);window.showFutureResult=()=>{teamResult={checkedAt:Date.now(),plan:{choices:[],cost:80000,remaining:20000,chemistry:28,chemistryTradeoff:true,baselineChemistry:33,targetChemistry:33}};renderTeam();};`);
  const doc=dom.window.document;doc.getElementById('team-budget').value='custom';doc.getElementById('team-budget').dispatchEvent(new dom.window.Event('change'));
  assert.equal(doc.getElementById('team-custom-budget').hidden,false);
  doc.getElementById('team-custom-budget').value='100000';dom.window.renderTeam();
@@ -160,6 +160,7 @@ test('menu picker selects an exact version and sends a locked pick without editi
  dom.window.showFutureResult();
  assert.match(doc.getElementById('team-results').textContent,/Coins needed: 70,000 more/);
  assert.match(doc.querySelector('.team-plan-summary').textContent,/20,000 coins/);
+ assert.match(doc.getElementById('team-results').textContent,/Chemistry trade-off: 33 → 28\/33/);
  await new Promise(resolve=>setImmediate(resolve));
  }finally{dom.window.close();}
  });

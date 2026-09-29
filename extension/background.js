@@ -528,7 +528,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
     const canPlanKnown=knownGroups.every(group=>group.options.length||team.players.find(player=>player.index===group.slotIndex)?.definitionId);
     let known=null;
     if(canPlanKnown){
-      known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups},SBC_REQUEST_TIMEOUT);
+      known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups,allowChemistryFallback:results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
       if(known.plan&&known.plan.choices.length===results.length&&known.plan.choices.filter(card=>card.source==='FUT.GG').length>=groups.filter(group=>group.options.some(card=>card.source==='FUT.GG')).length){planned=known;break;}
     }
     if(round===maxPriceChecks||cardsPriced>=maxPriceChecks){
@@ -536,7 +536,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
       planned={...planned,reason:'Price coverage is incomplete; this does not mean your budget is too low. Run the team search again to continue with recent prices saved.'};
       break;
     }
-    planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups},SBC_REQUEST_TIMEOUT);
+    planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups,allowChemistryFallback:results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
     const pending=[...new Set(((planned.plan||planned.progressPlan)?.choices||[]).filter(option=>option.pricePending).map(option=>option.definitionId))];
     if(!pending.length)break;
     const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
@@ -561,12 +561,12 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
     const quote=quotes.get(option.definitionId);
     return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),priceChecked:!!quote};
   });
-  if(!broaden&&source==='FUTBIN'&&planned?.plan?.choices.length!==results.length){
+  if(!broaden&&source==='FUTBIN'&&(planned?.plan?.choices.length!==results.length||planned?.plan?.chemistryTradeoff)){
     teamProgress('Expanding rankings for positions still to fill…');
     return recommendTeam(slots,budget,true,picks);
   }
   teamProgress('Team check complete.');
-  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
+  return {team,results,allowChemistryTradeoff:planned.plan?.chemistryTradeoff===true,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
 }
 async function applyTeamSuggestion(message){
   if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before adding concepts.');

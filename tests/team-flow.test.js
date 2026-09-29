@@ -45,7 +45,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
         assert(payload.budget<=100000);
-        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept||menuPick?3:2)},combinationsChecked:4}}];
+        return [{result:{ok:true,plan:{chemistryTradeoff:menuPick,cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept||menuPick?3:2)},combinationsChecked:4}}];
       }
       throw Error(`Unexpected EA action ${action}`);
     }}
@@ -180,6 +180,10 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const menuBuilt=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:2,definitionId:9991,price:1}]});
   assert.equal(menuBuilt.ok,true,menuBuilt.error);assert.equal(menuBuilt.data.plan.choices.find(card=>card.slotIndex===2).definitionId,9991);
   assert.ok(menuBuilt.data.plan.choices.find(card=>card.slotIndex===2).price>1,'UI cannot override the chosen card price');
+  assert.equal(calls.filter(call=>call.action==='teamPlan').at(-1).payload.allowChemistryFallback,true);
+  assert.equal(menuBuilt.data.allowChemistryTradeoff,true);
+  const applyTradeoff=await send('teamApply');assert.equal(applyTradeoff.ok,true,applyTradeoff.error);
+  assert.equal(calls.filter(call=>call.action==='teamApply').at(-1).payload.allowChemistryTradeoff,true);
   const unsearched=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:2,definitionId:123456}]});assert.equal(unsearched.ok,false);assert.match(unsearched.error,/chosen player/);
   const wrongSlot=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:1,definitionId:9991}]});assert.equal(wrongSlot.ok,false);
   menuPick=false;

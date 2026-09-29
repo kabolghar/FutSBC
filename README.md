@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.27**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.28**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -143,3 +143,7 @@ Menu choices override the card currently in that slot and use the same exact-car
 ### Future team budget (v0.21.27)
 
 In Team → Total budget, choose **Future team budget** and enter the coins you want to plan for, even above your current balance. Recommendations, swaps and adding the plan as concepts use that budget. The results show the additional coins needed for the actual proposed lineup. Owned cards still count as zero purchase cost. Trading and buying continue to use your real coin balance.
+
+### Build-around chemistry trade-offs (v0.21.28)
+
+When you keep an EA concept or choose a player in FutSBC, Team still prefers complete lineups meeting the chemistry target. If none checked meets every chemistry constraint, it can show a complete, priced alternative around those fixed cards. The result explicitly labels the chemistry trade-off and shows the previous and proposed totals, plus chosen cards below two chemistry. The budget, exact card versions, legal positions and duplicate-player rules remain enforced. The result is the best among the checked candidates, not an exhaustive search or a guarantee of 33 chemistry. Adding concepts rechecks the displayed chemistry before applying.

@@ -340,7 +340,7 @@ export async function eaOperation(action, payload = {}) {
       const calculator=new UTSquadChemCalculatorUtils(services.Chemistry,repositories.TeamConfig),formation=team.getFormation(),manager=team.getManager()?.item;
       const baseline=calculator.calculate(formation,players.map(row=>row.item),manager);
       if(!Number.isFinite(baseline?.chemistry))throw Error('EA could not calculate the current chemistry.');
-      let best=null,progress=null,checked=0;const alternatives=new Map();
+      let best=null,progress=null,chemistryFallback=null,checked=0;const alternatives=new Map();
       const fixed=players.filter(row=>!bySlot.some(group=>group.slot.index===row.index));
       const hasCard=item=>Number(item?.definitionId)>0;
       const completeXI=fixed.every(row=>hasCard(row.item));
@@ -373,6 +373,15 @@ export async function eaOperation(action, payload = {}) {
           const candidate={chosen,used,cost,meta,fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
+            // An explicit build-around choice may require chemistry trade-offs.
+            // Keep the best complete alternative, without relaxing identity or cost.
+            if(action==='teamPlan'&&payload.allowChemistryFallback===true&&completeXI&&coverage===bySlot.length){
+              const slotChemistry=Object.fromEntries(players.map(row=>[row.index,Number(chem.getSlotChemistry?.(row.index)?.points)]));
+              if(Object.values(slotChemistry).every(points=>Number.isFinite(points)&&points>=0&&points<=3)){
+                const fallback={meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:[],chemistry:candidate.chemistry,slotChemistry,chemistryTradeoff:true,targetChemistry:minimumChemistry,baselineChemistry:Number(baseline.chemistry),choices:[...chosen].map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:slotChemistry[slotIndex]})).sort((a,b)=>a.slotIndex-b.slotIndex)};
+                if(!chemistryFallback||compare(fallback,chemistryFallback)<0)chemistryFallback=fallback;
+              }
+            }
             if(!allowChemistryTradeoff&&candidate.chemistry<Number(baseline.chemistry)){rejections.totalChemistry++;continue;}
             if(![...chosen.values()].some(value=>!value.option.retained))continue;
             const points=index=>Number(chem.getSlotChemistry?.(index)?.points);
@@ -404,6 +413,7 @@ export async function eaOperation(action, payload = {}) {
         beam=[...new Set([...expanded.slice(0,192),...affordable.slice(0,192),...[...families.values()].flat().slice(0,128)])];
         if(step<bySlot.length-1&&!beam.length)break;
       }
+      if(chemistryFallback&&(!best||best.choices.length<bySlot.length))best=chemistryFallback;
       if(action==='teamApply'){
         if(!best||best.choices.length!==groups.length||best.chemistry<Number(payload.minimumChemistry))throw Error('The recommended team no longer passes the chemistry checks. No squad changes were made.');
         if(typeof team.addItemToSlot!=='function'||typeof team.save!=='function')throw Error('EA squad editing is unavailable.');
