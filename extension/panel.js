@@ -267,7 +267,8 @@ function renderTeam(){
   const selectedCount=teamSelected.size,budget=teamBudget();
   $('team-select-empty').disabled=teamPending||!(team.players||[]).some(player=>!player.definitionId);
   $('team-select-clear').disabled=teamPending||!selectedCount;
-  $('team-allowance').textContent=teamRunActive?teamProgressText:selectedCount?`${fmt(Math.min(budget,team.balance||0))} coins for the full lineup · ${selectedCount} positions chosen`:teamPicks.size?`${fmt(Math.min(budget,team.balance||0))} coins · ${teamPicks.size} chosen player(s)`:'Choose one or more positions.';
+  $('team-allowance').textContent=teamRunActive?teamProgressText:selectedCount?`${fmt(budget)} coins for the full lineup · ${selectedCount} positions chosen`:teamPicks.size?`${fmt(budget)} coins · ${teamPicks.size} chosen player(s)`:'Choose one or more positions.';
+  if(!teamRunActive&&$('team-budget').value==='custom')$('team-allowance').textContent+=' · Planning only; can exceed your balance.';
   const playerList=$('team-players');playerList.replaceChildren();
   for(const original of team.players||[]){
     const pick=teamPicks.get(original.index),player=pick?{...original,...pick}:original;
@@ -295,6 +296,7 @@ function renderTeam(){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);
       }
       results.append(summary);
+      if(plan.cost>(team.balance||0)){const shortfall=document.createElement('p');shortfall.className='team-result-note';shortfall.textContent=`Coins needed: ${fmt(plan.cost-(team.balance||0))} more · Current balance ${fmt(team.balance||0)}. You can add this plan as concepts now.`;results.append(shortfall);}
       const note=document.createElement('p');note.className='team-result-note';note.textContent=`${plan.choices.filter(card=>!card.locked).length} positions updated · chemistry checked by EA · ${fmt(teamResult.combinationsChecked)} combinations · ${teamResult.priceMode==='estimate'?'Third-party estimates; check prices before buying.':'Prices are current listings, not reserved purchases.'}`;results.append(note);
       const lineupTitle=document.createElement('h2');lineupTitle.className='team-lineup-title';lineupTitle.textContent=`Planned ${team.formation||'starting'} squad`;results.append(lineupTitle);
       const lineup=document.createElement('div');lineup.className='team-lineup';

@@ -90,8 +90,8 @@ export async function eaOperation(action, payload = {}) {
       if(!slot)throw Error('Choose a starting XI position.');
       const candidates=Array.isArray(payload.cards)?payload.cards.slice(0,48):[];
       if(!candidates.length)return {ok:true,options:[]};
-      const budget=Math.min(Number(payload.budget),coinBalance());
-      if(!Number.isSafeInteger(budget)||budget<0)throw Error('Choose a budget within your current coin balance.');
+      const budget=Number(payload.budget);
+      if(!Number.isSafeInteger(budget)||budget<0)throw Error('Enter a valid planning budget.');
       if(typeof UTSquadChemCalculatorUtils!=='function')throw Error('EA chemistry calculator is unavailable in this Web App version.');
       const formation=team.getFormation(),manager=team.getManager()?.item,items=players.map(row=>row.item);
       const calculator=new UTSquadChemCalculatorUtils(services.Chemistry,repositories.TeamConfig);
@@ -252,7 +252,7 @@ export async function eaOperation(action, payload = {}) {
       if(payload.fingerprint!==teamFingerprint(players))throw Error('Your active squad changed. Refresh Team before checking prices.');
       const definitionIds=[...new Set(Array.isArray(payload.definitionIds)?payload.definitionIds:[])];
       if(!definitionIds.length||definitionIds.length>8||definitionIds.some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Choose up to eight exact EA cards to price.');
-      const balance=coinBalance(),ceiling=Math.min(Number(payload.maxPrice),balance);
+      const balance=coinBalance(),ceiling=Number(payload.maxPrice);
       if(!Number.isSafeInteger(ceiling)||ceiling<150)throw Error('No valid coin budget is available for market prices.');
       const quotes=[];
       for(const definitionId of definitionIds){
@@ -269,7 +269,7 @@ export async function eaOperation(action, payload = {}) {
       const {team,players}=activeTeam();
       if(payload.fingerprint!==teamFingerprint(players))throw Error('Your active squad changed. Refresh Team before planning.');
       const groups=Array.isArray(payload.groups)?payload.groups:[];
-      const limit=Math.min(Number(payload.budget),coinBalance());
+      const limit=Number(payload.budget);
       if(!groups.length||groups.length>11||!Number.isSafeInteger(limit)||limit<0)throw Error('Choose squad positions and a valid total budget.');
       if(typeof UTSquadChemCalculatorUtils!=='function')throw Error('EA chemistry calculator is unavailable.');
       const ids=[...new Set(groups.flatMap(group=>group.options||[]).map(option=>Number(option.definitionId)))];

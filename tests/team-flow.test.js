@@ -28,7 +28,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
       if(action==='teamEvaluate'&&holdEvaluate){holdEvaluate=false;await new Promise(resolve=>{releaseEvaluate=resolve;});}
       if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
-      if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);assert.equal(payload.allowChemistryTradeoff,true);return [{result:{ok:true,applied:2,chemistry:12}}];}
+      if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);assert.equal(payload.allowChemistryTradeoff,payload.budget!==100000);return [{result:{ok:true,applied:2,chemistry:12}}];}
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
       if(action==='teamPlan'){
@@ -44,7 +44,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         if(players[2].concept||menuPick)assert.equal(payload.groups.find(group=>group.slotIndex===2).allowRetained,false);
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
-        assert(payload.budget<=50000);
+        assert(payload.budget<=100000);
         return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept||menuPick?3:2)},combinationsChecked:4}}];
       }
       throw Error(`Unexpected EA action ${action}`);
@@ -183,6 +183,13 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const unsearched=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:2,definitionId:123456}]});assert.equal(unsearched.ok,false);assert.match(unsearched.error,/chosen player/);
   const wrongSlot=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:1,definitionId:9991}]});assert.equal(wrongSlot.ok,false);
   menuPick=false;
+  const future=await send('teamRecommend',{slots:[0,1],budget:100000});
+  assert.equal(future.ok,true,future.error);assert.equal(future.data.totalBudget,100000);
+  assert.equal(calls.filter(call=>call.action==='teamPlan').at(-1).payload.budget,100000);
+  const futureSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(futureSwap.ok,true,futureSwap.error);
+  assert.equal(calls.filter(call=>call.action==='teamPlan').at(-1).payload.budget,100000,'swaps retain the future budget');
+  const futureApplied=await send('teamApply');assert.equal(futureApplied.ok,true,futureApplied.error);
+  assert.equal(calls.filter(call=>call.action==='teamApply').at(-1).payload.budget,100000,'concept application retains the future budget');
   rankingGap=true;
   await import('../extension/background.js?team-partial-source');
   const partialSource=await send('teamRecommend',{slots:[0,1],budget:50000});

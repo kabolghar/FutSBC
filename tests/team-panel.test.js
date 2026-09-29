@@ -145,3 +145,21 @@ test('menu picker selects an exact version and sends a locked pick without editi
   assert.equal(calls.some(call=>call.type==='teamApply'),false);
  }finally{dom.window.close();}
 });
+
+ test('future budget exceeds balance and shows the actual lineup shortfall',async()=>{
+ const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
+ const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+ const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
+ dom.window.chrome={runtime:{id:'test',sendMessage:async()=>({ok:true,data:{}})},storage:{onChanged:{addListener(){}}}};
+ try{
+ dom.window.eval(script+`\nteam={balance:10000,players:[]};teamSelected=new Set([0]);window.showFutureResult=()=>{teamResult={checkedAt:Date.now(),plan:{choices:[],cost:80000,remaining:20000,chemistry:33}};renderTeam();};`);
+ const doc=dom.window.document;doc.getElementById('team-budget').value='custom';doc.getElementById('team-budget').dispatchEvent(new dom.window.Event('change'));
+ assert.equal(doc.getElementById('team-custom-budget').hidden,false);
+ doc.getElementById('team-custom-budget').value='100000';dom.window.renderTeam();
+ assert.equal(dom.window.teamBudget(),100000);assert.match(doc.getElementById('team-allowance').textContent,/100,000 coins/);
+ dom.window.showFutureResult();
+ assert.match(doc.getElementById('team-results').textContent,/Coins needed: 70,000 more/);
+ assert.match(doc.querySelector('.team-plan-summary').textContent,/20,000 coins/);
+ await new Promise(resolve=>setImmediate(resolve));
+ }finally{dom.window.close();}
+ });

@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.26**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.27**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -139,3 +139,7 @@ The Team view checks for squad changes every five seconds while idle and on entr
 In Team, click **Choose** next to a position, search a name, and select the exact card artwork/rating. The picker uses the signed-in EA client’s player-name database and concept search (public client build 11389 inspected), filters by eligible positions, and does not edit the squad. The chosen card appears as CHOSEN; choose the remaining positions to replace and build. Use Change or × to change/remove a choice. Checking its replacement checkbox also removes that fixed choice.
 
 Menu choices override the card currently in that slot and use the same exact-card, ownership, whole-team budget and chemistry checks as EA-added build-around concepts. The background worker accepts only card/slot pairs returned by the picker for the unchanged squad; UI-supplied prices are ignored. Squad changes clear pending choices. These menu choices are drafts in the current panel and are not purchases or immediate EA changes. Existing Add concept players applies the reviewed plan. Search is bounded to 20 player identities/300 returned versions and indicates when the name should be narrowed.
+
+### Future team budget (v0.21.27)
+
+In Team → Total budget, choose **Future team budget** and enter the coins you want to plan for, even above your current balance. Recommendations, swaps and adding the plan as concepts use that budget. The results show the additional coins needed for the actual proposed lineup. Owned cards still count as zero purchase cost. Trading and buying continue to use your real coin balance.

@@ -141,11 +141,15 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const variantPlan=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:1000,groups:[{slotIndex:0,options:[{...recovered.options[0],price:1000,priceVerified:true}]}]});
   assert.equal(variantPlan.plan?.choices[0].definitionId,encodedDefinition,'final planning must recover the same exact variant as evaluation');
   globalThis.services.Item.searchConceptItems=()=>observed([concept,openPosition]);
+  const savedUser=services.User.getUser;services.User.getUser=()=>({...savedUser(),getCurrency:()=>({amount:1000})});
+  const futureCandidate=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:18000,cards:[cards[0]]});
+  assert.equal(futureCandidate.options.length,1,'future budget admits a card above the current balance');
   const planned=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups:[
     {slotIndex:0,options:[{...result.options[0],price:10000,priceVerified:true}]},
     {slotIndex:2,options:[{...empty.options[0],price:8000,priceVerified:true}]}
   ]});
   assert.equal(planned.plan.cost,18000);
+  services.User.getUser=savedUser;
   assert.equal(planned.plan.chemistry,33);
   assert.equal(planned.plan.slotChemistry[1],3);
   assert.equal(Object.keys(planned.plan.slotChemistry).length,11);
@@ -235,7 +239,9 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(failedSave.ok,false);assert.equal(failedSave.stage,'team-apply-save');
   assert.deepEqual(slots.map(slot=>slot.item),beforeApply,'restore the local lineup after a rejected save');
   team.save=()=>{saves++;return observed([]);};
+  services.User.getUser=()=>({...savedUser(),getCurrency:()=>({amount:0})});
   const applied=await eaOperation('teamApply',applyPayload);
+  services.User.getUser=savedUser;
   assert.equal(applied.ok,true,applied.error);assert.equal(applied.applied,5);assert.equal(saves,1);
   assert(slots.slice(0,5).every(slot=>slot.item.concept));assert.equal(slots[5].item,unchanged);
   for(let index=0;index<slots.length;index++)slots[index].item=beforeApply[index];
@@ -275,13 +281,13 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
 
 });
 
-test('market price ceiling rounds down to an EA price step without exceeding balance',async()=>{
+test('planning market price ceiling rounds down without being capped by balance',async()=>{
   const slot={index:0,item:{definitionId:1,id:1}};
   const team={getPlayers:()=>Array.from({length:11},(_,i)=>({...slot,index:i})),getFormation:()=>({})};
   globalThis.window={fut_year:'2027'};
   globalThis.getAppMain=()=>({getRootViewController:()=>({getPresentedViewController:()=>({getCurrentViewController:()=>({getCurrentController:()=>({_squad:team})})})})});
   globalThis.GameCurrency={COINS:1};globalThis.SearchType={PLAYER:1};globalThis.UTSearchCriteriaDTO=class{};
-  globalThis.services={User:{getUser:()=>({getSelectedPersona:()=>({getCurrentClub:()=>({isXbox:true})}),getCurrency:()=>({amount:38243})})},Item:{clearTransferMarketCache(){},searchTransferMarket(criteria){assert.equal(criteria.maxBuy,38000);return {observe(owner,callback){queueMicrotask(()=>callback(this,{success:true,data:{items:[]}}));},unobserve(){}};}}};
+  globalThis.services={User:{getUser:()=>({getSelectedPersona:()=>({getCurrentClub:()=>({isXbox:true})}),getCurrency:()=>({amount:1000})})},Item:{clearTransferMarketCache(){},searchTransferMarket(criteria){assert.equal(criteria.maxBuy,38000);return {observe(owner,callback){queueMicrotask(()=>callback(this,{success:true,data:{items:[]}}));},unobserve(){}};}}};
   const snapshot=await eaOperation('teamSnapshot');
   const result=await eaOperation('teamQuote',{fingerprint:snapshot.fingerprint,definitionIds:[212831],maxPrice:38243});
   assert.equal(result.ok,true,result.error);

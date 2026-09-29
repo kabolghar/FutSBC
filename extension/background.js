@@ -447,8 +447,8 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
   });
   const selected=[...new Set(slots||[])].filter(index=>Number.isInteger(index)&&!manual.some(pick=>pick.index===index)&&team.players.some(player=>player.index===index)).slice(0,11);
   if(!selected.length&&!manual.length)throw Error('Choose a player or a position to build.');
-  const total=Math.min(Number(budget),team.balance);
-  if(!Number.isSafeInteger(total)||total<0)throw Error('Choose a budget within your coin balance.');
+  const total=Number(budget);
+  if(!Number.isSafeInteger(total)||total<0)throw Error('Enter a valid planning budget.');
   teamProgress('Reading player rankings…');
   let pages,source='FUTBIN';
   try{pages=selected.length?await currentTeamPlayers(Math.max(total,500)):[];}
@@ -577,7 +577,7 @@ async function applyTeamSuggestion(message){
   const groups=saved.plan.choices.map(choice=>({slotIndex:choice.slotIndex,allowRetained:false,options:[choice]}));
   let applied;
   try{
-    applied=await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:Math.min(saved.totalBudget,team.balance),minimumChemistry:saved.plan.chemistry,allowChemistryTradeoff:saved.allowChemistryTradeoff===true,groups},SBC_REQUEST_TIMEOUT);
+    applied=await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:saved.totalBudget,minimumChemistry:saved.plan.chemistry,allowChemistryTradeoff:saved.allowChemistryTradeoff===true,groups},SBC_REQUEST_TIMEOUT);
   }catch(error){
     if(error.stage==='team-apply-save')await chrome.storage.session.set({'futsbc-team-plan':{...saved,applyUncertain:true}});
     throw error;
@@ -648,7 +648,7 @@ async function swapTeamSuggestion(message){
   const slot=Number(message.slotIndex),group=saved.results.find(row=>row.slotIndex===slot);
   if(!group)throw Error('Choose a selected position to swap.');
   if(group.locked)throw Error('This is a build-around player. Select its position for replacement and build a new team to change it.');
-  const budget=Math.min(saved.totalBudget,team.balance);
+  const budget=saved.totalBudget;
   const priceError=message.type==='teamAlternatives'?await refreshSwapCandidates(saved,group,team,tabId,budget):null;
   const choices=saved.plan.choices;
   const options=group.options.filter(option=>option.priceVerified&&!option.pricePending&&(option.owned||Number.isSafeInteger(option.price))&&Number(option.definitionId)!==Number(choices.find(choice=>choice.slotIndex===slot)?.definitionId));
@@ -863,7 +863,7 @@ async function dispatch(message) {
   if(message.type==='teamAlternatives'||message.type==='teamSwap'){teamRun={running:true,startedAt:Date.now(),status:'Checking swap alternatives…'};if(message.type==='teamAlternatives')activeTeamRead={id:crypto.randomUUID(),cancelled:false,tabs:new Set()};try{return await swapTeamSuggestion(message);}finally{activeTeamRead=null;teamRun={...teamRun,running:false};}}
   if(message.type==='teamPriceCheck'){
     const {tabId,team}=await connectedTeam();
-    return ea(tabId,'teamQuote',{fingerprint:team.fingerprint,definitionIds:message.definitionIds,maxPrice:Math.min(Number(message.maxPrice),team.balance)},SBC_REQUEST_TIMEOUT);
+    return ea(tabId,'teamQuote',{fingerprint:team.fingerprint,definitionIds:message.definitionIds,maxPrice:Number(message.maxPrice)},SBC_REQUEST_TIMEOUT);
   }
   if(message.type==='teamMarket'){
     const {tabId}=await connectedTeam();
