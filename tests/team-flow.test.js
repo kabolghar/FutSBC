@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async()=>{
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
-  const session={};let fingerprint='current',rankingGap=false,broaderSwap=false,expandedSwap=false;
+  const session={};let fingerprint='current',menuPick=false,rankingGap=false,broaderSwap=false,expandedSwap=false;
   const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,holdEvaluate=false,releaseEvaluate,estimates=false,forceLimit=false,partialKnown=false;
   globalThis.fetch=async()=>({ok:true,json:async()=>({prices:{},updated:{}})});
   globalThis.chrome={
     runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
     action:{onClicked:{addListener:()=>{}}},sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},
-    storage:{session:{get:async key=>key==='futsbc-team-plan'?session:{state:{}},set:async value=>{Object.assign(session,value);}},local:{get:async()=>({}),set:async()=>{}}},
+    storage:{session:{get:async key=>['futsbc-team-plan','futsbc-team-picker'].includes(key)?session:{state:{}},set:async value=>{Object.assign(session,value);}},local:{get:async()=>({}),set:async()=>{}}},
     alarms:{create:()=>{},clear:async()=>{},onAlarm:{addListener:()=>{}}},
     tabs:{onUpdated:{addListener:()=>{}},query:async()=>[{id:1,url:EA,active:true}],get:async id=>({id,url:id===1?EA:tabURL,status:'complete'}),create:async({url})=>{tabURL=url;return {id:2,url};},update:async(_,value)=>{tabURL=value.url;return {id:2,url:tabURL};},remove:async()=>{}},
     scripting:{executeScript:async({target,func,args=[]})=>{
@@ -24,6 +24,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       }
       if(target.tabId!==1)throw Error(`Unexpected tab ${target.tabId}`);
       const [action,payload]=args;calls.push({action,payload});
+      if(action==='teamPlayerSearch')return [{result:{ok:true,cards:[{definitionId:9991,assetId:9991,rating:86,name:'Chosen player',position:'CM'}],truncated:false}}];
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
       if(action==='teamEvaluate'&&holdEvaluate){holdEvaluate=false;await new Promise(resolve=>{releaseEvaluate=resolve;});}
       if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
@@ -39,12 +40,12 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         }
         if(forceLimit&&!payload.groups.some(group=>group.options.some(card=>card.pricePending)))return [{result:{ok:true,plan:null,reason:'No known fit'}}];
         if(payload.groups.some(group=>!group.options.length))return [{result:{ok:true,plan:null,reason:'Missing position data'}}];
-        assert.equal(payload.groups.length,players[2].concept?3:2);
-        if(players[2].concept)assert.equal(payload.groups.find(group=>group.slotIndex===2).allowRetained,false);
+        assert.equal(payload.groups.length,players[2].concept||menuPick?3:2);
+        if(players[2].concept||menuPick)assert.equal(payload.groups.find(group=>group.slotIndex===2).allowRetained,false);
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
         assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
         assert(payload.budget<=50000);
-        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept?3:2)},combinationsChecked:4}}];
+        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept||menuPick?3:2)},combinationsChecked:4}}];
       }
       throw Error(`Unexpected EA action ${action}`);
     }}
@@ -174,6 +175,14 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.ok(builtAround.data.plan.choices.find(card=>card.slotIndex===2).price>0);
   const changePin=await send('teamAlternatives',{slotIndex:2});assert.equal(changePin.ok,false);assert.match(changePin.error,/build-around/);
   players[2].concept=false;fingerprint='current';
+  const searched=await send('teamPlayerSearch',{slotIndex:2,query:'Chosen',fingerprint});assert.equal(searched.ok,true,searched.error);
+  menuPick=true;
+  const menuBuilt=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:2,definitionId:9991,price:1}]});
+  assert.equal(menuBuilt.ok,true,menuBuilt.error);assert.equal(menuBuilt.data.plan.choices.find(card=>card.slotIndex===2).definitionId,9991);
+  assert.ok(menuBuilt.data.plan.choices.find(card=>card.slotIndex===2).price>1,'UI cannot override the chosen card price');
+  const unsearched=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:2,definitionId:123456}]});assert.equal(unsearched.ok,false);assert.match(unsearched.error,/chosen player/);
+  const wrongSlot=await send('teamRecommend',{slots:[0,1],budget:50000,picks:[{slotIndex:1,definitionId:9991}]});assert.equal(wrongSlot.ok,false);
+  menuPick=false;
   rankingGap=true;
   await import('../extension/background.js?team-partial-source');
   const partialSource=await send('teamRecommend',{slots:[0,1],budget:50000});

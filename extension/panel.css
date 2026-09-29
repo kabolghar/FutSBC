@@ -259,3 +259,11 @@ footer p{margin:8px 0;line-height:1.5}
 .team-swap-button:hover:not(:disabled),.team-swap-options button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .team-swap-button:focus-visible,.team-swap-options button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .team-swap-button:disabled,.team-swap-options button:disabled{opacity:.5;cursor:default}
+.team-choose-player{flex:none;font-size:13px;padding:8px 4px;min-height:40px}
+.team-picker{border-block:1px solid var(--line);padding:18px 0;margin:16px 0}
+.team-picker[hidden]{display:none}
+.team-picker-search{display:flex;gap:10px}.team-picker-search input{flex:1;min-width:0}
+.team-picker-results{display:grid;gap:8px;max-height:340px;overflow:auto}
+.team-picker-card{display:grid;grid-template-columns:48px 1fr;gap:4px 12px;text-align:left;padding:10px;background:var(--surface);color:var(--text);border:1px solid var(--line);cursor:pointer}
+.team-picker-card:hover,.team-picker-card:focus-visible{border-color:var(--accent)}
+.team-picker-card .team-mini-art{grid-row:span 2}.team-picker-card strong{font-size:16px}.team-picker-card span{font-size:13px;color:var(--muted)}

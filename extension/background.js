@@ -430,21 +430,28 @@ function teamProgress(status){
   if(Date.now()-teamRun.startedAt>8*60_000)throw Error('Team check reached its time limit. Retry to reuse recent completed price checks.');
   teamRun={...teamRun,status,updatedAt:Date.now()};
 }
-async function runTeamRecommendation(slots,budget){
+async function runTeamRecommendation(slots,budget,picks=[]){
   teamRun={running:true,cancelled:false,startedAt:Date.now(),status:'Reading your squad…'};
-  try{const result={...await recommendTeam(slots,budget),planId:crypto.randomUUID()};await chrome.storage.session.set({'futsbc-team-plan':result});return result;}
+  try{const result={...await recommendTeam(slots,budget,false,picks),planId:crypto.randomUUID()};await chrome.storage.session.set({'futsbc-team-plan':result});return result;}
   finally{teamRun={...teamRun,running:false};}
 }
-async function recommendTeam(slots,budget,broaden=false){
+async function recommendTeam(slots,budget,broaden=false,picks=[]){
   if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before building a team.');
   const {tabId,team}=await connectedTeam();
-  const selected=[...new Set(slots||[])].filter(index=>Number.isInteger(index)&&team.players.some(player=>player.index===index)).slice(0,11);
-  if(!selected.length)throw Error('Choose at least one player in your starting XI.');
+  if(!Array.isArray(picks)||picks.length>11||new Set(picks.map(pick=>pick.slotIndex)).size!==picks.length)throw Error('Choose one player per position.');
+  const catalog=(await chrome.storage.session.get('futsbc-team-picker'))['futsbc-team-picker'];
+  const manual=picks.map(pick=>{
+    const row=catalog?.cards?.find(row=>row.slotIndex===pick.slotIndex&&row.definitionId===pick.definitionId);
+    if(catalog?.fingerprint!==team.fingerprint||!row||!team.players.some(player=>player.index===pick.slotIndex))throw Error('A chosen player expired or the squad changed. Search for that player again.');
+    return {...row,index:pick.slotIndex,source:'Menu'};
+  });
+  const selected=[...new Set(slots||[])].filter(index=>Number.isInteger(index)&&!manual.some(pick=>pick.index===index)&&team.players.some(player=>player.index===index)).slice(0,11);
+  if(!selected.length&&!manual.length)throw Error('Choose a player or a position to build.');
   const total=Math.min(Number(budget),team.balance);
   if(!Number.isSafeInteger(total)||total<0)throw Error('Choose a budget within your coin balance.');
   teamProgress('Reading player rankings…');
   let pages,source='FUTBIN';
-  try{pages=await currentTeamPlayers(Math.max(total,500));}
+  try{pages=selected.length?await currentTeamPlayers(Math.max(total,500)):[];}
   catch{teamProgress('Reading fallback player rankings…');source='FUT.GG';pages=await currentFutggBest(selected.map(index=>team.players.find(player=>player.index===index).position));}
   const fallbackPositions=source==='FUTBIN'?selected.map(index=>team.players.find(player=>player.index===index).position):[];
   const supplemental=fallbackPositions.length?await currentFutggBest(fallbackPositions):new Map();
@@ -478,9 +485,9 @@ async function recommendTeam(slots,budget,broaden=false){
     results.push({slotIndex,player,options:checked.options,checked:checked.checked,screening:checked.screening});
   }
   // Unselected concepts are explicit user choices, not free owned cards.
-  for(const player of team.players.filter(player=>player.concept&&!selected.includes(player.index))){
+  for(const player of [...manual,...team.players.filter(player=>player.concept&&!selected.includes(player.index)&&!manual.some(pick=>pick.index===player.index))]){
     teamProgress(`Building around ${player.name}…`);
-    const checked=await ea(tabId,'teamEvaluate',{slotIndex:player.index,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards:[{...player,source:'User',price:null}]},SBC_REQUEST_TIMEOUT);
+    const checked=await ea(tabId,'teamEvaluate',{slotIndex:player.index,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards:[{...player,source:player.source==='Menu'?'Menu':'User',price:null}]},SBC_REQUEST_TIMEOUT);
     const option=checked.options?.find(option=>option.definitionId===player.definitionId);
     if(!option)throw Error(`Could not keep ${player.name} at ${player.position}. Check that this exact card can play there in EA.`);
     results.push({slotIndex:player.index,player,locked:true,options:[{...option,locked:true}],checked:1});
@@ -556,7 +563,7 @@ async function recommendTeam(slots,budget,broaden=false){
   });
   if(!broaden&&source==='FUTBIN'&&planned?.plan?.choices.length!==results.length){
     teamProgress('Expanding rankings for positions still to fill…');
-    return recommendTeam(slots,budget,true);
+    return recommendTeam(slots,budget,true,picks);
   }
   teamProgress('Team check complete.');
   return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
@@ -842,7 +849,16 @@ async function dispatch(message) {
   if(message.type==='teamSnapshot')return (await connectedTeam()).team;
   if(message.type==='teamRunState')return teamRun;
   if(message.type==='teamCancel'){teamRun={...teamRun,cancelled:true,status:'Stopping after the current EA request…'};await cancelTeamRead();return teamRun;}
-  if(message.type==='teamRecommend')return runTeamRecommendation(message.slots,message.budget);
+  if(message.type==='teamRecommend')return runTeamRecommendation(message.slots,message.budget,message.picks);
+  if(message.type==='teamPlayerSearch'){
+    const {tabId,team}=await connectedTeam();
+    if(team.fingerprint!==message.fingerprint)throw Error('Your squad changed. Refresh Team before searching.');
+    const found=await ea(tabId,'teamPlayerSearch',{slotIndex:message.slotIndex,query:message.query,fingerprint:team.fingerprint},SBC_REQUEST_TIMEOUT);
+    const previous=(await chrome.storage.session.get('futsbc-team-picker'))['futsbc-team-picker'];
+    const prior=previous?.fingerprint===team.fingerprint?previous.cards||[]:[];
+    const cards=[...new Map([...prior,...found.cards.map(card=>({...card,slotIndex:message.slotIndex}))].map(card=>[`${card.slotIndex}:${card.definitionId}`,card])).values()].slice(-500);
+    await chrome.storage.session.set({'futsbc-team-picker':{fingerprint:team.fingerprint,cards}});return found;
+  }
   if(message.type==='teamApply')return applyTeamSuggestion(message);
   if(message.type==='teamAlternatives'||message.type==='teamSwap'){teamRun={running:true,startedAt:Date.now(),status:'Checking swap alternatives…'};if(message.type==='teamAlternatives')activeTeamRead={id:crypto.randomUUID(),cancelled:false,tabs:new Set()};try{return await swapTeamSuggestion(message);}finally{activeTeamRead=null;teamRun={...teamRun,running:false};}}
   if(message.type==='teamPriceCheck'){

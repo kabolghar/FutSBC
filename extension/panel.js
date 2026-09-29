@@ -12,6 +12,7 @@ const preview=!globalThis.chrome?.runtime?.id;
 let state={},busy=false,mapping=[],activeView='sbc',trader={enabled:false},traderPending=false,buy={enabled:false},buyPending=false;
 let insights={},insightsPending=false,insightsUiError='';
 let teamSwapView=null;
+let teamPicks=new Map(),teamPickerSlot=null,teamPickerEpoch=0;
 let team={},teamResult=null,teamSelected=new Set(),teamPending=false,teamUiError='',teamRunActive=false,teamProgressText='';
 let swapCache=new Map(),swapQueue=[],swapActive=null,swapEpoch=0;
 let recovering=false;
@@ -257,7 +258,7 @@ function teamNoFitReason(group){
   return 'No matched card improved this slot after the final checks.';
 }
 function renderTeam(){
-  $('team-refresh').disabled=teamPending;$('team-find').disabled=(teamPending&&!teamRunActive)||!teamSelected.size;
+  $('team-refresh').disabled=teamPending;$('team-find').disabled=(teamPending&&!teamRunActive)||(!teamSelected.size&&!teamPicks.size);
   $('team-find').firstElementChild.textContent=teamRunActive?'Stop team check':teamPending?'Reading squad…':teamResult?.pricingIncomplete?'Continue team search':'Build a meta XI';
   $('team-name').textContent=team.name||'Open your active squad';
   $('team-chemistry').textContent=Number.isFinite(team.chemistry)?`${team.chemistry}/33 chemistry`:'— chemistry';
@@ -266,16 +267,20 @@ function renderTeam(){
   const selectedCount=teamSelected.size,budget=teamBudget();
   $('team-select-empty').disabled=teamPending||!(team.players||[]).some(player=>!player.definitionId);
   $('team-select-clear').disabled=teamPending||!selectedCount;
-  $('team-allowance').textContent=teamRunActive?teamProgressText:selectedCount?`${fmt(Math.min(budget,team.balance||0))} coins for the full lineup · ${selectedCount} positions chosen`:'Choose one or more positions.';
+  $('team-allowance').textContent=teamRunActive?teamProgressText:selectedCount?`${fmt(Math.min(budget,team.balance||0))} coins for the full lineup · ${selectedCount} positions chosen`:teamPicks.size?`${fmt(Math.min(budget,team.balance||0))} coins · ${teamPicks.size} chosen player(s)`:'Choose one or more positions.';
   const playerList=$('team-players');playerList.replaceChildren();
-  for(const player of team.players||[]){
-    const label=document.createElement('label');label.className='team-player';
-    const box=document.createElement('input');box.type='checkbox';box.checked=teamSelected.has(player.index);box.disabled=teamPending;box.onchange=()=>{if(box.checked)teamSelected.add(player.index);else teamSelected.delete(player.index);teamResult=null;renderTeam();};
+  for(const original of team.players||[]){
+    const pick=teamPicks.get(original.index),player=pick?{...original,...pick}:original;
+    const label=document.createElement('div');label.className='team-player';
+    const box=document.createElement('input');box.type='checkbox';box.setAttribute('aria-label',`Replace ${player.position} ${player.name}`);box.checked=teamSelected.has(player.index);box.disabled=teamPending;box.onchange=()=>{if(box.checked){teamPicks.delete(player.index);teamSelected.add(player.index);}else teamSelected.delete(player.index);teamResult=null;renderTeam();};
     const art=cardArtElement('team-mini-art',player.rating,player.position,player.assetId,player.definitionId,player.name);
     const position=document.createElement('strong');position.textContent=player.position||'—';
-    const name=document.createElement('span');name.textContent=player.name+(player.concept?' · CONCEPT':'');
+    const name=document.createElement('span');name.textContent=player.name+(pick?' · CHOSEN':player.concept?' · CONCEPT':'');
     const rating=document.createElement('em');rating.textContent=player.rating||'—';
-    label.append(box,art,position,name,rating);playerList.append(label);
+    label.append(box,art,position,name,rating);
+    const choose=document.createElement('button');choose.type='button';choose.className='team-choose-player text-button';choose.textContent=pick?'Change':'Choose';choose.setAttribute('aria-label',`Choose player for ${player.position}`);choose.disabled=teamPending;choose.onclick=()=>openTeamPicker(player.index);label.append(choose);
+    if(pick){const remove=document.createElement('button');remove.type='button';remove.className='text-button';remove.textContent='×';remove.setAttribute('aria-label',`Remove chosen ${player.name}`);remove.disabled=teamPending;remove.onclick=()=>{teamPicks.delete(player.index);teamResult=null;renderTeam();};label.append(remove);}
+    playerList.append(label);
   }
   if(!team.players?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='Refresh to load your starting XI from EA.';playerList.append(empty);}
   const results=$('team-results');results.replaceChildren();
@@ -408,6 +413,38 @@ async function chooseTeamAlternative(slotIndex,definitionId){
   catch(error){teamUiError=error.message;}
   finally{teamPending=false;renderTeam();drainTeamPrefetch();}
 }
+function openTeamPicker(slotIndex){
+  if(teamPending)return;
+  teamPickerSlot=slotIndex;teamPickerEpoch++;
+  $('team-picker').hidden=false;$('team-picker-title').textContent=`Choose ${team.players.find(player=>player.index===slotIndex)?.position||'player'}`;
+  $('team-picker-query').value='';$('team-picker-results').replaceChildren();$('team-picker-status').textContent='Search to see eligible card versions.';$('team-picker-query').focus();
+}
+function closeTeamPicker(){teamPickerEpoch++;teamPickerSlot=null;$('team-picker').hidden=true;}
+async function searchTeamPicker(event){
+  event?.preventDefault();if(teamPending||teamPickerSlot===null)return;
+  const slotIndex=teamPickerSlot,epoch=++teamPickerEpoch,query=$('team-picker-query').value.trim();
+  if(query.length<2)return;
+  teamPending=true;renderTeam();$('team-picker-search').disabled=true;$('team-picker-results').replaceChildren();$('team-picker-status').textContent='Finding eligible card versions…';
+  try{
+    const result=await call('teamPlayerSearch',{slotIndex,query,fingerprint:team.fingerprint});
+    if(epoch!==teamPickerEpoch)return;
+    $('team-picker-status').textContent=result.cards.length?`${result.cards.length} eligible card(s). Choose the version you want.${result.truncated?' More matches exist; narrow the name.':''}`:'No matching cards can play here. Try a fuller name or another position.';
+    for(const card of result.cards){
+      const button=document.createElement('button');button.type='button';button.className='team-picker-card';button.title=`${card.name} · ${card.rating} · card ${card.definitionId}`;
+      const art=cardArtElement('team-mini-art',card.rating,card.position,card.assetId,card.definitionId,card.name);
+      const name=document.createElement('strong');name.textContent=card.name;
+      const detail=document.createElement('span');detail.textContent=`${card.rating} ${card.position} · ${card.rarity>1?'Special':'Regular'} · Price checked when building`;
+      button.append(art,name,detail);button.onclick=()=>{
+        if(teamPending)return;
+        if([...teamPicks].some(([index,pick])=>index!==slotIndex&&pick.assetId===card.assetId)){$('team-picker-status').textContent='This player is already chosen for another position.';return;}
+        teamPicks.set(slotIndex,card);teamSelected.delete(slotIndex);teamResult=null;swapEpoch++;swapQueue=[];swapCache.clear();closeTeamPicker();renderTeam();
+      };$('team-picker-results').append(button);
+    }
+  }catch(error){if(epoch===teamPickerEpoch)$('team-picker-status').textContent=error.message;}
+  finally{teamPending=false;$('team-picker-search').disabled=false;renderTeam();}
+}
+$('team-picker-form').onsubmit=searchTeamPicker;$('team-picker-close').onclick=closeTeamPicker;
+$('team-picker-query').addEventListener('keydown',event=>{if(event.key==='Escape')closeTeamPicker();});
 let teamSyncing=false;
 async function syncTeam(force=false){
   if(preview||teamPending||teamSyncing||swapActive&&!force||activeView!=='team')return;
@@ -418,7 +455,7 @@ async function syncTeam(force=false){
     if(next.fingerprint!==team.fingerprint){
       const previous=new Map((team.players||[]).map(player=>[player.index,player]));
       teamSelected=new Set([...teamSelected].filter(index=>next.players.some(player=>player.index===index&&!(player.concept&&player.definitionId!==previous.get(index)?.definitionId))));
-      team=next;teamResult=null;teamSwapView=null;swapEpoch++;swapQueue=[];swapCache.clear();renderTeam();
+      teamPicks.clear();teamPickerEpoch++;$('team-picker').hidden=true;team=next;teamResult=null;teamSwapView=null;swapEpoch++;swapQueue=[];swapCache.clear();renderTeam();
     }
   }catch{}finally{teamSyncing=false;}
 }
@@ -426,7 +463,7 @@ setInterval(()=>{if(!document.hidden)void syncTeam();},5000);
 window.addEventListener('focus',()=>void syncTeam(true));
 async function refreshTeam(){
   if(preview||teamPending)return;teamPending=true;teamUiError='';renderTeam();
-  try{const next=await call('teamSnapshot');teamSelected=new Set([...teamSelected].filter(index=>next.players.some(player=>player.index===index&&!(player.concept&&player.definitionId!==team.players?.find(old=>old.index===index)?.definitionId))));team=next;teamResult=null;}
+  try{const next=await call('teamSnapshot');teamSelected=new Set([...teamSelected].filter(index=>next.players.some(player=>player.index===index&&!(player.concept&&player.definitionId!==team.players?.find(old=>old.index===index)?.definitionId))));if(next.fingerprint!==team.fingerprint){teamPicks.clear();teamPickerEpoch++;$('team-picker').hidden=true;}team=next;teamResult=null;}
   catch(error){teamUiError=error.message;}
   finally{teamPending=false;renderTeam();}
 }
@@ -451,7 +488,7 @@ async function findTeam(){
     catch{}finally{polling=false;}
   },1000);
   try{
-    teamResult=await Promise.race([interrupted,call('teamRecommend',{slots:[...teamSelected],budget:teamBudget()}),new Promise((_,reject)=>{timer=setTimeout(()=>{void call('teamCancel').catch(()=>{});reject(Error('Team check took too long. Reopen the menu and retry; no team was applied.'));},9*60_000);})]);
+    teamResult=await Promise.race([interrupted,call('teamRecommend',{slots:[...teamSelected],budget:teamBudget(),picks:[...teamPicks].map(([slotIndex,card])=>({slotIndex,definitionId:card.definitionId}))}),new Promise((_,reject)=>{timer=setTimeout(()=>{void call('teamCancel').catch(()=>{});reject(Error('Team check took too long. Reopen the menu and retry; no team was applied.'));},9*60_000);})]);
     team=teamResult.team;startTeamPrefetch();
   }catch(error){teamUiError=error.message;}
   finally{clearInterval(poll);clearTimeout(timer);teamPending=false;teamRunActive=false;renderTeam();drainTeamPrefetch();}
@@ -489,7 +526,7 @@ $('insights-tab').onclick=()=>setView('insights');
 $('team-tab').onclick=()=>setView('team');
 $('team-refresh').onclick=()=>refreshTeam();
 $('team-find').onclick=()=>findTeam();
-$('team-select-empty').onclick=()=>{for(const player of team.players||[])if(!player.definitionId)teamSelected.add(player.index);teamResult=null;renderTeam();};
+$('team-select-empty').onclick=()=>{for(const player of team.players||[])if(!player.definitionId&&!teamPicks.has(player.index))teamSelected.add(player.index);teamResult=null;renderTeam();};
 $('team-select-clear').onclick=()=>{teamSelected.clear();teamResult=null;renderTeam();};
 $('team-budget').onchange=()=>{teamResult=null;teamSwapView=null;$('team-custom-budget').hidden=$('team-budget').value!=='custom';renderTeam();};
 $('team-custom-budget').oninput=()=>{teamResult=null;teamSwapView=null;renderTeam();};

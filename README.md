@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.25**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.26**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -132,3 +132,10 @@ Research references: [FIFAUTeam weekly rewards](https://db.fifauteam.com/fc-27-t
 Use EA's player picker to place the exact card you want in its intended position (for example Messi at CAM). In FutSBC Team, leave that position unchecked and select the other positions to replace or fill. Unselected concepts are mandatory build-around cards: exact version and eligible position are checked, their purchase cost is included in the total, and an available exact club card is used at zero purchase cost. The complete XI is evaluated together for chemistry. A concept is never assumed to be owned merely because it is already in the XI. To change your chosen player, select that position for replacement and build again.
 
 The Team view checks for squad changes every five seconds while idle and on entry/focus; building also refreshes the squad first. Newly added concepts are removed from old replacement selections. Sync waits for active operations; entering Team can cancel background swap prefetch. Changes clear stale plans. The plan labels these choices BUILD AROUND and prevents swap prefetch from replacing them. No cards are purchased by this feature.
+
+
+### Choose players inside FutSBC (v0.21.26)
+
+In Team, click **Choose** next to a position, search a name, and select the exact card artwork/rating. The picker uses the signed-in EA client’s player-name database and concept search (public client build 11389 inspected), filters by eligible positions, and does not edit the squad. The chosen card appears as CHOSEN; choose the remaining positions to replace and build. Use Change or × to change/remove a choice. Checking its replacement checkbox also removes that fixed choice.
+
+Menu choices override the card currently in that slot and use the same exact-card, ownership, whole-team budget and chemistry checks as EA-added build-around concepts. The background worker accepts only card/slot pairs returned by the picker for the unchanged squad; UI-supplied prices are ignored. Squad changes clear pending choices. These menu choices are drafts in the current panel and are not purchases or immediate EA changes. Existing Add concept players applies the reviewed plan. Search is bounded to 20 player identities/300 returned versions and indicates when the name should be narrowed.

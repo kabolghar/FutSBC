@@ -51,6 +51,38 @@ export async function eaOperation(action, payload = {}) {
       if(!Number.isSafeInteger(balance)||balance<0)throw Error('EA did not provide your coin balance.');
       return {ok:true,id:team.getId?.(),name:String(team.getName?.()||'Current squad'),formation:team.getFormation()?.displayName||'',chemistry:Number(team.getChemistry?.())||0,balance,fingerprint:teamFingerprint(players),players:players.map(slot=>({index:slot.index,position:String(slot.generalPositionName||''),name:teamPlayerName(slot.item),rating:hasTeamCard(slot.item)?Number(slot.item.rating)||0:0,assetId:hasTeamCard(slot.item)?Number(slot.item.assetId)||Number(slot.item.definitionId)%0x1000000:0,definitionId:hasTeamCard(slot.item)?Number(slot.item.definitionId)||0:0,itemId:hasTeamCard(slot.item)?Number(slot.item.id)||0:0,concept:!!slot.item?.concept,chemistry:Number(slot.chemistry)||0}))};
     }
+    if(action==='teamPlayerSearch'){
+      const {players}=activeTeam();
+      if(payload.fingerprint!==teamFingerprint(players))throw Error('Your squad changed. Refresh Team and search again.');
+      const slot=players.find(row=>row.index===payload.slotIndex);
+      const query=String(payload.query||'').trim();
+      if(!slot||query.length<2||query.length>50)throw Error('Choose a position and enter at least two letters.');
+      const positions={GK:0,RWB:2,RB:3,CB:5,LB:7,LWB:8,CDM:10,RM:12,CM:14,LM:16,CAM:18,CF:21,RW:23,ST:25,LW:27};
+      const target=positions[slot.generalPositionName];
+      if(!Number.isInteger(target))throw Error('EA did not provide this position.');
+      const data=repositories.Item?.getStaticData?.();
+      if(!Array.isArray(data))throw Error('EA player names are not ready. Reopen your squad and retry.');
+      const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      const words=normalize(query).split(/\s+/);
+      const matches=data.filter(player=>Number.isSafeInteger(Number(player.id))&&Number(player.id)>0&&Number(player.id)<0x1000000&&words.every(word=>normalize([player.commonName,player.firstName,player.lastName,player.name].filter(Boolean).join(' ')).includes(word)));
+      const ids=[...new Set(matches.map(player=>Number(player.id)))].slice(0,20),cards=new Map();
+      if(!ids.length)return {ok:true,cards:[],truncated:false};
+      let truncated=matches.length>20;
+      for(let page=0;page<3;page++){
+        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=ids;criteria.count=100;criteria.offset=page*100;
+        const response=await observe(services.Item.searchConceptItems(criteria),false,'team-player-search');
+        const rows=response.response?.items;if(!Array.isArray(rows))throw Error('EA player search results changed.');
+        for(const item of rows){
+          const definitionId=Number(item.definitionId),assetId=Number(item.assetId)||definitionId%0x1000000;
+          if(!item.concept||!ids.includes(assetId)||!Number.isSafeInteger(definitionId)||definitionId<1||!Number.isInteger(Number(item.rating)))continue;
+          if(Number(item.preferredPosition)!==target&&![item.basePossiblePositions,item.possiblePositions].some(list=>Array.isArray(list)&&list.some(position=>Number(position)===target)))continue;
+          cards.set(definitionId,{definitionId,assetId,rating:Number(item.rating),name:teamPlayerName(item),rarity:Number(item.rareflag)||0,clubId:Number(item.teamId)||0,position:slot.generalPositionName});
+        }
+        if(response.response.endOfList===true||rows.length<100)break;
+        if(page===2)truncated=true;
+      }
+      return {ok:true,cards:[...cards.values()].sort((a,b)=>b.rating-a.rating||a.definitionId-b.definitionId),truncated};
+    }
     if(action==='teamEvaluate'){
       const {team,players}=activeTeam();
       if(payload.fingerprint!==teamFingerprint(players))throw Error('Your active squad changed. Refresh Team before comparing upgrades.');
@@ -73,9 +105,11 @@ export async function eaOperation(action, payload = {}) {
       const wanted=candidates.filter(card=>{
         let reason=null;
         if(!Number.isSafeInteger(card.assetId)||card.assetId<=0)reason='id';
-        else if(!Number.isInteger(card.rating)||card.rating<(card.source==='User'?1:75)||card.rating>99)reason='rating';
+        else if(!Number.isInteger(card.rating)||card.rating<(['User','Menu'].includes(card.source)?1:75)||card.rating>99)reason='rating';
         else if(card.source==='User'){
           if(!slot.item?.concept||Number(slot.item.definitionId)!==card.definitionId)reason='definition';
+        }else if(card.source==='Menu'){
+          if(!Number.isSafeInteger(card.definitionId)||card.definitionId<1)reason='definition';
         }else if(card.source==='FUT.GG'){
           if(!Number.isSafeInteger(card.definitionId)||card.definitionId<=0)reason='definition';
           else if(card.price!=null)reason='price';
@@ -98,12 +132,12 @@ export async function eaOperation(action, payload = {}) {
       };
       for(let offset=0;offset<wanted.length;offset+=12){
         const batch=wanted.slice(offset,offset+12);
-        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch.map(card=>['FUT.GG','User'].includes(card.source)?card.definitionId:card.assetId);criteria.count=100;criteria.offset=0;
+        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch.map(card=>['FUT.GG','User','Menu'].includes(card.source)?card.definitionId:card.assetId);criteria.count=100;criteria.offset=0;
         const response=await observe(services.Item.searchConceptItems(criteria),false,'team-concept-search');
         if(!Array.isArray(response.response?.items))throw Error('EA concept search changed. No upgrades were suggested.');
         addConceptRows(response.response.items,batch);
       }
-      const missing=wanted.filter(card=>['FUT.GG','User'].includes(card.source)&&!(byId.get(card.assetId)||[]).some(item=>Number(item.definitionId)===card.definitionId));
+      const missing=wanted.filter(card=>['FUT.GG','User','Menu'].includes(card.source)&&!(byId.get(card.assetId)||[]).some(item=>Number(item.definitionId)===card.definitionId));
       for(let offset=0;offset<missing.length;offset+=12){
         const batch=missing.slice(offset,offset+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=[...new Set(batch.map(card=>card.assetId))];criteria.count=100;criteria.offset=0;
@@ -134,7 +168,7 @@ export async function eaOperation(action, payload = {}) {
       for(const card of wanted){
         const rows=byId.get(card.assetId)||[];
         if(rows.length)screening.concept++;
-        const exact=rows.filter(item=>item.concept&&sameAsset(item,card)&&Number(item.rating)===Number(card.rating)&&(!['FUT.GG','User'].includes(card.source)||Number(item.definitionId)===card.definitionId)&&(card.source==='User'||Number(item.definitionId)!==Number(slot.item?.definitionId)));
+        const exact=rows.filter(item=>item.concept&&sameAsset(item,card)&&Number(item.rating)===Number(card.rating)&&(!['FUT.GG','User','Menu'].includes(card.source)||Number(item.definitionId)===card.definitionId)&&(['User','Menu'].includes(card.source)||Number(item.definitionId)!==Number(slot.item?.definitionId)));
         if(exact.length)screening.exact++;
         const positioned=item=>Number(item.preferredPosition)===targetPosition||[item.basePossiblePositions,item.possiblePositions].some(positions=>Array.isArray(positions)&&positions.some(position=>Number(position)===targetPosition));
         const matched=exact.filter(positioned);

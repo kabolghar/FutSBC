@@ -87,6 +87,8 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(clubPin.options[0].owned,true);assert.equal(clubPin.options[0].price,0);
   slots[0].item=original;
 
+  const menuChosen=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:20000,allowChemistryDrop:true,cards:[{assetId:20,definitionId:20,rating:80,name:'Chosen upgrade',source:'Menu',price:null}]});
+  assert.equal(menuChosen.options.length,1);assert.equal(menuChosen.options[0].definitionId,20);assert.equal(slots[0].item,original);
   const cards=[20,21,22].map(assetId=>({assetId,name:`Player ${assetId}`,url:`https://www.futbin.com/27/player/${assetId}/player`,price:10000,rating:{20:80,21:90,22:83}[assetId],futbinRating:82}));
   const conceptSearch=services.Item.searchConceptItems,clubSearch=services.Club.search;
   let conceptCalls=0,clubCalls=0;

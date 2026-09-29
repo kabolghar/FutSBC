@@ -123,3 +123,25 @@ test('EA-added concepts are detected and removed from replacement selection',asy
     assert.equal(dom.window.document.querySelector('#team-players input').checked,true,'an explicit choice to replace a known concept is retained');
   }finally{dom.window.close();}
 });
+
+test('menu picker selects an exact version and sends a locked pick without editing EA',async()=>{
+ const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
+ const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+ const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'}),calls=[];
+ const team={fingerprint:'unchanged',balance:10000,players:[{index:0,position:'CAM',definitionId:0,name:'Open position'}]};
+ const card={definitionId:158023,assetId:158023,name:'Messi',rating:85,position:'CAM',rarity:1};
+ dom.window.chrome={runtime:{id:'test',sendMessage:async message=>{calls.push(message);return {ok:true,data:message.type==='teamSnapshot'?team:message.type==='teamPlayerSearch'?{cards:[card]}:message.type==='teamRecommend'?{team,checkedAt:Date.now(),results:[],plan:null}:{}};}},storage:{onChanged:{addListener(){}}}};
+ try{
+  dom.window.eval(script+`\nteam=${JSON.stringify(team)};teamSelected=new Set([0]);renderTeam();`);
+  dom.window.document.querySelector('.team-choose-player').click();
+  dom.window.document.querySelector('#team-picker-query').value='Messi';await dom.window.searchTeamPicker();
+  assert.match(dom.window.document.querySelector('#team-picker-results').textContent,/Messi/);
+  dom.window.document.querySelector('.team-picker-card').click();
+  assert.match(dom.window.document.querySelector('#team-players').textContent,/Messi · CHOSEN/);
+  assert.equal(dom.window.document.querySelector('#team-players input').checked,false);
+  assert.equal(dom.window.document.querySelector('#team-find').disabled,false,'chosen-only teams may be built');
+  await dom.window.findTeam();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.find(call=>call.type==='teamRecommend').picks)),[{slotIndex:0,definitionId:158023}]);
+  assert.equal(calls.some(call=>call.type==='teamApply'),false);
+ }finally{dom.window.close();}
+});
