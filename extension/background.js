@@ -431,7 +431,7 @@ async function recommendTeam(slots,budget,broaden=false){
     if(!cards.length){results.push({slotIndex,player,options:[],checked:0});continue;}
     let checked;
     try{checked=await ea(tabId,'teamEvaluate',{slotIndex,fingerprint:team.fingerprint,budget:total,allowChemistryDrop:true,cards},SBC_REQUEST_TIMEOUT);}
-    catch(error){throw Error(`EA could not check ${player.position} cards: ${error.message}`);}
+    catch(error){const step=error.stage==='team-club-search'?'club ownership':error.stage==='team-concept-search'?'concept cards':'cards';error.message=`EA could not check ${player.position} ${step}: ${error.message}`;throw error;}
     if(source==='FUTBIN'&&checked.options.length<8){
       teamProgress(`Broadening ${player.position} candidates…`);
       const extraPages=await currentFutggBest([player.position]);

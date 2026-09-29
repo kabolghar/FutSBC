@@ -18,10 +18,10 @@ export async function eaOperation(action, payload = {}) {
       }
       throw Error('Open the SBC squad screen in the Web App, then reconnect.');
     };
-    const observe=(observable,allowRejection=false)=>new Promise((resolve,reject)=>{
+    const observe=(observable,allowRejection=false,stage=null)=>new Promise((resolve,reject)=>{
       const owner={};
       const timer=setTimeout(()=>{observable.unobserve(owner);reject(Error('EA did not respond. Check the Web App connection before retrying.'));},20000);
-      observable.observe(owner,(sender,result)=>{clearTimeout(timer);sender.unobserve(owner);if(result.success||allowRejection)resolve(result);else{const error=Error(`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;reject(error);}});
+      observable.observe(owner,(sender,result)=>{clearTimeout(timer);sender.unobserve(owner);if(result.success||allowRejection)resolve(result);else{const unauthorized=Number(result.status)===401;const error=Error(unauthorized?'EA could not authenticate this request (401). Reload the EA Web App and sign in again if prompted, then reopen your squad and retry.':`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;error.stage=stage;reject(error);}});
     });
     const coinBalance=()=>Number(services.User.getUser()?.getCurrency(GameCurrency.COINS)?.amount);
     const activeTeam=()=>{
@@ -94,7 +94,7 @@ export async function eaOperation(action, payload = {}) {
       for(let offset=0;offset<wanted.length;offset+=12){
         const batch=wanted.slice(offset,offset+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch.map(card=>card.source==='FUT.GG'?card.definitionId:card.assetId);criteria.count=100;criteria.offset=0;
-        const response=await observe(services.Item.searchConceptItems(criteria));
+        const response=await observe(services.Item.searchConceptItems(criteria),false,'team-concept-search');
         if(!Array.isArray(response.response?.items))throw Error('EA concept search changed. No upgrades were suggested.');
         addConceptRows(response.response.items,batch);
       }
@@ -102,7 +102,7 @@ export async function eaOperation(action, payload = {}) {
       for(let offset=0;offset<missing.length;offset+=12){
         const batch=missing.slice(offset,offset+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=[...new Set(batch.map(card=>card.assetId))];criteria.count=100;criteria.offset=0;
-        const response=await observe(services.Item.searchConceptItems(criteria));
+        const response=await observe(services.Item.searchConceptItems(criteria),false,'team-concept-search');
         if(!Array.isArray(response.response?.items))throw Error('EA base-card concept search changed. No upgrades were suggested.');
         addConceptRows(response.response.items,batch);
       }
@@ -113,7 +113,7 @@ export async function eaOperation(action, payload = {}) {
         const ids=definitionIds.slice(start,start+12);
         for(let page=0;page<5;page++){
           const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=ids;criteria.count=100;criteria.offset=page*100;
-          const response=await observe(services.Club.search(criteria));
+          const response=await observe(services.Club.search(criteria),false,'team-club-search');
           const rows=response.response?.items;
           if(!Array.isArray(rows))throw Error('EA club results changed. No upgrades were suggested.');
           for(const item of rows){

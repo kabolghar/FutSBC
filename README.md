@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.16**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.17**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -86,3 +86,7 @@ Live research validated 30 of 30 sampled FUT.GG-ranked striker IDs against the f
 Team planning reads FUT.GG position rankings alongside FUTBIN candidates, retaining FUTBIN prices for exact matching normal cards. After coverage and chemistry checks, verified position rankings take priority; fallback FUTBIN scores are kept separate. Overall rating no longer adds a performance bonus. Gender is not a scoring input. These are third-party meta signals, not a guarantee of gameplay performance.
 
 Swap fetches candidates for the selected position, checks exact EA cards, obtains batched console estimates and uses limited live price checks for missing data. Other recommendations stay fixed. Alternatives must meet the squad chemistry floor and preserve retained players’ chemistry, but need not equal the draft’s maximum chemistry. Every option shows its resulting total chemistry and cost. Price/source errors are distinguished from an actual lack of eligible alternatives.
+
+### EA authentication errors (v0.21.17)
+
+An EA 401 stops card checking immediately and identifies whether concept lookup or club ownership failed. Reload the EA Web App, sign in if prompted, reopen your active squad, and retry. This is an authentication rejection, not evidence of missing GK cards. FutSBC does not retry unauthorized requests or change the squad after this error. A visible squad can be cached and does not establish that a new EA request is authenticated. If the error persists after signing in again, the reported lookup stage helps diagnose it; the extension cannot renew EA credentials itself.
