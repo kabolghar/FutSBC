@@ -85,7 +85,7 @@ async function call(type,extra={},prefetch=false) {
   }
 }
 async function run(type,extra={}) {
-  if(busy)return;busy=true;render();notice({connect:'Reading the open SBC…',build:'Checking FUTBIN squads…',clubBuild:'Building from your club…',complete:'Checking your club…',market:'Opening EA market…',swapOptions:'Finding cheaper, valid swaps…',swapApply:'Checking and saving the swap…',sbcPrepare:'Checking live EA prices…'}[type]||'Updating…');
+  if(busy)return;busy=true;render();notice({connect:'Reading the open SBC…',build:'Checking FUTBIN squads…',clubBuild:'Building from your club…',hybridBuild:'Checking club cards and EA listings…',complete:'Checking your club…',market:'Opening EA market…',swapOptions:'Finding cheaper, valid swaps…',swapApply:'Checking and saving the swap…',sbcPrepare:'Checking live EA prices…'}[type]||'Updating…');
   try {state=await call(type,extra);mapping=[];if(type==='connect')$('source').value='';notice({market:'EA market search opened.'}[type]||'');}catch(e){if(!recovering){try{state=await call('state');}catch{}if(!recovering)notice(e.message,true);}}
   finally{busy=false;render();}
 }
@@ -94,15 +94,15 @@ function render() {
   $('challenge').textContent=state.challenge?.name||'Choose a challenge';
   $('sbc-visual').hidden=!!state.plan;
   $('formation').textContent=state.challenge?`${state.challenge.formation||'SBC'} · #${state.challenge.id}`:'Open an SBC in EA.';
-  for(const id of ['connect','compare','club-build','source','reset'])$(id).disabled=busy;
+  for(const id of ['connect','compare','club-build','hybrid-build','source','reset'])$(id).disabled=busy;
   $('compare').firstElementChild.textContent=state.plan?'Find another squad':'Build this SBC';
   $('result').hidden=!state.plan;
   if(!state.plan){$('swap-panel').hidden=true;$('buy-section').hidden=true;reportSize();return;}
   const p=state.plan;
   $('plan-name').textContent=p.name===state.challenge?.name?'Lineup':p.name;
-  $('price-label').textContent=p.source==='club'?'CLUB BUILD · NO PURCHASES':p.eaSkippedCount?'LOWEST EA-MATCHED':'LOWEST VERIFIED';
+  $('price-label').textContent=p.source==='hybrid'?'CLUB + MARKET · CHECKED COST':p.source==='club'?'CLUB BUILD · NO PURCHASES':p.eaSkippedCount?'LOWEST EA-MATCHED':'LOWEST VERIFIED';
   $('total').textContent=fmt(p.total);
-  $('coverage').textContent=p.source==='club'?`${p.checks} combinations checked · EA requirements passed`:`${p.attemptedCount||p.recheckedCount}/${p.listedCount} checked · ${p.recheckedCount} complete${p.incompleteCount?` · ${p.incompleteCount} incomplete`:''}${p.eaSkippedCount?` · ${p.eaSkippedCount} unavailable in EA`:''}`;
+  $('coverage').textContent=['club','hybrid'].includes(p.source)?`${p.checks} combinations checked · EA requirements passed`:`${p.attemptedCount||p.recheckedCount}/${p.listedCount} checked · ${p.recheckedCount} complete${p.incompleteCount?` · ${p.incompleteCount} incomplete`:''}${p.eaSkippedCount?` · ${p.eaSkippedCount} unavailable in EA`:''}`;
   $('freshness').textContent=`Checked ${new Date(p.checkedAt).toLocaleTimeString()}`;
   $('players').replaceChildren();
   const players=state.resolved||p.players;
@@ -111,12 +111,12 @@ function render() {
   $('lineup-action').textContent=state.approved?'PRICE / MARKET':'EST. PRICE';
   const slots=state.challenge?.slots||[];
   if(mapping.length!==players.length){try{mapping=suggestMapping(players,slots);}catch{mapping=[];}}
-  $('build-status').textContent=p.source==='club'?'✓ Club squad ready · review and submit in EA':state.approved?'✓ Squad ready · buy missing players in EA':state.inserted?'Squad added · checking requirements':state.resolved?'Cards matched · review slots':'Cards found · ready to match';
+  $('build-status').textContent=p.source==='hybrid'?'✓ Requirements passed · review owned cards and concepts':p.source==='club'?'✓ Club squad ready · review and submit in EA':state.approved?'✓ Squad ready · buy missing players in EA':state.inserted?'Squad added · checking requirements':state.resolved?'Cards matched · review slots':'Cards found · ready to match';
   $('shopping-note').hidden=!state.approved||ownedCount===players.length;
   players.forEach((player,index)=>{
     const row=document.createElement('div');row.className='player';const main=document.createElement('div');main.className='player-main';const assetId=Number(player.baseId)||Number(player.definitionId)%0x1000000;const art=cardArtElement('player-art',player.rating,player.position,assetId,Number(player.definitionId),player.name);const title=document.createElement('div');title.className='player-name';title.textContent=player.name;const detail=document.createElement('small');detail.textContent=player.position;title.append(detail);const price=document.createElement('span');price.className='player-price';price.textContent=player.owned?'IN CLUB':fmt(player.price);main.append(art,title,price);row.append(main);
     if(state.resolved&&!state.inserted){const select=document.createElement('select');select.setAttribute('aria-label',`SBC slot for ${player.name}`);slots.forEach(slot=>{const option=document.createElement('option');option.value=slot.index;option.textContent=`Slot ${slot.index+1} · ${slot.position}`;select.append(option);});select.value=mapping[index];select.disabled=busy;select.onchange=()=>{mapping[index]=Number(select.value);};row.append(select);}
-    if(state.approved&&!player.owned){const actions=document.createElement('div');actions.className='player-actions';const swap=document.createElement('button');swap.type='button';swap.textContent='⇄';swap.title='Find a cheaper swap';swap.setAttribute('aria-label',`Find cheaper chemistry-safe swaps for ${player.name}`);swap.disabled=busy||buy.enabled;swap.onclick=()=>run('swapOptions',{index});const market=document.createElement('button');market.type='button';market.textContent='↗';market.title='Search EA market';market.setAttribute('aria-label',`Find ${player.name} in EA market`);market.disabled=busy||buy.enabled;market.onclick=()=>run('market',{index});actions.append(swap,market);row.append(actions);}
+    if(state.approved&&!player.owned){const actions=document.createElement('div');actions.className='player-actions';const swap=document.createElement('button');swap.type='button';swap.textContent='⇄';swap.title='Find a cheaper swap';swap.hidden=p.source==='hybrid';swap.setAttribute('aria-label',`Find cheaper chemistry-safe swaps for ${player.name}`);swap.disabled=busy||buy.enabled;swap.onclick=()=>run('swapOptions',{index});const market=document.createElement('button');market.type='button';market.textContent='↗';market.title='Search EA market';market.setAttribute('aria-label',`Find ${player.name} in EA market`);market.disabled=busy||buy.enabled;market.onclick=()=>run('market',{index});actions.append(swap,market);row.append(actions);}
     $('players').append(row);
   });
   $('complete').hidden=!!state.approved;
@@ -602,6 +602,7 @@ $('trader-reset').onclick=async()=>{
   catch(error){if(!recovering){$('trader-error').textContent=error.message;$('trader-error').hidden=false;}}
   finally{traderPending=false;renderTrader();}
 };
+$('hybrid-build').onclick=()=>run('hybridBuild');
 $('club-build').onclick=()=>run('clubBuild');
 $('connect').onclick=()=>run('connect');$('compare').onclick=()=>run('build',{url:$('source').value.trim()});$('complete').onclick=()=>run('complete',state.resolved&&!state.inserted?{mapping:[...mapping]}:{});$('reset').onclick=()=>run('reset');
 $('swap-close').onclick=()=>run('swapDismiss');

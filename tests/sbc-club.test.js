@@ -53,3 +53,32 @@ test('full XI is accepted only after EA confirms chemistry and club constraints'
  env.challenge.meetsRequirements=meets;env.challenge.isRequirementMet=meets;
  const result=await build();assert.equal(result.ok,true,result.error);assert.equal(result.players.length,11);assert.equal(meets(),true);assert.equal(env.saves,1);
 });
+
+function hybridSetup(t,{balance=1000,rejected=false,requiresOwned=false}={}){
+ const env=setup();env.pool.splice(env.pool.indexOf(env.good[2]),1);
+ globalThis.GameCurrency={COINS:0};services.User.getUser=()=>({getSelectedPersona:()=>({getCurrentClub:()=>({isXbox:true})}),getCurrency:()=>({amount:balance})});
+ const realTimeout=globalThis.setTimeout;t.mock.method(globalThis,'setTimeout',(fn,ms,...args)=>realTimeout(fn,ms===1000?0:ms,...args));
+ const listing=(id,price)=>({...env.good[0],id:500+id,assetId:id,definitionId:id,owners:1,tradable:true,isPlayer:()=>true,getAuctionData:()=>({buyNowPrice:price,getSecondsRemaining:()=>100,canBuy:()=>true})});
+ const listings=[listing(21,650),listing(22,200),listing(22,400),listing(11,150)];
+ const concepts=listings.map(item=>({...item,concept:true,id:0,tradable:false,owners:1}));
+ env.challenge.meetsRequirements=()=>env.slots.every(slot=>slot.item.definitionId>=10)&&(!requiresOwned||env.slots.every(slot=>slot.item.owners===1));
+ env.challenge.isRequirementMet=env.challenge.meetsRequirements;
+ services.Item={clearTransferMarketCache(){},searchTransferMarket:criteria=>rejected?{observe(owner,fn){queueMicrotask(()=>fn(this,{success:false,status:429}));},unobserve(){}}:observed({data:{items:listings.filter(item=>item.getAuctionData().buyNowPrice<=criteria.maxBuy)}}),searchConceptItems:criteria=>observed({response:{items:concepts.filter(item=>criteria.defId.includes(item.definitionId)),endOfList:true}})};
+ return env;
+}
+async function hybridBuild(){const before=await eaOperation('status');return eaOperation('sbcHybridBuild',{challengeId:49,fingerprint:before.challenge.fingerprint});}
+test('hybrid keeps owned cards and selects the cheaper checked market concept',async t=>{
+ const env=hybridSetup(t);const result=await hybridBuild();assert.equal(result.ok,true,result.error);
+ assert.equal(result.total,200);assert.equal(result.players.filter(p=>p.owned).length,2);
+ const missing=result.players.find(p=>!p.owned);assert.equal(missing.definitionId,22);assert.equal(missing.price,200);
+ assert(env.slots.some(slot=>slot.item.concept));assert.equal(env.saves,1);
+ validatePlan({source:'hybrid',year:27,market:'console',challengeId:49,total:200,players:result.players,checkedAt:Date.now()});
+ assert.throws(()=>validatePlan({source:'hybrid',year:27,market:'console',challengeId:49,total:0,players:result.players.map(p=>({...p,price:0})),checkedAt:Date.now()}));
+});
+test('hybrid respects balance and does not treat purchased concepts as first-owner cards',async t=>{
+ let env=hybridSetup(t,{balance:150});let original=env.slots.map(s=>s.item);let result=await hybridBuild();assert.equal(result.ok,false);assert.equal(env.saves,0);assert.deepEqual(env.slots.map(s=>s.item),original);
+ env=hybridSetup(t,{requiresOwned:true});env.good.forEach(item=>{item.owners=1;});original=env.slots.map(s=>s.item);result=await hybridBuild();assert.equal(result.ok,false);assert.equal(env.saves,0);assert.deepEqual(env.slots.map(s=>s.item),original);
+});
+test('market rejection stops hybrid without saving or changing any cards',async t=>{
+ const env=hybridSetup(t,{rejected:true});const original=env.slots.map(s=>s.item);const result=await hybridBuild();assert.equal(result.ok,false);assert.match(result.error,/429/);assert.deepEqual(env.slots.map(s=>s.item),original);assert.equal(env.saves,0);
+});

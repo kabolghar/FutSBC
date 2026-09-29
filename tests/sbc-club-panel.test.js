@@ -8,7 +8,7 @@ test('club result is labeled as owned, hides buying and leaves submission in EA'
  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
  try{
-  dom.window.eval(script+`\nstate={challenge:{id:49,name:'Challenge 2',slots:[{index:0,position:'CM'}]},plan:{source:'club',name:'Challenge 2',total:0,checks:45,checkedAt:Date.now(),players:[{name:'Owned card',baseId:100,definitionId:100,ownedId:123,owned:true,price:0,rating:61,position:'CM'}]},inserted:true,approved:true};render();`);
+  dom.window.eval(script+`\nstate={challenge:{id:49,name:'Challenge 2',slots:[{index:0,position:'CM'}]},plan:{source:'club',name:'Challenge 2',total:0,checks:45,checkedAt:Date.now(),players:[{name:'Owned card',baseId:100,definitionId:100,ownedId:123,owned:true,price:0,rating:61,position:'CM'}]},inserted:true,approved:true};render();window.showHybrid=()=>{state.plan.source='hybrid';state.plan.players[0].owned=false;state.plan.players[0].price=200;state.plan.total=200;render();};`);
   const doc=dom.window.document;
   assert.match(doc.getElementById('price-label').textContent,/CLUB BUILD/);
   assert.match(doc.getElementById('coverage').textContent,/45 combinations checked/);
@@ -17,5 +17,9 @@ test('club result is labeled as owned, hides buying and leaves submission in EA'
   assert.equal(doc.getElementById('buy-section').hidden,true);
   assert.equal(doc.getElementById('complete').hidden,true);
   assert.equal(doc.getElementById('club-build').disabled,false);
+  dom.window.showHybrid();
+  assert.match(doc.getElementById('price-label').textContent,/CLUB \+ MARKET/);
+  assert.equal(doc.getElementById('buy-section').hidden,false);
+  assert.equal(doc.getElementById('hybrid-build').disabled,false);
  }finally{dom.window.close();}
 });

@@ -1072,7 +1072,7 @@ async function dispatch(message) {
   }
   const buySession=await rawSbcBuy();
   if(buySession.enabled||sbcBuying)throw Error('Stop SBC buying before changing the squad or starting another action.');
-  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','complete','reset'].includes(message.type))throw Error('Check New Items and your club, then clear the buying session before continuing.');
+  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','complete','reset'].includes(message.type))throw Error('Check New Items and your club, then clear the buying session before continuing.');
   if(message.type==='swapOptions'){
     if((await tradeState()).enabled||tradingBusy)throw Error('Stop the trader before checking SBC swaps.');
     const session=await state();
@@ -1128,14 +1128,16 @@ async function dispatch(message) {
   if(message.type==='swapDismiss'){
     const session=await state();const next={...session,swapOptions:null};await save(next);return next;
   }
-  if(message.type==='clubBuild'){
+  if(message.type==='clubBuild'||message.type==='hybridBuild'){
+    const hybrid=message.type==='hybridBuild';
     if(tradingBusy||(await rawTradeState()).enabled)throw Error('Stop trading before building an SBC from your club.');
     await dispatch({type:'connect'});
     const current=await state();
-    await save({...current,progress:'Building from your club · checking EA requirements…'});
+    await save({...current,progress:hybrid?'Checking club cards and low-price EA listings…':'Building from your club · checking EA requirements…'});
     try{
-      const result=await ea(current.tabId,'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint});
-      const plan={source:'club',year:27,market:'console',challengeId:result.challenge.id,name:result.challenge.name,players:result.players,total:0,checkedAt:Date.now(),checks:result.checks};
+      const result=await ea(current.tabId,hybrid?'sbcHybridBuild':'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint});
+      const plan={source:hybrid?'hybrid':'club',year:27,market:'console',challengeId:result.challenge.id,name:result.challenge.name,players:result.players,total:result.players.reduce((sum,p)=>sum+p.price,0),checkedAt:Date.now(),checks:result.checks,budget:result.budget};
+      validateSavedPlan(plan);
       const next={...current,challenge:result.challenge,plan,resolved:result.players,mapping:result.players.map(player=>player.slotIndex),alternatives:[],listedSolutions:[],swapOptions:null,checkout:null,inserted:true,approved:true,progress:null};
       await save(next);return next;
     }catch(clubError){await save({...await state(),progress:null});throw clubError;}

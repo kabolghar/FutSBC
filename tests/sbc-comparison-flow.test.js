@@ -19,7 +19,7 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
     scripting:{executeScript:async({target,func,args})=>{
       if(target.tabId===1){
         const action=args[0];actions.push(action);
-        if(action==='sbcClubBuild'){inserted=true;return [{result:{ok:true,challenge:challenge(),checks:12,players:players().map((p,index)=>({...p,owned:true,ownedId:index+1,definitionId:p.baseId,price:0,slotIndex:index}))}}];}
+        if(action==='sbcClubBuild'||action==='sbcHybridBuild'){inserted=true;return [{result:{ok:true,challenge:challenge(),checks:12,players:players().map((p,index)=>({...p,owned:action!=='sbcHybridBuild'||index!==0,ownedId:index+1,definitionId:p.baseId,price:action==='sbcHybridBuild'&&index===0?200:0,slotIndex:index}))}}];}
         if(action==='concepts')inserted=true;
         const result=action==='resolve'&&unmatchable&&args[1].players[0].price===100?{ok:false,error:'Could not uniquely match Player 1 (64): 0 distinct EA cards found. No squad changes were made.',unmatchedPlayer:args[1].players[0]}:action==='resolve'?{ok:true,players:args[1].players.map((player,index)=>({...player,definitionId:2000+index})),challenge:challenge()}:action==='concepts'?{ok:true,players:args[1].players.map(player=>({...player,owned:false})),challenge:challenge()}:{ok:true,challenge:challenge()};
         return [{result}];
@@ -80,5 +80,9 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
   const beforeDirect=created.length;
   const direct=await send('clubBuild');assert.equal(direct.ok,true,direct.error);
   assert.equal(created.length,beforeDirect,'direct club build skips FUTBIN completely');
+  const hybrid=await send('hybridBuild');assert.equal(hybrid.ok,true,hybrid.error);
+  assert.equal(hybrid.data.plan.source,'hybrid');assert.equal(hybrid.data.plan.total,200);
+  assert.equal(created.length,beforeDirect,'hybrid build skips FUTBIN');
+  assert.equal(hybrid.data.resolved.filter(p=>!p.owned).length,1);
 
 });

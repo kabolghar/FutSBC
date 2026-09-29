@@ -857,7 +857,12 @@ export async function eaOperation(action, payload = {}) {
     };
     if(action==='status') return {ok:true,challenge:snapshot()};
     if(challenge.id!==payload.challengeId || challenge.hasExpired() || challenge.isCompleted()) throw Error('The open challenge changed, expired, or is completed. Reconnect and compare again.');
-    if(action==='sbcClubBuild'){
+    if(action==='sbcClubBuild'||action==='sbcHybridBuild'){
+      const hybrid=action==='sbcHybridBuild';
+      const balance=hybrid?coinBalance():0;
+      if(hybrid&&(!Number.isSafeInteger(balance)||balance<0))throw Error('EA could not read your coin balance. No squad changes were made.');
+      const budget=balance,prices=new Map();
+      const cost=item=>item.concept?(prices.get(Number(item.definitionId))??Infinity):0;
       if(snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed. Refresh before building from your club.');
       if(!Array.isArray(challenge.eligibilityRequirements)||typeof challenge.isRequirementMet!=='function')throw Error('EA requirement checks are unavailable. No squad changes were made.');
       if(typeof services.Squad?.requestSquadByType!=='function'||typeof services.Club?.search!=='function')throw Error('EA club protection checks are unavailable. No squad changes were made.');
@@ -876,47 +881,95 @@ export async function eaOperation(action, payload = {}) {
           fixed.set(index,item);
         }
       }
-      const pool=new Map();let clubComplete=false;
+      const pool=new Map(),ownedDefinitions=new Set();let clubComplete=false;
       for(let page=0;page<30;page++){
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.count=100;criteria.offset=page*100;
         const response=await observe(services.Club.search(criteria));
         const rows=response.response?.items;
         if(!Array.isArray(rows))throw Error('EA club results changed. No squad changes were made.');
+        for(const item of rows)if(usable(item))ownedDefinitions.add(Number(item.definitionId));
         for(const item of rows)if(automatic(item)){
-          const key=asset(item),existing=pool.get(key);
+          const key=Number(item.definitionId),existing=pool.get(key);
           if(!existing||Number(item.rating)<Number(existing.rating)||item.rating===existing.rating&&!item.tradable&&existing.tradable)pool.set(key,item);
         }
         if(response.response.retrievedAll===true||rows.length<criteria.count){clubComplete=true;break;}
       }
       if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed while reading your club. Nothing was added.');
+      if(hybrid){
+        if(!clubComplete)throw Error('Your club scan is incomplete. No purchases were planned or squad changes made.');
+        if(typeof services.Item?.searchConceptItems!=='function')throw Error('EA concept search is unavailable.');
+        const filters=[{}];
+        // The public EA client uses these same criteria for its SBC squad builder.
+        if(typeof SBCEligibilityKey!=='undefined')for(const rule of challenge.eligibilityRequirements){
+          for(const [key,field] of [['LEAGUE_ID','league'],['NATION_ID','nation'],['CLUB_ID','club']]){
+            if(rule.getFirstKey?.()===SBCEligibilityKey[key])for(const value of rule.getValue?.(SBCEligibilityKey[key])||[])
+              if(Number.isInteger(value)&&value>0)filters.push({[field]:value});
+          }
+        }
+        for(const [key,field] of [['leagueId','league'],['nationId','nation']]){
+          const counts=new Map();for(const item of [...pool.values(),...fixed.values()]){const id=Number(item[key]);if(id>0)counts.set(id,(counts.get(id)||0)+1);}
+          filters.push(...[...counts].sort((a,b)=>b[1]-a[1]).slice(0,2).map(([id])=>({[field]:id})));
+        }
+        filters.push(...[...new Set(slots.map(slot=>slot.generalPositionName))].map(position=>({position})));
+        const unique=[...new Map(filters.map(filter=>[JSON.stringify(filter),filter])).values()].slice(0,14);
+        const market=new Map();let requests=0;
+        // Increasing price ceilings collect cheap candidates first. Queries are paced and bounded.
+        for(const ceiling of [...new Set([Math.min(750,budget),Math.min(2500,budget),Math.min(10000,budget)])]){
+          if(ceiling<150)continue;
+          for(const filter of unique){
+            if(requests>=42)break;
+            if(requests++)await new Promise(resolve=>setTimeout(resolve,1000));
+            if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed during market discovery. Nothing was added.');
+            const criteria=Object.assign(marketCriteria(null,ceiling),filter);
+            const result=await searchMarket(criteria);
+            for(const item of marketRows(result)){
+              const price=Number(auction(item).buyNowPrice),id=Number(item.definitionId);
+              if(!Number.isSafeInteger(price)||price<150||price>ceiling||!(Number(auction(item).getSecondsRemaining?.())>0)||!auction(item).canBuy?.(balance))continue;
+              if(ownedDefinitions.has(id)||market.has(id)&&market.get(id).price<=price)continue;
+              market.set(id,{item,price});
+            }
+          }
+        }
+        const selected=[...market.values()].sort((a,b)=>a.price-b.price).slice(0,240);
+        if(selected.length){
+          const rows=await conceptRows(selected.map(({item})=>({definitionId:Number(item.definitionId)})),'definitionId');
+          for(const {item,price} of selected){
+            const match=rows.find(row=>row.concept&&Number(row.definitionId)===Number(item.definitionId)&&Number(row.rating)===Number(item.rating)&&Number(row.rareflag)===Number(item.rareflag));
+            if(match){const projected=Object.assign(Object.create(Object.getPrototypeOf(match)),match,{tradable:true,owners:Math.max(2,Number(item.owners)||2)});pool.set(Number(match.definitionId),projected);prices.set(Number(match.definitionId),price);}
+          }
+        }
+        if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed while matching market cards. Nothing was added.');
+      }
       const fixedAssets=new Set([...fixed.values()].map(asset));
       if(fixedAssets.size!==fixed.size)throw Error('The existing SBC contains duplicate players. No squad changes were made.');
       // Preserve explicitly placed concepts only when the exact owned version is available.
       for(const [index,item] of original.entries())if(item?.concept&&Number(item.definitionId)>0){
-        const owned=pool.get(asset(item));
-        if(!owned||Number(owned.definitionId)!==Number(item.definitionId)||fixedAssets.has(asset(owned)))throw Error('An existing concept has no eligible owned copy. Remove it or use a FUTBIN solution.');
+        const owned=pool.get(Number(item.definitionId));
+        if(!owned||Number(owned.definitionId)!==Number(item.definitionId)||fixedAssets.has(asset(owned)))throw Error(hybrid?'An existing concept has no eligible owned copy or checked affordable listing. No squad changes were made.':'An existing concept has no eligible owned copy. Remove it or use a FUTBIN solution.');
         fixed.set(index,owned);fixedAssets.add(asset(owned));
       }
-      const candidates=[...pool.values()].filter(item=>!fixedAssets.has(asset(item))).sort((a,b)=>a.rating-b.rating||Number(a.tradable)-Number(b.tradable)||a.id-b.id);
-      if(candidates.length<slots.length-fixed.size)throw Error(`Not enough eligible club players: ${candidates.length} available for ${slots.length-fixed.size} slots. Active-squad players, specials, loans and cards above 82 are protected. No squad changes were made.`);
+      const candidates=[...pool.values()].filter(item=>!fixedAssets.has(asset(item))).sort((a,b)=>cost(a)-cost(b)||a.rating-b.rating||Number(a.tradable)-Number(b.tradable)||a.id-b.id);
+      if(new Set(candidates.map(asset)).size<slots.length-fixed.size)throw Error(`Not enough eligible ${hybrid?'club and checked market':'club'} players: ${candidates.length} available for ${slots.length-fixed.size} slots. Active-squad players, specials, loans and cards above 82 are protected. No squad changes were made.`);
       const fits=(item,index)=>{const target=positionIds[slots[index].generalPositionName];return Number(item.preferredPosition)===target||[item.basePossiblePositions,item.possiblePositions].some(list=>Array.isArray(list)&&list.some(value=>Number(value)===target));};
-      const themes=[{key:null,id:null}];
+      const themes=[{key:null,id:null},...(hybrid?[{minRating:75},{minRating:65},{highRating:true}]:[])];
       for(const key of ['leagueId','nationId','teamId']){
         const counts=new Map();for(const item of candidates){const id=Number(item[key]);if(id>0)counts.set(id,(counts.get(id)||0)+1);}
         themes.push(...[...counts].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([id])=>({key,id})));
       }
+      const themeScore=(item,theme)=>theme.key?Number(Number(item[theme.key])===theme.id):theme.minRating?Number(item.rating>=theme.minRating):theme.highRating?Number(item.rating)/100:0;
       let previewActive=false;
       const apply=lineup=>{previewActive=true;lineup.forEach((item,index)=>squad.addItemToSlot(slots[index].index,item));};
       const restore=()=>{if(previewActive){original.forEach((item,index)=>squad.addItemToSlot(slots[index].index,item));previewActive=false;}};
       let checks=0,best=null;const deadline=Date.now()+10000;
       const score=lineup=>{
         apply(lineup);checks++;
-        const valid=!!challenge.meetsRequirements()&&(typeof squad.isSBCSquadEligible!=='function'||squad.isSBCSquadEligible());
+        const valid=!!challenge.meetsRequirements()&&(hybrid||typeof squad.isSBCSquadEligible!=='function'||squad.isSBCSquadEligible())&&(!hybrid||lineup.reduce((sum,item)=>sum+cost(item),0)<=budget);
         const met=challenge.eligibilityRequirements.filter(rule=>challenge.isRequirementMet(rule)).length;
         const chemistry=Number(squad.getChemistry?.())||0;
         const ratingCost=lineup.reduce((sum,item)=>sum+Number(item.rating||0),0);
         // EA decides validity; chemistry is only a search heuristic, never a substitute.
-        return {valid,value:met*100+chemistry-ratingCost/10000,lineup:[...lineup]};
+        const total=lineup.reduce((sum,item)=>sum+cost(item),0);
+        return {valid,total,value:hybrid&&valid?1000000-total/(budget+1):met*100+chemistry-ratingCost/10000-(hybrid?total/(budget+1):0),lineup:[...lineup]};
       };
       try{
         for(const theme of themes){
@@ -926,44 +979,47 @@ export async function eaOperation(action, payload = {}) {
           const order=slots.map((_,index)=>index).filter(index=>!fixed.has(index)).sort((a,b)=>candidates.filter(item=>fits(item,a)).length-candidates.filter(item=>fits(item,b)).length);
           for(const index of order){
             const eligible=candidates.filter(item=>!used.has(asset(item)));
-            eligible.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||(theme.key?Number(Number(b[theme.key])===theme.id)-Number(Number(a[theme.key])===theme.id):0)||a.rating-b.rating||a.id-b.id);
+            eligible.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||themeScore(b,theme)-themeScore(a,theme)||cost(a)-cost(b)||a.rating-b.rating||a.id-b.id);
             lineup[index]=eligible[0];used.add(asset(eligible[0]));
           }
           let currentScore=score(lineup);
-          if(currentScore.valid){best=currentScore;break;}
-          for(let pass=0;pass<3&&!best;pass++){
+          if(currentScore.valid&&(!best||currentScore.total<best.total))best=currentScore;
+          if(best&&(!hybrid||best.total===0))break;
+          for(let pass=0;pass<3&&(!best||hybrid);pass++){
             let improved=false;
             for(const index of order){
               const available=candidates.filter(item=>!lineup.some((other,otherIndex)=>otherIndex!==index&&asset(other)===asset(item)));
-              available.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||(theme.key?Number(Number(b[theme.key])===theme.id)-Number(Number(a[theme.key])===theme.id):0)||a.rating-b.rating);
+              available.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||themeScore(b,theme)-themeScore(a,theme)||cost(a)-cost(b)||a.rating-b.rating);
               let chosen=currentScore;
               for(const item of available.slice(0,70)){
                 if(Date.now()>deadline||checks>=6000)break;
                 const next=[...lineup];next[index]=item;const result=score(next);
-                if(result.valid){best=result;break;}
+                if(result.valid&&(!best||result.total<best.total))best=result;
+                if(best&&!hybrid)break;
                 if(result.value>chosen.value)chosen=result;
               }
-              if(best)break;
+              if(best&&(!hybrid||best.total===0))break;
               if(chosen.value>currentScore.value){lineup.splice(0,lineup.length,...chosen.lineup);currentScore=chosen;improved=true;}
             }
             if(!improved||Date.now()>deadline||checks>=6000)break;
           }
           restore();
-          if(best)break;
+          if(best&&(!hybrid||best.total===0))break;
           // Yield only after restoring the original squad, then detect user edits.
           await new Promise(resolve=>setTimeout(resolve,0));
           if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed during the club search. Nothing was added.');
         }
       }finally{restore();}
-      if(!best)throw Error(`No valid club squad found in ${checks} checked combinations${clubComplete?'':' (club scan capped)'}. This is a bounded search, not proof your club cannot solve it. No squad changes were made.`);
+      if(!best)throw Error(`No valid ${hybrid?'hybrid':'club'} squad found in ${checks} checked combinations${clubComplete?'':' (club scan capped)'}. This is a bounded search${hybrid?' of owned cards and listings up to 10,000 coins per card within your balance':', not proof your club cannot solve it'}. No squad changes were made.`);
       if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed before adding players. Nothing was added.');
-      const output=best.lineup.map((item,index)=>({name:teamPlayerName(item),baseId:asset(item),definitionId:Number(item.definitionId),ownedId:Number(item.id),owned:true,rating:Number(item.rating),rarity:Number(item.rareflag),price:0,position:slots[index].generalPositionName,slotPosition:slots[index].generalPositionName,futbinSlot:slots[index].index,slotIndex:slots[index].index}));
+      if(hybrid&&(!Number.isSafeInteger(coinBalance())||coinBalance()<best.total))throw Error('Your coin balance changed and no longer covers this plan. Nothing was added.');
+      const output=best.lineup.map((item,index)=>({name:teamPlayerName(item),baseId:asset(item),definitionId:Number(item.definitionId),ownedId:item.concept?undefined:Number(item.id),owned:!item.concept,rating:Number(item.rating),rarity:Number(item.rareflag),price:cost(item),position:slots[index].generalPositionName,slotPosition:slots[index].generalPositionName,futbinSlot:slots[index].index,slotIndex:slots[index].index}));
       try{
         apply(best.lineup);
-        if(!challenge.meetsRequirements()||(typeof squad.isSBCSquadEligible==='function'&&!squad.isSBCSquadEligible()))throw Error('EA did not confirm this squad.');
+        if(!challenge.meetsRequirements()||(!hybrid&&typeof squad.isSBCSquadEligible==='function'&&!squad.isSBCSquadEligible()))throw Error('EA did not confirm this squad.');
         await observe(services.SBC.saveChallenge(challenge),false,'sbc-club-save');
       }catch(error){restore();throw Error(`${error.message} Reopen the SBC to verify its saved state. No submission was attempted.`);}
-      return {ok:true,challenge:snapshot(),players:output,checks,clubComplete};
+      return {ok:true,challenge:snapshot(),players:output,checks,clubComplete,total:best.total,budget};
     }
     if(action==='sbcQuote'){
       const player=payload.player,balance=coinBalance();
