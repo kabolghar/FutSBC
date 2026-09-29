@@ -406,8 +406,6 @@ async function runTeamRecommendation(slots,budget){
 }
 async function recommendTeam(slots,budget){
   if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before building a team.');
-  const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
-  if(paused>Date.now())throw Error(`EA limited market price checks. Team will be ready to retry in ${Math.ceil((paused-Date.now())/60000)} minutes.`);
   const {tabId,team}=await connectedTeam();
   const selected=[...new Set(slots||[])].filter(index=>Number.isInteger(index)&&team.players.some(player=>player.index===index)).slice(0,11);
   if(!selected.length)throw Error('Choose at least one player in your starting XI.');
@@ -431,40 +429,46 @@ async function recommendTeam(slots,budget){
     catch(error){throw Error(`EA could not check ${player.position} cards: ${error.message}`);}
     results.push({slotIndex,player,options:checked.options,checked:checked.checked,screening:checked.screening});
   }
-  const ids=[...new Set(results.flatMap(result=>result.options.filter(option=>!option.owned).map(option=>option.definitionId)))];
-  const quotes=new Map();let priceCheckedAt=null;
+  // Estimates are sufficient for recommendations. Unknown fallback prices are
+  // optimistic only inside planning; never expose an unpriced lineup as affordable.
+  const quotes=new Map();let priceCheckedAt=null,cardsPriced=0,planned;
   const cachePrefix=JSON.stringify([tabId,team.fingerprint,total]);
-  for(const [key,value] of teamQuoteCache)if(Date.now()-value.checkedAt>5*60_000)teamQuoteCache.delete(key);
-  for(const [index,id] of ids.entries()){
-    teamProgress(`Checking live prices · ${index+1}/${ids.length}`);
-    const key=`${cachePrefix}:${id}`,cached=teamQuoteCache.get(key);
-    if(cached&&Date.now()-cached.checkedAt<=5*60_000){quotes.set(id,cached.quote);priceCheckedAt=cached.checkedAt;continue;}
-    if(index)await new Promise(resolve=>setTimeout(resolve,1000));
-    teamProgress(`Checking live prices · ${index+1}/${ids.length}`);
-    let batch;
-    try{batch=await ea(tabId,'teamQuote',{fingerprint:team.fingerprint,definitionIds:[id],maxPrice:total},30000);}
-    catch(error){
-      if(error.status===429){
-        await chrome.storage.session.set({[TEAM_PRICE_PAUSE_KEY]:Date.now()+5*60_000});
-        throw Error(`EA temporarily limited market price checks after ${index}/${ids.length} cards (429). No lineup was shown with missing prices. Retry after the short pause.`);
+  for(const result of results)result.options=result.options.map(option=>({...option,
+    price:option.owned?0:option.estimatedPrice??option.price,
+    priceEstimated:!option.owned&&Number.isSafeInteger(option.estimatedPrice??option.price)}));
+  for(let round=0;round<25;round++){
+    teamProgress('Checking complete teams and chemistry…');
+    const groups=results.map(({slotIndex,options})=>({slotIndex,options:options.flatMap(option=>{
+      if(option.owned||option.priceEstimated)return [{...option,priceVerified:true}];
+      const key=`${cachePrefix}:${option.definitionId}`,cached=teamQuoteCache.get(key);
+      if(cached&&Date.now()-cached.checkedAt<5*60_000)quotes.set(option.definitionId,cached.quote);
+      const quote=quotes.get(option.definitionId);
+      if(quote)return Number.isSafeInteger(quote.price)?[{...option,price:quote.price,priceVerified:true}]:[];
+      return [{...option,price:150,priceVerified:true,pricePending:true}];
+    })}));
+    planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups},SBC_REQUEST_TIMEOUT);
+    const pending=[...new Set((planned.plan?.choices||[]).filter(option=>option.pricePending).map(option=>option.definitionId))];
+    if(!pending.length)break;
+    if(round===24||cardsPriced+pending.length>24)throw Error('No fully priced lineup found within 24 targeted checks. Try fewer positions or a larger budget.');
+    const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
+    if(paused>Date.now())throw Error('EA paused live prices. FUTBIN estimates remain available; retry fallback prices later.');
+    for(const id of pending){
+      if(cardsPriced)await new Promise(resolve=>setTimeout(resolve,1000));
+      teamProgress(`Pricing proposed lineup · ${cardsPriced+1} cards checked`);
+      let batch;
+      try{batch=await ea(tabId,'teamQuote',{fingerprint:team.fingerprint,definitionIds:[id],maxPrice:total},30000);}
+      catch(error){
+        if(error.status===429)await chrome.storage.session.set({[TEAM_PRICE_PAUSE_KEY]:Date.now()+5*60_000});
+        throw Error(`Could not price the proposed lineup: ${error.message}`);
       }
-      throw Error(`EA could not check live prices after ${index}/${ids.length} cards: ${error.message} Recent completed checks are saved for retry.`);
+      priceCheckedAt=batch.checkedAt;cardsPriced++;
+      const quote=batch.quotes.find(quote=>quote.definitionId===id);
+      if(!quote)throw Error('EA returned no price result for a proposed card.');
+      quotes.set(id,quote);teamQuoteCache.set(`${cachePrefix}:${id}`,{quote,checkedAt:batch.checkedAt});
     }
-    priceCheckedAt=batch.checkedAt;
-    for(const quote of batch.quotes){quotes.set(quote.definitionId,quote);teamQuoteCache.set(`${cachePrefix}:${quote.definitionId}`,{quote,checkedAt:batch.checkedAt});}
   }
-  for(const result of results)result.options=result.options.map(option=>{
-    if(option.owned)return {...option,price:0,priceVerified:true};
-    const quote=quotes.get(option.definitionId);
-    return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),listingCount:quote?.listingCount??0};
-  });
-  const groups=results.map(({slotIndex,options})=>({slotIndex,options:options.filter(option=>option.priceVerified)}));
-  teamProgress('Checking complete teams and chemistry…');
-  let planned;
-  try{planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups},SBC_REQUEST_TIMEOUT);}
-  catch(error){throw Error(`EA could not verify the complete XI: ${error.message}`);}
   teamProgress('Team check complete.');
-  return {team,results,plan:planned.plan,planReason:planned.reason,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced:ids.length};
+  return {team,results,plan:planned.plan,planReason:planned.reason,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:source==='FUTBIN'?'estimate':'live'};
 }
 async function trendRankedTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);

@@ -262,6 +262,8 @@ export async function eaOperation(action, payload = {}) {
             (Number(item.preferredPosition)===target||[item.basePossiblePositions,item.possiblePositions].some(positions=>Array.isArray(positions)&&positions.some(position=>Number(position)===target)))&&
             (option.owned===true||option.priceVerified===true&&Number.isSafeInteger(option.price)&&option.price>=150);
         }).map(option=>({option,item:concepts.get(Number(option.definitionId))}));
+        // Keeping a selected player permits useful partial upgrades.
+        if(Number(slot.item?.definitionId)>0)choices.push({item:slot.item,option:{definitionId:Number(slot.item.definitionId),assetId:Number(slot.item.assetId||Number(slot.item.definitionId)%0x1000000),rating:Number(slot.item.rating),name:String(slot.item.name||slot.item.lastName||'Current player'),owned:true,price:0,priceVerified:true,retained:true}});
         return {slot,choices};
       });
       if(bySlot.some(group=>!group.choices.length))return {ok:true,plan:null,reason:'No exact card with a checked price is available for every selected position.'};
@@ -274,7 +276,7 @@ export async function eaOperation(action, payload = {}) {
       const hasCard=item=>Number(item?.definitionId)>0;
       const completeXI=fixed.every(row=>hasCard(row.item));
       const minimumChemistry=Math.max(Number(baseline.chemistry),completeXI?30:0);
-      const rankValue=option=>option.source==='FUT.GG'?100-(Number(option.metaRank)-1)*1.25:Number(option.futbinRating)||75;
+      const rankValue=option=>option.retained?0:option.source==='FUT.GG'?100-(Number(option.metaRank)-1)*1.25:Number(option.futbinRating)||75;
       const compare=(a,b)=>b.chemistry-a.chemistry||b.meta-a.meta||a.cost-b.cost;
       // Bounded beam search preserves whole-team alternatives instead of reducing
       // each position to the cheapest two plus one highly ranked card.
@@ -293,12 +295,12 @@ export async function eaOperation(action, payload = {}) {
           const candidate={chosen,used,cost,meta,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
-            if(candidate.chemistry<minimumChemistry)continue;
+            if(candidate.chemistry<minimumChemistry||![...chosen.values()].some(value=>!value.option.retained))continue;
             const points=index=>Number(chem.getSlotChemistry?.(index)?.points);
-            if([...chosen.keys()].some(index=>!Number.isFinite(points(index))||points(index)<2))continue;
-            if(fixed.some(row=>hasCard(row.item)&&(!Number.isFinite(points(row.index))||points(row.index)<Math.max(completeXI?2:0,Number(baseline.getSlotChemistry?.(row.index)?.points)||0))))continue;
+            if([...chosen].some(([index,value])=>!Number.isFinite(points(index))||points(index)<(value.option.retained?Number(baseline.getSlotChemistry?.(index)?.points)||0:2)))continue;
+            if(fixed.some(row=>hasCard(row.item)&&(!Number.isFinite(points(row.index))||points(row.index)<(Number(baseline.getSlotChemistry?.(row.index)?.points)||0))))continue;
             if(!best||compare(candidate,best)<0){
-              best={meta,score:meta,cost,chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)}))};
+              best={meta,score:meta,cost,chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)}))};
             }
           }else expanded.push(candidate);
         }
@@ -306,7 +308,7 @@ export async function eaOperation(action, payload = {}) {
         beam=expanded.slice(0,256);
         if(step<bySlot.length-1&&!beam.length)break;
       }
-      return {ok:true,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, two chemistry per player in a complete XI, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
+      return {ok:true,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
     }
     if(action==='tradeStatus') {
       const balance=coinBalance();

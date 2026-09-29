@@ -274,15 +274,15 @@ function renderTeam(){
   if(!team.players?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='Refresh to load your starting XI from EA.';playerList.append(empty);}
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
-    const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':'FUTBIN player ratings'} · ${teamResult.cardsPriced} EA card prices checked · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
+    const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'FUTBIN price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
     if(teamResult.plan){
       const plan=teamResult.plan;
       const summary=document.createElement('div');summary.className='team-plan-summary';
-      for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],['TOTAL TO BUY',`${fmt(plan.cost)} coins`],['BUDGET LEFT',`${fmt(plan.remaining)} coins`]]){
+      for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],[teamResult.priceMode==='estimate'?'EST. TO BUY':'TOTAL TO BUY',`${fmt(plan.cost)} coins`],['BUDGET LEFT',`${fmt(plan.remaining)} coins`]]){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);
       }
       results.append(summary);
-      const note=document.createElement('p');note.className='team-result-note';note.textContent=`Squad checked by EA · ${fmt(teamResult.combinationsChecked)} combinations · prices are current listings, not reserved purchases.`;results.append(note);
+      const note=document.createElement('p');note.className='team-result-note';note.textContent=`${plan.choices.length} positions updated · chemistry checked by EA · ${fmt(teamResult.combinationsChecked)} combinations · ${teamResult.priceMode==='estimate'?'FUTBIN estimates; check prices before buying.':'Prices are current listings, not reserved purchases.'}`;results.append(note);
       const lineupTitle=document.createElement('h2');lineupTitle.className='team-lineup-title';lineupTitle.textContent=`Planned ${team.formation||'starting'} squad`;results.append(lineupTitle);
       const lineup=document.createElement('div');lineup.className='team-lineup';
       const planned=new Map(plan.choices.map(option=>[option.slotIndex,option]));

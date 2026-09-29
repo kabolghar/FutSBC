@@ -97,7 +97,8 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
     {slotIndex:0,options:[{...result.options[0],price:10000,priceVerified:true}]},
     {slotIndex:2,options:[{...empty.options[0],price:8000,priceVerified:true}]}
   ]});
-  assert.equal(overBudget.plan,null);
+  assert.equal(overBudget.plan.cost,8000);
+  assert.deepEqual(overBudget.plan.choices.map(choice=>choice.slotIndex),[2], 'keep the selected striker when only the midfield upgrade fits');
   globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){
     const changed=[items[0].definitionId===20,items[2].definitionId===23];
     return {chemistry:changed.every(Boolean)?34:changed.some(Boolean)?32:33,getSlotChemistry:()=>({points:3})};
@@ -123,6 +124,10 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal((await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups})).plan,null,'no new zero-chemistry cards');
   globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){return {chemistry:items[0].definitionId===1?10:33,getSlotChemistry:index=>({points:index===1&&items[0].definitionId!==1?2:3})};}};
   assert.equal((await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups})).plan,null,'retained player chemistry must not drop');
+  globalThis.UTSquadChemCalculatorUtils=class{calculate(){return {chemistry:31,getSlotChemistry:index=>({points:index===1?1:3})};}};
+  const keepsLowChem=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
+  assert.equal(keepsLowChem.plan.chemistry,31,'an unchanged one-chemistry player must not block chemistry-preserving upgrades elsewhere');
+  assert.equal(keepsLowChem.plan.slotChemistry[1],1);
   assert.equal(slots[0].item,original);
 });
 
