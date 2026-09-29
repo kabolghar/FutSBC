@@ -74,7 +74,7 @@ export async function eaOperation(action, payload = {}) {
         else if(card.source==='FUT.GG'){
           if(!Number.isSafeInteger(card.definitionId)||card.definitionId<=0)reason='definition';
           else if(card.price!=null)reason='price';
-          else if(!Number.isInteger(card.metaRank)||card.metaRank<1||card.metaRank>30)reason='rank';
+          else if(!Number.isInteger(card.metaRank)||card.metaRank<1||card.metaRank>120)reason='rank';
         }else if(card.source==='FUTBIN'||card.source==null){
           if(!Number.isSafeInteger(card.price)||card.price<500)reason='price';
           else if(!Number.isFinite(card.futbinRating)||card.futbinRating<75)reason='fit';
@@ -279,7 +279,7 @@ export async function eaOperation(action, payload = {}) {
       const hasCard=item=>Number(item?.definitionId)>0;
       const completeXI=fixed.every(row=>hasCard(row.item));
       const minimumChemistry=Math.max(Number(baseline.chemistry),completeXI?30:0);
-      const rankValue=option=>!option.retained&&option.source==='FUT.GG'?31-Number(option.metaRank):0;
+      const rankValue=option=>!option.retained&&option.source==='FUT.GG'?1000/(10+Number(option.metaRank)):0;
       const compare=(a,b)=>(b.coverage||0)-(a.coverage||0)||b.chemistry-a.chemistry||(b.metaEvidence||0)-(a.metaEvidence||0)||b.meta-a.meta||(b.fallbackMeta||0)-(a.fallbackMeta||0)||a.cost-b.cost;
       // Bounded beam search preserves whole-team alternatives instead of reducing
       // each position to the cheapest two plus one highly ranked card.

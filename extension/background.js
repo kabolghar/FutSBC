@@ -350,11 +350,11 @@ async function currentTeamPlayers(budget){
     return pages;
   }finally{await chrome.tabs.remove(tab.id).catch(()=>{});}
 }
-async function currentFutggBest(positions){
+async function currentFutggBest(positions,limit=30){
   const urls=[...new Set(positions.map(futggBestURL))],pages=new Map();
   const missing=urls.filter(url=>{
     const cached=futggTeamCache.get(url);
-    if(cached&&Date.now()-cached.checkedAt<10*60_000){pages.set(url,cached);return false;}
+    if(cached&&Date.now()-cached.checkedAt<10*60_000&&(cached.cards.length>=limit||cached.complete!==false&&(cached.requestedLimit||30)>=limit)){pages.set(url,cached);return false;}
     return true;
   });
   if(!missing.length)return pages;
@@ -365,8 +365,8 @@ async function currentFutggBest(positions){
       let loaded=null;
       for(let attempt=0;attempt<20;attempt++){
         teamProgress(`Reading FUT.GG rankings · ${pages.size+1}/${urls.length}`);
-        const result=(await chrome.scripting.executeScript({target:{tabId:tab.id},func:readFutggBest,args:[url]}).catch(()=>[]))[0]?.result;
-        if(result?.kind==='futgg-best'){loaded=result;break;}
+        const result=(await chrome.scripting.executeScript({target:{tabId:tab.id},func:readFutggBest,args:[url,limit]}).catch(()=>[]))[0]?.result;
+        if(result?.kind==='futgg-best'){loaded=result;if(result.complete!==false)break;}
         if(attempt<19)await new Promise(resolve=>setTimeout(resolve,250));
       }
       if(!loaded)continue; // One unavailable position must not discard other rankings.
@@ -541,9 +541,9 @@ async function applyTeamSuggestion(message){
 }
 async function refreshSwapCandidates(saved,group,team,tabId,budget){
   const position=group.player.position;
-  const pages=await currentFutggBest([position]);
+  const pages=await currentFutggBest([position],120);
   const fixedAssets=new Set(saved.plan.choices.filter(choice=>choice.slotIndex!==group.slotIndex).map(choice=>choice.assetId));
-  let ranked=selectFutggTeamPlayers(pages.get(futggBestURL(position)),[],30).filter(card=>!fixedAssets.has(card.assetId));
+  let ranked=selectFutggTeamPlayers(pages.get(futggBestURL(position)),[],120).filter(card=>!fixedAssets.has(card.assetId));
   let rankingError=ranked.length?null:'The position ranking could not be loaded.';
   {
     try{

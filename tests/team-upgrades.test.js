@@ -96,6 +96,8 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(fallback.options[0].price,null);
   assert.equal(fallback.options[0].priceVerified,false);
   assert.equal(fallback.screening.chemistryKept,1);
+  const deepRank=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:1000,cards:[{assetId:20,definitionId:20,name:'Upgrade',price:null,rating:80,source:'FUT.GG',metaRank:65}]});
+  assert.equal(deepRank.options[0].metaRank,65,'verified deeper ranks must reach EA chemistry checks');
   const omittedPrice=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:0,cards:[{assetId:20,definitionId:20,name:'Upgrade',url:'https://www.fut.gg/players/20-upgrade/27-20/',rating:80,source:'FUT.GG',metaRank:1}]});
   assert.equal(omittedPrice.screening.valid,1);
   assert.equal(omittedPrice.options[0].price,null);
