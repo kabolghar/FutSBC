@@ -251,6 +251,7 @@ export async function eaOperation(action, payload = {}) {
         for(const item of found.response.items)if(item?.concept&&batch.includes(Number(item.definitionId)))concepts.set(Number(item.definitionId),item);
       }
       if(new Set(groups.map(group=>group.slotIndex)).size!==groups.length)throw Error('Choose each squad position once.');
+      const rejections={invalidCards:0,overBudget:0,duplicatePlayer:0,chemistryUnavailable:0,totalChemistry:0,newCardChemistry:0,retainedChemistry:0,belowTarget:0};
       const bySlot=groups.map(group=>{
         const slot=players.find(row=>row.index===group.slotIndex);
         if(!slot)throw Error('A selected squad slot changed. Refresh Team.');
@@ -262,12 +263,13 @@ export async function eaOperation(action, payload = {}) {
             (Number(item.preferredPosition)===target||[item.basePossiblePositions,item.possiblePositions].some(positions=>Array.isArray(positions)&&positions.some(position=>Number(position)===target)))&&
             (option.owned===true||option.priceVerified===true&&Number.isSafeInteger(option.price)&&option.price>=150);
         }).map(option=>({option,item:concepts.get(Number(option.definitionId))}));
+        rejections.invalidCards+=(group.options||[]).length-choices.length;
         // Keeping a selected player permits useful partial upgrades.
         if(group.allowRetained!==false&&Number(slot.item?.definitionId)>0)choices.push({item:slot.item,option:{definitionId:Number(slot.item.definitionId),assetId:Number(slot.item.assetId||Number(slot.item.definitionId)%0x1000000),rating:Number(slot.item.rating),name:String(slot.item.name||slot.item.lastName||'Current player'),owned:true,price:0,priceVerified:true,retained:true}});
         return {slot,choices};
       });
       bySlot.sort((a,b)=>a.choices.length-b.choices.length||a.slot.index-b.slot.index);
-      if(bySlot.some(group=>!group.choices.length))return {ok:true,plan:null,reason:'No exact card with a checked price is available for every selected position.'};
+      if(bySlot.some(group=>!group.choices.length))return {ok:true,plan:null,rejections,reason:'No exact card with a checked price is available for every selected position.'};
       const fixedAssets=new Set(players.filter(row=>!bySlot.some(group=>group.slot.index===row.index)).map(row=>Number(row.item?.assetId||Number(row.item?.definitionId)%0x1000000)).filter(Boolean));
       const calculator=new UTSquadChemCalculatorUtils(services.Chemistry,repositories.TeamConfig),formation=team.getFormation(),manager=team.getManager()?.item;
       const baseline=calculator.calculate(formation,players.map(row=>row.item),manager);
@@ -288,12 +290,13 @@ export async function eaOperation(action, payload = {}) {
         const {slot,choices}=bySlot[step],expanded=[];
         for(const branch of beam)for(const choice of choices){
           const asset=Number(choice.option.assetId),cost=branch.cost+(choice.option.owned?0:Number(choice.option.price));
-          if(branch.used.has(asset)||cost>limit)continue;
+          if(branch.used.has(asset)){rejections.duplicatePlayer++;continue;}
+          if(cost>limit){rejections.overBudget++;continue;}
           const chosen=new Map(branch.chosen);chosen.set(slot.index,choice);
           const used=new Set(branch.used);used.add(asset);
           const lineup=players.map(row=>chosen.get(row.index)?.item||row.item);
-          let chem;try{chem=calculator.calculate(formation,lineup,manager);}catch{continue;}
-          if(!Number.isFinite(chem?.chemistry))continue;
+          let chem;try{chem=calculator.calculate(formation,lineup,manager);}catch{rejections.chemistryUnavailable++;continue;}
+          if(!Number.isFinite(chem?.chemistry)){rejections.chemistryUnavailable++;continue;}
           const meta=branch.meta+rankValue(choice.option);
           const fallbackMeta=[...chosen.values()].reduce((sum,value)=>sum+(!value.option.retained&&value.option.source!=='FUT.GG'?(Number(value.option.futbinRating)||75):0),0);
           const metaEvidence=[...chosen.values()].filter(value=>!value.option.retained&&value.option.source==='FUT.GG'&&Number.isInteger(value.option.metaRank)).length;
@@ -303,11 +306,13 @@ export async function eaOperation(action, payload = {}) {
           const candidate={chosen,used,cost,meta,fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
-            if(candidate.chemistry<Number(baseline.chemistry)||![...chosen.values()].some(value=>!value.option.retained))continue;
+            if(candidate.chemistry<Number(baseline.chemistry)){rejections.totalChemistry++;continue;}
+            if(![...chosen.values()].some(value=>!value.option.retained))continue;
             const points=index=>Number(chem.getSlotChemistry?.(index)?.points);
-            if([...chosen].some(([index,value])=>!Number.isFinite(points(index))||points(index)<(value.option.retained?Number(baseline.getSlotChemistry?.(index)?.points)||0:2)))continue;
-            if(fixed.some(row=>hasCard(row.item)&&(!Number.isFinite(points(row.index))||points(row.index)<(Number(baseline.getSlotChemistry?.(row.index)?.points)||0))))continue;
+            if([...chosen].some(([index,value])=>!Number.isFinite(points(index))||points(index)<(value.option.retained?Number(baseline.getSlotChemistry?.(index)?.points)||0:2))){rejections.newCardChemistry++;continue;}
+            if(fixed.some(row=>hasCard(row.item)&&(!Number.isFinite(points(row.index))||points(row.index)<(Number(baseline.getSlotChemistry?.(row.index)?.points)||0)))){rejections.retainedChemistry++;continue;}
             const meetsTarget=candidate.chemistry>=minimumChemistry;
+            if(!meetsTarget)rejections.belowTarget++;
             const prior=meetsTarget?best:progress;
             if(meetsTarget||candidate.chemistry>Number(baseline.chemistry)){
               const found={meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)})).sort((a,b)=>a.slotIndex-b.slotIndex)};
@@ -351,7 +356,7 @@ export async function eaOperation(action, payload = {}) {
         }
         return {ok:true,applied:best.choices.length,chemistry:best.chemistry};
       }
-      return {ok:true,alternatives:[...alternatives.values()].sort(compare).slice(0,30).map(plan=>({...plan,remaining:limit-plan.cost})),progressPlan:!best&&progress?{...progress,remaining:limit-progress.cost,baselineChemistry:Number(baseline.chemistry),targetChemistry:minimumChemistry}:null,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
+      return {ok:true,rejections,alternatives:[...alternatives.values()].sort(compare).slice(0,30).map(plan=>({...plan,remaining:limit-plan.cost})),progressPlan:!best&&progress?{...progress,remaining:limit-progress.cost,baselineChemistry:Number(baseline.chemistry),targetChemistry:minimumChemistry}:null,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
     }
     if(action==='tradeStatus') {
       const balance=coinBalance();

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async()=>{
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
-  const session={};let fingerprint='current',rankingGap=false;
+  const session={};let fingerprint='current',rankingGap=false,broaderSwap=false;
   const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false,forceLimit=false,partialKnown=false;
   globalThis.fetch=async()=>({ok:true,json:async()=>({prices:{},updated:{}})});
   globalThis.chrome={
@@ -15,7 +15,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
     tabs:{onUpdated:{addListener:()=>{}},query:async()=>[{id:1,url:EA,active:true}],get:async id=>({id,url:id===1?EA:tabURL,status:'complete'}),create:async({url})=>{tabURL=url;return {id:2,url};},update:async(_,value)=>{tabURL=value.url;return {id:2,url:tabURL};},remove:async()=>{}},
     scripting:{executeScript:async({target,func,args=[]})=>{
       if(func.name==='openOverlay')return [{result:undefined}];
-      if(target.tabId===2&&func.name==='readFutbinTeamPlayers')return [{result:estimates?{kind:'team-players',checkedAt:Date.now(),cards:[{assetId:200,rating:85,name:'Estimate GK',url:'https://www.futbin.com/27/player/200/gk',price:1000,futbinRating:90,revision:'Normal',positions:['GK']},{assetId:300,rating:85,name:'Estimate RB',url:'https://www.futbin.com/27/player/300/rb',price:1200,futbinRating:90,revision:'Normal',positions:['RB']}]}:{blocked:true,error:'Browser verification'}}];
+      if(target.tabId===2&&func.name==='readFutbinTeamPlayers')return [{result:estimates?{kind:'team-players',checkedAt:Date.now(),cards:[{assetId:broaderSwap?900:200,rating:85,name:'Estimate GK',url:'https://www.futbin.com/27/player/200/gk',price:1000,futbinRating:90,revision:'Normal',positions:['GK']},{assetId:300,rating:85,name:'Estimate RB',url:'https://www.futbin.com/27/player/300/rb',price:1200,futbinRating:90,revision:'Normal',positions:['RB']}]}:{blocked:true,error:'Browser verification'}}];
       if(target.tabId===2&&func.name==='readFutggBest'){
         const position=tabURL.includes('/gk/')?'GK':'RB';
         if(rankingGap&&position==='GK')return [{result:{error:'Unavailable ranking'}}];
@@ -24,7 +24,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       if(target.tabId!==1)throw Error(`Unexpected tab ${target.tabId}`);
       const [action,payload]=args;calls.push({action,payload});
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
-      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:false,chemistryChange:-1,slotChemistryChange:-1}))}}];
+      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
       if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);return [{result:{ok:true,applied:2,chemistry:12}}];}
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
@@ -32,7 +32,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         if(Number.isInteger(payload.alternativesForSlot)){
           assert(payload.groups.every(group=>group.allowRetained===false));
           const target=payload.groups.find(group=>group.slotIndex===payload.alternativesForSlot);
-          return [{result:{ok:true,alternatives:target.options.map(card=>({chemistry:12,cost:2000,remaining:payload.budget-2000,choices:payload.groups.map(group=>({...group.options[0],...(group===target?card:{}),slotIndex:group.slotIndex}))})),combinationsChecked:target.options.length}}];
+          return [{result:{ok:true,alternatives:target.options.filter(card=>!broaderSwap||card.definitionId===900).map(card=>({chemistry:12,cost:2000,remaining:payload.budget-2000,choices:payload.groups.map(group=>({...group.options[0],...(group===target?card:{}),slotIndex:group.slotIndex}))})),combinationsChecked:target.options.length}}];
         }
         if(forceLimit&&!payload.groups.some(group=>group.options.some(card=>card.pricePending)))return [{result:{ok:true,plan:null,reason:'No known fit'}}];
         if(payload.groups.some(group=>!group.options.length))return [{result:{ok:true,plan:null,reason:'Missing position data'}}];
@@ -123,6 +123,12 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const failedPrices=await send('teamAlternatives',{slotIndex:0});assert.equal(failedPrices.ok,false);assert.match(failedPrices.error,/price checks failed/);
   globalThis.fetch=provider;failQuotes=false;
   const retriedSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(retriedSwap.ok,true,retriedSwap.error);assert(retriedSwap.data.alternatives.length>0);
+  broaderSwap=true;estimates=true;
+  await import('../extension/background.js?broader-swap');
+  const broader=await send('teamAlternatives',{slotIndex:0});
+  assert.equal(broader.ok,true,broader.error);
+  assert.deepEqual(broader.data.alternatives.map(row=>row.card.definitionId),[900],'search FUTBIN even with 30 GG ranked cards when only the broader candidate fits');
+  broaderSwap=false;estimates=false;
   const originalRB=alternative.data.plan.choices.find(card=>card.slotIndex===1).definitionId;
   const newCard=suggestions.data.alternatives[0].card;
   const swapped=await send('teamSwap',{slotIndex:0,definitionId:newCard.definitionId,price:1,budget:9999999});

@@ -186,6 +186,8 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const invalidSwap=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:1000,groups:swapGroups,alternativesForSlot:0});
   assert.equal(invalidSwap.plan,null);
   assert.deepEqual(invalidSwap.alternatives,[]);
+  assert(invalidSwap.rejections.overBudget>0);
+  assert.equal(invalidSwap.rejections.totalChemistry,0,'budget failure is not a chemistry failure');
   const stale=await eaOperation('teamPlan',{fingerprint:'stale',budget:18000,groups:swapGroups,alternativesForSlot:0});
   assert.equal(stale.ok,false);
   assert.match(stale.error,/squad changed/);

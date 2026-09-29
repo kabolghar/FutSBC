@@ -545,17 +545,18 @@ async function refreshSwapCandidates(saved,group,team,tabId,budget){
   const fixedAssets=new Set(saved.plan.choices.filter(choice=>choice.slotIndex!==group.slotIndex).map(choice=>choice.assetId));
   let ranked=selectFutggTeamPlayers(pages.get(futggBestURL(position)),[],30).filter(card=>!fixedAssets.has(card.assetId));
   let rankingError=ranked.length?null:'The position ranking could not be loaded.';
-  if(ranked.length<8){
+  {
     try{
-      const fallback=await currentTeamPlayers(Math.max(budget,500));
-      const extra=selectTeamPlayers(fallback,position,Math.max(budget,500),[...fixedAssets],24).map(card=>({...card,source:'FUTBIN'}));
-      ranked=[...new Map([...extra,...ranked].map(card=>[card.definitionId||card.assetId,card])).values()].slice(0,48);
+      const slotBudget=Math.max(0,budget-saved.plan.choices.filter(card=>card.slotIndex!==group.slotIndex).reduce((sum,card)=>sum+(card.owned?0:card.price),0));
+      const fallback=await currentTeamPlayers(Math.max(slotBudget,500));
+      const extra=selectTeamPlayers(fallback,position,slotBudget,[...fixedAssets],48).map(card=>({...card,source:'FUTBIN'}));
+      ranked=[...new Map([...extra,...ranked].map(card=>[card.definitionId||card.assetId,card])).values()];
       if(ranked.length)rankingError=null;
-    }catch(error){if(!ranked.length)rankingError=error.message;}
+    }catch(error){rankingError=`Broader FUTBIN search unavailable: ${error.message}`;}
   }
   const merged=new Map(group.options.map(card=>[card.definitionId,card]));
-  if(ranked.length){
-    const checked=await ea(tabId,'teamEvaluate',{slotIndex:group.slotIndex,fingerprint:team.fingerprint,budget,allowChemistryDrop:true,cards:ranked},SBC_REQUEST_TIMEOUT);
+  for(let offset=0;offset<ranked.length;offset+=48){
+    const checked=await ea(tabId,'teamEvaluate',{slotIndex:group.slotIndex,fingerprint:team.fingerprint,budget,allowChemistryDrop:true,cards:ranked.slice(offset,offset+48)},SBC_REQUEST_TIMEOUT);
     for(const card of checked.options){
       const old=merged.get(card.definitionId);
       merged.set(card.definitionId,{...old,...card,...(!card.owned&&old?.priceVerified?{price:old.price,estimatedPrice:old.estimatedPrice,priceEstimated:old.priceEstimated,priceVerified:true,priceSource:old.priceSource,priceUpdatedAt:old.priceUpdatedAt}:{})});
@@ -608,7 +609,13 @@ async function swapTeamSuggestion(message){
   groups.push({slotIndex:slot,allowRetained:false,options:requested});
   const checked=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget,groups,alternativesForSlot:slot},SBC_REQUEST_TIMEOUT);
   const alternatives=(checked.alternatives||[]).filter(plan=>plan.choices.length===groups.length);
-  if(message.type==='teamAlternatives')return {slotIndex:slot,reason:priceError?`Some alternatives could not be priced: ${priceError}`:`Checked ${options.length} priced cards. None met the squad chemistry requirements within ${Math.max(0,budget-choices.filter(card=>card.slotIndex!==slot).reduce((sum,card)=>sum+(card.owned?0:card.price),0)).toLocaleString()} coins available for this slot. Other suggestions stay fixed.`,alternatives:alternatives.map(plan=>({card:plan.choices.find(choice=>choice.slotIndex===slot),chemistry:plan.chemistry,cost:plan.cost,remaining:plan.remaining}))};
+  if(message.type==='teamAlternatives'){
+    const labels={invalidCards:'could not be matched to an eligible exact card',overBudget:'over budget',duplicatePlayer:'duplicate player',chemistryUnavailable:'chemistry could not be calculated',totalChemistry:'would lower total chemistry',newCardChemistry:'new cards below two chemistry',retainedChemistry:'would lower retained-player chemistry',belowTarget:'below the squad chemistry target'};
+    const details=Object.entries(checked.rejections||{}).filter(([,count])=>count>0).map(([key,count])=>`${count} ${labels[key]||key}`).join('; ');
+    const available=Math.max(0,budget-choices.filter(card=>card.slotIndex!==slot).reduce((sum,card)=>sum+(card.owned?0:card.price),0));
+    const reason=`No verified swap in this candidate pool (${options.length} priced cards; ${available.toLocaleString()} coins available). ${details||checked.reason||'No complete alternative passed EA checks.'}${priceError?` ${priceError}`:''} This is not an exhaustive search of every card.`;
+    return {slotIndex:slot,reason,rejections:checked.rejections,alternatives:alternatives.map(plan=>({card:plan.choices.find(choice=>choice.slotIndex===slot),chemistry:plan.chemistry,cost:plan.cost,remaining:plan.remaining}))};
+  }
   const plan=alternatives.find(plan=>plan.choices.some(choice=>choice.slotIndex===slot&&choice.definitionId===Number(message.definitionId)));
   if(!plan)throw Error('This swap no longer fits your budget and chemistry. Your previous suggestions are unchanged.');
   const result={...saved,planId:crypto.randomUUID(),team,plan,totalBudget:budget,combinationsChecked:checked.combinationsChecked};
