@@ -35,3 +35,9 @@ test('rejects prices when the provider switches to a different season',async()=>
  const result=await getConsoleEstimates([1],{},async()=>({ok:true,text:async()=>'<title>EA FC 28 Players</title>'}),now);
  assert.equal(result.unavailable,true);assert.deepEqual(result.quotes,[]);
 });
+
+test('a provider verification page uses recent cache without attempting price requests',async()=>{
+ let calls=0;
+ const result=await getConsoleEstimates([1],{1:{...quote,fetchedAt:now-700000}},async()=>{calls++;return {ok:true,text:async()=>'<title>Just a moment...</title>'};},now);
+ assert.equal(calls,1);assert.equal(result.unavailable,true);assert.equal(result.quotes[0].price,1000);
+});

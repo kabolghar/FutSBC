@@ -25,7 +25,9 @@ export async function getConsoleEstimates(ids,cache={},fetcher=fetch,now=Date.no
     try{
       const page=await fetcher('https://fodder.gg/players',{signal:controller.signal,credentials:'omit'});
       if(!page.ok)throw Error('Provider unavailable');
-      if(!/<title>[^<]*EA FC 27\b/i.test(await page.text()))return {quotes:[],cache:{},unavailable:true};
+      const season=(await page.text()).match(/<title>[^<]*EA FC (\d{2})\b/i)?.[1];
+      if(!season)throw Error('Provider page unavailable');
+      if(season!=='27')return {quotes:[],cache:{},unavailable:true};
     }catch{return {quotes:[...quotes.values()],cache:next,unavailable:true};}
     finally{clearTimeout(timer);}
   }
