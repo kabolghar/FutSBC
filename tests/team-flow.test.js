@@ -40,6 +40,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.equal(result.data.plan.chemistry,12);
   assert.equal(result.data.results.length,2);
   assert.equal(result.data.cardsPriced,2);
+  assert.equal(result.data.results.flatMap(group=>group.options).filter(option=>option.priceVerified).length,2);
   assert.equal(calls.filter(call=>call.action==='teamQuote').flatMap(call=>call.payload.definitionIds).length,2);
   await new Promise(resolve=>setImmediate(resolve));
   const cached=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));

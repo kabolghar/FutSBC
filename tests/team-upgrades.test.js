@@ -115,7 +115,10 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const groups=[{slotIndex:0,options:[{...result.options[0],price:1000,priceVerified:true,source:'FUT.GG',metaRank:30},{...result.options[0],assetId:22,definitionId:22,rating:83,price:1000,priceVerified:true,source:'FUT.GG',metaRank:1}]},{slotIndex:2,options:[{...empty.options[0],price:1000,priceVerified:true}]}];
   globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){return {chemistry:items[0].definitionId===1?10:13,getSlotChemistry:()=>({points:2})};}};
   const weak=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
-  assert.equal(weak.plan,null,'13/33 must not be recommended just because the empty squad started lower');
+  assert.equal(weak.plan,null,'13/33 must not be presented as meeting the target');
+  assert.equal(weak.progressPlan.chemistry,13);
+  assert.equal(weak.progressPlan.baselineChemistry,10);
+  assert.equal(weak.progressPlan.targetChemistry,30);
   globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){return {chemistry:items[0].definitionId===20?33:items[0].definitionId===22?30:10,getSlotChemistry:()=>({points:3})};}};
   const chemistryFirst=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
   assert.equal(chemistryFirst.plan.chemistry,33);
@@ -124,6 +127,7 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal((await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups})).plan,null,'no new zero-chemistry cards');
   globalThis.UTSquadChemCalculatorUtils=class{calculate(_,items){return {chemistry:items[0].definitionId===1?10:33,getSlotChemistry:index=>({points:index===1&&items[0].definitionId!==1?2:3})};}};
   assert.equal((await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups})).plan,null,'retained player chemistry must not drop');
+  assert.equal((await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups})).progressPlan,null,'partial steps also preserve retained player chemistry');
   globalThis.UTSquadChemCalculatorUtils=class{calculate(){return {chemistry:31,getSlotChemistry:index=>({points:index===1?1:3})};}};
   const keepsLowChem=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups});
   assert.equal(keepsLowChem.plan.chemistry,31,'an unchanged one-chemistry player must not block chemistry-preserving upgrades elsewhere');

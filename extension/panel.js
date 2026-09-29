@@ -275,8 +275,9 @@ function renderTeam(){
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
     const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'FUTBIN price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
-    if(teamResult.plan){
-      const plan=teamResult.plan;
+    if(teamResult.plan||teamResult.progressPlan){
+      const plan=teamResult.plan||teamResult.progressPlan;
+      if(!teamResult.plan){const notice=document.createElement('p');notice.className='team-plan-failure';notice.textContent=`Full target not reached (${plan.targetChemistry}/33). Optional partial step: ${plan.baselineChemistry} → ${plan.chemistry} chemistry. This is not a finished meta XI.`;results.append(notice);}
       const summary=document.createElement('div');summary.className='team-plan-summary';
       for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],[teamResult.priceMode==='estimate'?'EST. TO BUY':'TOTAL TO BUY',`${fmt(plan.cost)} coins`],['BUDGET LEFT',`${fmt(plan.remaining)} coins`]]){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);
@@ -301,7 +302,7 @@ function renderTeam(){
       results.append(lineup);
     }else{
       const reason=document.createElement('p');reason.className='team-plan-failure';reason.textContent=teamResult.planReason||'No full lineup passed every check.';results.append(reason);
-      for(const group of teamResult.results||[]){if(group.options.some(option=>option.priceVerified))continue;const note=document.createElement('p');note.className='field-note';note.textContent=`${group.player.position}: ${teamNoFitReason(group)}`;results.append(note);}
+      for(const group of teamResult.results||[]){if(group.options.length)continue;const note=document.createElement('p');note.className='field-note';note.textContent=`${group.player.position}: ${teamNoFitReason(group)}`;results.append(note);}
     }
   }
   reportSize();

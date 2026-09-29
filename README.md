@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.8**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.9**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -60,3 +60,7 @@ Update to v0.21.7 or later, allow FutSBC access to EA in the browser’s extensi
 ### Faster team recommendations (v0.21.8)
 
 Team recommendations use FUTBIN estimates when available. For FUT.GG rankings without prices, only provisional lineup cards receive live checks (up to 24 targeted cards); unpriced plans are never displayed as affordable. Selected players can stay when a partial upgrade preserves chemistry within budget. New cards still need at least two chemistry, retained players cannot lose chemistry, and complete teams retain the 30-point minimum or their higher starting chemistry. Recommendations do not buy or change your squad.
+
+### Team result clarity (v0.21.9)
+
+If the full chemistry target is unreachable in the checked shortlist, an optional partial step may be shown separately. It must improve total chemistry, preserve retained players’ chemistry, satisfy the same price checks and budget, and give new cards at least two chemistry. It is explicitly not a completed meta XI. Position summaries now use the actual completed price results instead of stale pre-pricing data.

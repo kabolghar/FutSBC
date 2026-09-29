@@ -447,7 +447,7 @@ async function recommendTeam(slots,budget){
       return [{...option,price:150,priceVerified:true,pricePending:true}];
     })}));
     planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups},SBC_REQUEST_TIMEOUT);
-    const pending=[...new Set((planned.plan?.choices||[]).filter(option=>option.pricePending).map(option=>option.definitionId))];
+    const pending=[...new Set(((planned.plan||planned.progressPlan)?.choices||[]).filter(option=>option.pricePending).map(option=>option.definitionId))];
     if(!pending.length)break;
     if(round===24||cardsPriced+pending.length>24)throw Error('No fully priced lineup found within 24 targeted checks. Try fewer positions or a larger budget.');
     const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
@@ -467,8 +467,13 @@ async function recommendTeam(slots,budget){
       quotes.set(id,quote);teamQuoteCache.set(`${cachePrefix}:${id}`,{quote,checkedAt:batch.checkedAt});
     }
   }
+  for(const result of results)result.options=result.options.map(option=>{
+    if(option.owned||option.priceEstimated)return {...option,priceVerified:true};
+    const quote=quotes.get(option.definitionId);
+    return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),priceChecked:!!quote};
+  });
   teamProgress('Team check complete.');
-  return {team,results,plan:planned.plan,planReason:planned.reason,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:source==='FUTBIN'?'estimate':'live'};
+  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:source==='FUTBIN'?'estimate':'live'};
 }
 async function trendRankedTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);
