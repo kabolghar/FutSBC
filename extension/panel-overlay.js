@@ -17,19 +17,19 @@ export function openOverlay({initiallyOpen=true,replace=true}={}) {
     *{box-sizing:border-box}
     [hidden]{display:none!important}
     button{font-family:system-ui,sans-serif;cursor:pointer}
-    button:focus-visible{outline:2px solid oklch(81% .12 58);outline-offset:2px}
-    .launcher{position:fixed;right:12px;bottom:12px;width:42px;height:42px;border:1px solid oklch(81% .12 58);border-radius:6px;background:oklch(81% .12 58);color:oklch(20% .025 166);box-shadow:0 5px 16px oklch(7% .005 115 / .42);font-size:23px;font-weight:900;pointer-events:auto}
-    .launcher:hover{background:oklch(87% .095 58)}
-    .backdrop{position:fixed;inset:0;background:oklch(7% .015 166 / .65);pointer-events:auto}
-    .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));height:390px;max-height:calc(100dvh - 24px);overflow:hidden;border:1px solid oklch(37% .022 166);border-radius:12px;background:oklch(20% .025 166);box-shadow:0 16px 48px oklch(7% .005 115 / .55);pointer-events:auto}
+    button:focus-visible{outline:2px solid oklch(83% .13 112);outline-offset:2px}
+    .launcher{position:fixed;right:12px;bottom:12px;width:42px;height:42px;border:1px solid oklch(83% .13 112);border-radius:6px;background:oklch(83% .13 112);color:oklch(17% .009 115);box-shadow:0 5px 16px oklch(7% .005 115 / .42);font-size:23px;font-weight:900;pointer-events:auto}
+    .launcher:hover{background:oklch(89% .11 112)}
+    .backdrop{position:fixed;inset:0;background:oklch(7% .005 115 / .65);pointer-events:auto}
+    .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));height:390px;max-height:calc(100dvh - 24px);overflow:hidden;border:1px solid oklch(34% .014 115);border-radius:12px;background:oklch(17% .009 115);box-shadow:0 16px 48px oklch(7% .005 115 / .55);pointer-events:auto}
     .modal[data-view="lineup"]{width:min(760px,calc(100vw - 40px))}
     .modal[data-view="trader"]{width:min(600px,calc(100vw - 40px))}
-    .modal[data-view="market"]{width:min(820px,calc(100vw - 40px))}
-    .modal[data-view="team"]{width:min(820px,calc(100vw - 40px))}
+    .modal[data-view="market"]{width:min(920px,calc(100vw - 40px))}
+    .modal[data-view="team"]{width:min(920px,calc(100vw - 40px))}
     .modal:focus{outline:none}
-    .close{position:absolute;top:23px;right:12px;z-index:1;width:36px;height:36px;border:1px solid oklch(34% .014 115);border-radius:8px;background:oklch(25% .024 166);color:oklch(92% .012 105);font-size:20px;line-height:1}
-    .close:hover{border-color:oklch(81% .12 58)}
-    iframe{display:block;width:100%;height:100%;border:0;background:oklch(20% .025 166)}
+    .close{position:absolute;top:23px;right:12px;z-index:1;width:36px;height:36px;border:1px solid oklch(34% .014 115);border-radius:8px;background:oklch(21% .012 115);color:oklch(92% .012 105);font-size:20px;line-height:1}
+    .close:hover{border-color:oklch(83% .13 112)}
+    iframe{display:block;width:100%;height:100%;border:0;background:oklch(17% .009 115)}
     @media(max-width:480px){.modal,.modal[data-view="lineup"],.modal[data-view="trader"],.modal[data-view="market"],.modal[data-view="team"]{width:calc(100vw - 12px);max-height:calc(100dvh - 12px)}}
   `;
 

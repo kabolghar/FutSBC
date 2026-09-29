@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FutSBC · FC 27</title>
   <link rel="stylesheet" href="panel.css">
-  <link rel="stylesheet" href="clubhouse.css">
+  <link rel="stylesheet" href="matchday.css">
 </head>
 <body>
-  <header class="standalone-brand"><a class="club-brand" href="#" aria-label="FutSBC home"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M2 2h28v23L16 34 2 25Z" fill="currentColor"/><path d="M10 10h14v4H14v3h8v4h-8v6h-4Z" fill="var(--surface)"/></svg><strong>FutSBC<span>YOUR CLUB COMPANION</span></strong></a><span class="edition">FC 27 <i>Console</i></span></header>
+  <header class="standalone-brand"><a class="club-brand" href="#" aria-label="FutSBC home"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M2 2h28v23L16 34 2 25Z" fill="currentColor"/><path d="M10 10h14v4H14v3h8v4h-8v6h-4Z" fill="var(--surface)"/></svg><strong>FutSBC<span>SQUAD LAB</span></strong></a><span class="edition">FC 27 <i>Console</i></span></header>
   <nav class="view-tabs" aria-label="FutSBC tools">
     <button id="sbc-tab" class="view-tab active" type="button" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="m14 17 3 3 5-6"/></svg><span>SBCs</span></button>
     <button id="trader-tab" class="view-tab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg><span>Trader</span></button>
@@ -25,6 +25,7 @@
       </div>
     </section>
 
+    <div id="sbc-visual" class="sbc-visual" aria-hidden="true"><svg viewBox="0 0 420 170" fill="none"><path d="M18 136h384M80 30v110M340 30v110" stroke="currentColor" opacity=".15"/><g stroke="currentColor" stroke-width="2"><path d="m92 30 66 8v91l-33 18-33-25Z" transform="rotate(-12 125 85)"/><path d="m262 38 66-8v92l-33 25-33-18Z" transform="rotate(12 295 85)"/><path d="M169 14h82v119l-41 25-41-25Z" fill="var(--surface-raised)"/><circle cx="210" cy="67" r="20"/><path d="m199 67 8 8 15-18M111 70h28m-14-14v28M281 70h28m-14-14v28M191 113h38"/></g><circle cx="54" cy="76" r="3" fill="currentColor"/><circle cx="366" cy="76" r="3" fill="currentColor"/></svg></div>
     <section class="action-block" aria-label="Find solution">
       <button id="compare" class="primary" type="button"><span>Build this SBC</span><span aria-hidden="true">→</span></button>
       <div class="action-links">
@@ -74,7 +75,7 @@
 
     <section id="trader-view" class="trader-view" aria-label="Auto trader" hidden>
       <div class="trader-heading"><div><h1>Auction trader</h1><p>FC 27 · console market</p></div><span id="trader-state" class="trader-state">OFF</span></div>
-      <div class="trader-live"><strong id="trader-status" aria-live="polite">Connect to your console club to start.</strong><span id="trader-next" class="trader-next">Next scan: 20s</span></div>
+      <div class="trader-live"><svg id="trader-orbit" class="trader-orbit" viewBox="0 0 160 160" role="img" aria-label="Trader idle"><circle cx="80" cy="80" r="66"/><circle cx="80" cy="80" r="46"/><path d="M80 4v24m0 104v24M4 80h24m104 0h24"/><g class="orbit-hand"><path d="M80 80V16"/><circle cx="80" cy="16" r="5"/></g><path class="orbit-arrows" d="M61 70h38l-9-9m9 29H61l9 9"/></svg><div class="trader-message"><strong id="trader-status" aria-live="polite">Connect to your console club to start.</strong><span id="trader-next" class="trader-next">Next scan: 20s</span></div></div>
       <div class="trader-metrics">
         <div><span>COINS</span><strong id="trader-coins">—</strong></div>
         <div><span>SPENT</span><strong id="trader-spent">0</strong></div>
@@ -94,7 +95,7 @@
       <a class="trader-details-link" href="trade.html" target="_blank" rel="noreferrer">Trade desk ↗</a>
     </section>
     <section id="insights-view" class="insights-view" aria-label="Daily market brief" hidden>
-      <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> FC 27 · CONSOLE</span><h1>Market brief</h1><p>Know your next move.</p></div><button id="insights-refresh" class="secondary" type="button">Refresh</button></div>
+      <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> FC 27 · CONSOLE</span><h1>Market brief</h1><p>Entry. Exit. Timing.</p></div><button id="insights-refresh" class="secondary" type="button">Refresh</button></div>
       <div class="insights-summary"><strong id="insights-date">No brief yet</strong><span id="insights-summary">Refresh to check current FUTBIN prices.</span></div>
       <p id="insights-error" class="trader-error" role="alert" hidden></p>
       <div class="insights-section-head"><h2>Trade plans</h2><span id="insights-count">0</span></div>
@@ -105,11 +106,11 @@
       <footer class="insights-footer"><details><summary>About these predictions</summary><p>Holding windows are estimates from sampled prices, player-linked news and community signals. Recheck daily. Verify live EA listings before buying; profit is never guaranteed.</p></details><a href="https://www.futbin.com/27/market-player-list" target="_blank" rel="noreferrer">FUTBIN market ↗</a></footer>
     </section>
     <section id="team-view" class="team-view" aria-label="Team upgrades" hidden>
-      <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> THE DRESSING ROOM</span><h1>Build your XI</h1><p>Your players. A better team.</p></div><button id="team-refresh" class="secondary" type="button">Refresh</button></div>
+      <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> YOUR SQUAD</span><h1>Build your XI</h1><p>Tap the positions you want to upgrade.</p></div><button id="team-refresh" class="secondary" type="button">Refresh</button></div>
       <div class="team-summary"><strong id="team-name">Open your active squad</strong><span id="team-chemistry">— chemistry</span><span id="team-balance">— coins</span></div>
       <p id="team-error" class="trader-error" role="alert" hidden></p>
       <details id="team-editor" class="team-editor" open><summary>Players & budget <span>Edit your setup</span></summary>
-      <div class="insights-section-head team-select-head"><h2>Who’s changing?</h2><div><button id="team-select-empty" class="text-button" type="button">Select empty</button><button id="team-select-clear" class="text-button" type="button">Clear</button></div></div>
+      <div id="team-layout"></div><div class="insights-section-head team-select-head"><h2>Who’s changing?</h2><div><button id="team-select-empty" class="text-button" type="button">Select empty</button><button id="team-select-clear" class="text-button" type="button">Clear</button></div></div>
       <div id="team-players" class="team-players"><p class="field-note">Refresh to load your starting XI from EA.</p></div>
       <p class="field-note">Tick a position to upgrade it. Choose a player to build around.</p>
       <section id="team-picker" class="team-picker" hidden aria-label="Choose a build-around player">

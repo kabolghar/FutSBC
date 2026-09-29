@@ -1,14 +1,18 @@
-## Design Context
+## Design context: Matchday squad lab
 
-FutSBC helps FC 27 console players build SBCs, plan their XI, compare players, and review market opportunities inside the EA Web App.
+FutSBC serves FC 27 console players building SBCs, upgrading an XI around chosen cards, and evaluating market plans in the EA Web App.
 
-### Direction: the clubhouse
-Friendly, confident football identity. Deep green surfaces, warm off-white text, restrained warm orange for actions and selected states. A small club crest, Barlow Condensed headings, and Atkinson body text provide character without a marketing-page feel.
+### Explicit user direction
+Keep the original charcoal/olive surfaces, warm off-white text and lime accent. Do not replace the palette with green/orange. The experience must feel new through visual interaction and useful icons, not simply resized typography or rearranged lists.
 
-### Principles
-- Lead with the next useful action; remove repeated explanations and slogans.
-- Keep names, prices, chemistry and ownership readable. Show card imagery when available, with a legible rating fallback.
-- Fold setup away after successful results. Put source details in disclosures, but keep uncertainty, errors and price estimates visible.
-- Use quiet roster rows and meaningful grouping instead of nested decorative cards.
-- Adapt to narrow widths, preserve keyboard focus and accessible labels, and respect reduced motion.
-- Keep actions in normal flow when floating controls would cover players. Retain the centered collapsible EA overlay.
+### Interface principles
+- Use a selectable pitch for squad roles, with a list option that preserves all selections and recommendations.
+- Actual card art leads. Missing art has a readable rating/position fallback; never invent artwork or player data.
+- Chemistry diamonds communicate each card's 0–3 points. Keep the exact value accessible, and details available on demand.
+- Show budget consumption visually, backed by labeled real numbers. Never fabricate trend charts.
+- Use icons for recognizable actions (refresh, choose, swap), with accessible names and tooltips.
+- Give each workspace its own useful structure: SBC card tray, squad pitch, trader status instrument, and market entry/exit tickets.
+- Keep primary actions obvious. Hide secondary evidence in disclosures; leave failures, partial results, estimated pricing and risk visible.
+- Preserve the centered collapsible overlay, keyboard access, reduced motion, and readable narrow-screen layouts.
+
+Use self-hosted Barlow Condensed headings and Atkinson body text. Be football-specific, friendly and clear; avoid marketing slogans, decorative dashboards and repeated prose.

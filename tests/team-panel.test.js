@@ -27,6 +27,13 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
   assert(document.querySelector('.team-lineup-art').classList.contains('has-art'));
   assert.match(document.querySelector('.team-lineup-art').style.backgroundImage,/test-card.webp/);
   assert(document.querySelector('.team-swap-button svg'));
+  assert(document.querySelector('.team-lineup').classList.contains('is-pitch'));
+  document.querySelector('.lineup-toolbar .layout-switch button:last-child').click();
+  assert.equal(document.querySelector('.team-lineup').classList.contains('is-pitch'),false);
+  assert.match(document.querySelector('.team-lineup-card').textContent,/First suggestion/,'changing view preserves the plan');
+  document.querySelector('.lineup-toolbar .layout-switch button:first-child').click();
+  assert.equal(document.querySelectorAll('.team-lineup .chemistry-marks .filled').length,3);
+  assert.equal(calls.filter(call=>call.type==='teamRecommend'||call.type==='teamApply').length,0,'view switches never rebuild or apply');
   assert.equal(document.querySelector('.team-swap-button').textContent,'');
   assert.match(document.querySelector('.team-swap-button').getAttribute('aria-label'),/Find alternatives/);
   document.querySelector('.team-swap-button').click();
@@ -162,7 +169,7 @@ test('menu picker selects an exact version and sends a locked pick without editi
  assert.equal(dom.window.teamBudget(),100000);assert.match(doc.getElementById('team-allowance').textContent,/100,000 coins/);
  dom.window.showFutureResult();
  assert.match(doc.getElementById('team-results').textContent,/Coins needed: 70,000 more/);
- assert.match(doc.querySelector('.team-plan-summary').textContent,/20,000 coins/);
+ assert.match(doc.querySelector('.team-plan-summary').textContent,/20,000/);
  assert.match(doc.getElementById('team-results').textContent,/Chemistry trade-off: 33 → 28\/33/);
  await new Promise(resolve=>setImmediate(resolve));
  }finally{dom.window.close();}

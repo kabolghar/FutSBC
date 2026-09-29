@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.30**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.31**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -159,3 +159,7 @@ The bounded team search preserves branches containing links to chosen cards. Amo
 ### Clubhouse interface (v0.21.30)
 
 A deep-green and warm-orange interface with a club crest, icon navigation and readable player rows. My XI folds setup away after a successful build; chemistry and price stay visible, while detailed evidence opens on demand. Layouts adapt to narrow screens, and the add-to-squad action stays in the page flow so it cannot cover player cards.
+
+### Visual squad lab (v0.21.31)
+
+Restores the original charcoal and lime colors. My XI now has a selectable pitch and a list toggle, card chemistry diamonds, a budget meter, and a separate swap comparison area. Pitch rows group player roles; they do not represent old-style adjacency chemistry. SBCs display a card tray. Market cards foreground entry, exit and hold windows with supporting research in disclosures. Trader status has an active-only scan indicator that respects reduced motion.

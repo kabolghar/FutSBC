@@ -91,7 +91,8 @@ async function run(type,extra={}) {
 }
 function render() {
   document.documentElement.classList.toggle('has-result',activeView==='sbc'&&!!state.plan);
-  $('challenge').textContent=state.challenge?.name||'No SBC connected';
+  $('challenge').textContent=state.challenge?.name||'Choose a challenge';
+  $('sbc-visual').hidden=!!state.plan;
   $('formation').textContent=state.challenge?`${state.challenge.formation||'SBC'} · #${state.challenge.id}`:'Open an SBC in EA.';
   for(const id of ['connect','compare','source','reset'])$(id).disabled=busy;
   $('compare').firstElementChild.textContent=state.plan?'Find another squad':'Build this SBC';
@@ -153,6 +154,8 @@ function renderTrader(){
   const pauseRemaining=Math.max(0,Math.ceil(((trader.cooldownUntil||0)-Date.now())/1000));
   $('trader-state').textContent=pauseRemaining?'PAUSED':active?trader.watchOnly?'MONITORING':'RUNNING':trader.inFlight?'STOPPING':trader.recoveryRequired?'REVIEW':'OFF';
   $('trader-state').classList.toggle('on',active);
+  $('trader-view').dataset.running=String(active&&!pauseRemaining&&!trader.recoveryRequired);
+  $('trader-orbit').setAttribute('aria-label',active?'Trader active':'Trader idle');
   const pendingReview=trader.recoveryRequired&&trader.pendingBid&&['unavailable','unconfirmed'].includes(trader.pendingBid.lastReview?.phase);
   $('trader-status').textContent=trader.cooldownUntil&&!pauseRemaining&&!active?'The rate-limit pause ended. Test one normal market search in EA before restarting.':trader.status||(pendingReview?`EA has not confirmed ${trader.pendingBid.name} (${trader.pendingBid.tradeId}). Continue monitoring this saved auction only; new searches stay off.`:'Connect to your signed-in console club to start.');
   $('trader-coins').textContent=Number.isSafeInteger(trader.lastBalance)?fmt(trader.lastBalance):'—';
@@ -230,7 +233,7 @@ function renderInsights(){
     if(catalyst){catalyst.className='insight-card-catalyst';catalyst.href=card.hold.sourceURL;catalyst.target='_blank';catalyst.rel='noreferrer';catalyst.textContent='Player-linked content ↗';}
     const reason=document.createElement('p');reason.className='insight-card-reason';reason.textContent=card.evidence?`${card.evidence.strategy}: ${card.evidence.reason} ${card.evidence.exitRule}`:model?.reason||'Refresh for current demand and price evidence.';
     const filter=document.createElement('p');filter.className='insight-card-filter';filter.textContent=`SEARCH FILTER  ${card.filter} · checked price only, not a live EA listing`;
-    row.append(main,price,plan,deadline,opinion,reason,filter);if(catalyst)row.append(catalyst);cards.append(row);
+    const details=document.createElement('details');details.className='insight-research';const more=document.createElement('summary');more.textContent='Why this card & search filter';details.append(more,opinion,reason,filter);if(catalyst)details.append(catalyst);deadline.prepend(uiIcon('clock'));stance.prepend(uiIcon('shield'));row.append(main,price,plan,deadline,details);cards.append(row);
   }
   const news=$('insights-news');news.replaceChildren();
   if(!brief?.headlines?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='No recent trading-source headlines were readable. Add no event premium to these prices.';news.append(empty);}
@@ -257,6 +260,20 @@ function teamNoFitReason(group){
   if(!s.chemistryKept)return 'All matched cards reduced squad or slot chemistry.';
   return 'No matched card improved this slot after the final checks.';
 }
+// Visual layout only: slot selection and EA validation remain in the existing flow.
+let teamLayout='pitch';
+const uiPaths={refresh:'<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-2l2 3M4 16l2 3a7 7 0 0 0 12-2"/>',plus:'<path d="M12 5v14M5 12h14"/>',swap:'<path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/>',pitch:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16M9 3v4h6V3M9 21v-4h6v4"/><circle cx="12" cy="12" r="3"/>',list:'<path d="M9 6h11M9 12h11M9 18h11M4 6h1M4 12h1M4 18h1"/>',coin:'<circle cx="12" cy="12" r="9"/><path d="M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9M12 6v12"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',check:'<path d="m5 12 4 4L19 6"/>',shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/>'};
+function uiIcon(name){const span=document.createElement('span');span.className='ui-icon';span.setAttribute('aria-hidden','true');span.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${uiPaths[name]||uiPaths.plus}</svg>`;return span;}
+function chemistryMarks(value){const marks=document.createElement('span');marks.className='chemistry-marks';marks.setAttribute('aria-hidden','true');for(let i=0;i<3;i++){const dot=document.createElement('i');dot.classList.toggle('filled',Number.isFinite(value)&&i<value);marks.append(dot);}return marks;}
+function layoutPitch(container,players){
+  container.classList.toggle('is-pitch',teamLayout==='pitch'&&players.length>0);
+  const bands={ST:0,CF:0,LW:0,RW:0,CAM:1,LM:2,CM:2,RM:2,CDM:3,LWB:4,LB:4,CB:4,RB:4,RWB:4,GK:5};
+  const lateral={LW:0,LM:0,LWB:0,LB:0,ST:1,CF:1,CAM:1,CM:1,CDM:1,CB:1,GK:1,RW:2,RM:2,RWB:2,RB:2};
+  const compactMidfield=players.filter(player=>['CAM','LM','CM','RM','CDM'].includes(player.position)).length<=4;
+  const groups=new Map();players.forEach((player,index)=>{const band=compactMidfield&&['CAM','LM','CM','RM','CDM'].includes(player.position)?2:bands[player.position]??2;if(!groups.has(band))groups.set(band,[]);groups.get(band).push({player,index});});
+  [...groups].sort((a,b)=>a[0]-b[0]).forEach(([,group],row)=>{group.sort((a,b)=>(lateral[a.player.position]??1)-(lateral[b.player.position]??1)||a.index-b.index);const span=Math.floor(60/group.length);group.forEach(({index},column)=>{const item=container.children[index];if(!item)return;item.style.setProperty('--pitch-row',row+1);item.style.setProperty('--pitch-column',column*span+1);item.style.setProperty('--pitch-span',span);});});
+}
+function layoutSwitch(){const group=document.createElement('div');group.className='layout-switch';group.setAttribute('aria-label','Squad view');for(const [view,label] of [['pitch','Pitch'],['list','List']]){const button=document.createElement('button');button.type='button';button.append(uiIcon(view),document.createTextNode(label));button.setAttribute('aria-pressed',String(teamLayout===view));button.onclick=()=>{const selector=button.closest('.lineup-toolbar')?'.lineup-toolbar':'#team-layout';teamLayout=view;renderTeam();document.querySelector(selector+' button[aria-pressed=true]')?.focus({preventScroll:true});};group.append(button);}return group;}
 function renderTeam(){
   $('team-refresh').disabled=teamPending;$('team-find').disabled=(teamPending&&!teamRunActive)||(!teamSelected.size&&!teamPicks.size);
   $('team-find').firstElementChild.textContent=teamRunActive?'Stop team check':teamPending?'Reading squad…':teamResult?.pricingIncomplete?'Continue team search':'Find my XI';
@@ -269,20 +286,22 @@ function renderTeam(){
   $('team-select-clear').disabled=teamPending||!selectedCount;
   $('team-allowance').textContent=teamRunActive?teamProgressText:selectedCount?`${fmt(budget)} coins for the full lineup · ${selectedCount} positions chosen`:teamPicks.size?`${fmt(budget)} coins · ${teamPicks.size} chosen player(s)`:'Choose one or more positions.';
   if(!teamRunActive&&$('team-budget').value==='custom')$('team-allowance').textContent+=' · Planning only; can exceed your balance.';
+  $('team-layout').replaceChildren(layoutSwitch());
   const playerList=$('team-players');playerList.replaceChildren();
   for(const original of team.players||[]){
     const pick=teamPicks.get(original.index),player=pick?{...original,...pick}:original;
     const label=document.createElement('div');label.className='team-player';
-    const box=document.createElement('input');box.type='checkbox';box.setAttribute('aria-label',`Replace ${player.position} ${player.name}`);box.checked=teamSelected.has(player.index);box.disabled=teamPending;box.onchange=()=>{if(box.checked){teamPicks.delete(player.index);teamSelected.add(player.index);}else teamSelected.delete(player.index);teamResult=null;renderTeam();};
+    const box=document.createElement('input');box.type='checkbox';box.setAttribute('aria-label',`Replace ${player.position} ${player.name}`);box.checked=teamSelected.has(player.index);box.disabled=teamPending;box.onchange=()=>{if(box.checked){teamPicks.delete(player.index);teamSelected.add(player.index);}else teamSelected.delete(player.index);teamResult=null;renderTeam();$(`team-position-${player.index}`)?.focus({preventScroll:true});};
     const art=cardArtElement('team-mini-art',player.rating,player.position,player.assetId,player.definitionId,player.name);
     const position=document.createElement('strong');position.textContent=player.position||'—';
     const name=document.createElement('span');name.textContent=player.name+(pick?' · CHOSEN':player.concept?' · CONCEPT':'');
-    const copy=document.createElement('label');copy.className='team-player-copy';box.id=`team-position-${player.index}`;copy.htmlFor=box.id;copy.append(position,name);
-    label.append(box,art,copy);
-    const choose=document.createElement('button');choose.type='button';choose.className='team-choose-player text-button';choose.textContent=pick?'Change':'Choose';choose.setAttribute('aria-label',`Choose player for ${player.position}`);choose.disabled=teamPending;choose.onclick=()=>openTeamPicker(player.index);label.append(choose);
+    const copy=document.createElement('label');copy.className='team-player-copy';box.id=`team-position-${player.index}`;copy.htmlFor=box.id;copy.append(art,position,name);
+    label.append(box,copy);
+    const choose=document.createElement('button');choose.type='button';choose.className='team-choose-player text-button';choose.append(uiIcon(pick?'swap':'plus'));choose.title=pick?'Change chosen player':'Choose a specific player';choose.setAttribute('aria-label',`Choose player for ${player.position}`);choose.disabled=teamPending;choose.onclick=()=>openTeamPicker(player.index);label.append(choose);
     if(pick){const remove=document.createElement('button');remove.type='button';remove.className='text-button';remove.textContent='×';remove.setAttribute('aria-label',`Remove chosen ${player.name}`);remove.disabled=teamPending;remove.onclick=()=>{teamPicks.delete(player.index);teamResult=null;renderTeam();};label.append(remove);}
     playerList.append(label);
   }
+  layoutPitch(playerList,team.players||[]);
   if(!team.players?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='Refresh to load your starting XI from EA.';playerList.append(empty);}
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
@@ -294,14 +313,14 @@ function renderTeam(){
       if(plan.choices.filter(card=>!card.locked).length<teamSelected.size){const coverage=document.createElement('p');coverage.className='team-plan-failure';coverage.textContent=`Partial result: ${plan.choices.filter(card=>!card.locked).length}/${teamSelected.size} selected positions covered. Still unchanged: ${team.players.filter(player=>teamSelected.has(player.index)&&!plan.choices.some(choice=>choice.slotIndex===player.index)).map(player=>`${player.position} (${player.name})`).join(', ')}. The displayed cost covers only the proposed changes.`;results.append(coverage);}
       if(plan.chemistryTradeoff){const tradeoff=document.createElement('p');tradeoff.className='team-plan-failure';const low=plan.choices.filter(card=>card.slotChemistry<2).map(card=>`${card.name}: ${card.slotChemistry}/3`).join(' · ');tradeoff.textContent=`Chemistry trade-off: ${plan.baselineChemistry} → ${plan.chemistry}/33. Best complete lineup checked around your chosen players; the ${plan.targetChemistry}/33 target or individual chemistry requirements were not met.${low?' '+low+'.':''} Review before adding concepts.`;results.append(tradeoff);}
       const summary=document.createElement('div');summary.className='team-plan-summary';
-      for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],[teamResult.priceMode==='estimate'?'EST. TO BUY':'TOTAL TO BUY',`${fmt(plan.cost)} coins`],['BUDGET LEFT',`${fmt(plan.remaining)} coins`]]){
+      for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],[teamResult.priceMode==='estimate'?'EST. COST · COINS':'COST · COINS',fmt(plan.cost)],['LEFT · COINS',fmt(plan.remaining)]]){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);
       }
-      results.append(summary);
+      const budgetTrack=document.createElement('meter');budgetTrack.className='budget-meter';budgetTrack.min=0;budgetTrack.max=Math.max(1,plan.cost+plan.remaining);budgetTrack.value=plan.cost;budgetTrack.setAttribute('aria-label','Planned spend out of team budget');summary.append(budgetTrack);results.append(summary);
       if(plan.cost>(team.balance||0)){const shortfall=document.createElement('p');shortfall.className='team-result-note';shortfall.textContent=`Coins needed: ${fmt(plan.cost-(team.balance||0))} more · Current balance ${fmt(team.balance||0)}. You can add this plan as concepts now.`;results.append(shortfall);}
       const note=document.createElement('p');note.className='team-result-note';note.textContent=`${plan.choices.filter(card=>!card.locked).length} positions updated · chemistry checked by EA · ${fmt(teamResult.combinationsChecked)} combinations · ${teamResult.priceMode==='estimate'?'Third-party estimates; check prices before buying.':'Prices are current listings, not reserved purchases.'}`;audit.append(note);
-      const lineupTitle=document.createElement('h2');lineupTitle.className='team-lineup-title';lineupTitle.textContent=`Planned ${team.formation||'starting'} squad`;results.append(lineupTitle);
-      const lineup=document.createElement('div');lineup.className='team-lineup';
+      const lineupTitle=document.createElement('h2');lineupTitle.className='team-lineup-title';lineupTitle.textContent='Your new XI';const lineupHead=document.createElement('div');lineupHead.className='lineup-toolbar';lineupHead.append(lineupTitle,layoutSwitch());results.append(lineupHead);
+      const lineup=document.createElement('div');lineup.className='team-lineup';let swapDrawer=null;
       const planned=new Map(plan.choices.map(option=>[option.slotIndex,option]));
       for(const player of team.players){
         const option=planned.get(player.index),card=option||player;
@@ -310,9 +329,9 @@ function renderTeam(){
         const content=document.createElement('div');content.className='team-lineup-description';const position=document.createElement('small');position.textContent=`${player.position} · ${option?.locked?'BUILD AROUND':option?'NEW CARD':player.concept?'CONCEPT':'CURRENT'}`;
         const name=document.createElement(option?'a':'strong');name.textContent=card.name;
         if(option){if(option.url)name.href=option.url;name.target='_blank';name.rel='noreferrer';}
-        const detail=document.createElement('span');detail.className='player-evidence';detail.textContent=option?`${option.locked?'Your chosen player':option.source==='FUT.GG'?`FUT.GG cheap #${option.metaRank}`:`FUTBIN ${Number(option.futbinRating).toFixed(1)}`} · ${option.slotChemistry} chem`:`${plan.slotChemistry?.[player.index]??'—'} chem`;
+        const detail=document.createElement('span');detail.className='player-evidence';detail.textContent=option?`${option.locked?'Your chosen player':option.source==='FUT.GG'?`FUT.GG cheap #${option.metaRank}`:Number.isFinite(Number(option.futbinRating))?`FUTBIN ${Number(option.futbinRating).toFixed(1)}`:'FUTBIN ranked card'} · ${option.slotChemistry} chem`:`${plan.slotChemistry?.[player.index]??'—'} chem`;
         if(option?.priceSource)detail.textContent+=` · ${option.priceSource} estimate (${Math.max(0,Math.round((Date.now()-option.priceUpdatedAt)/60000))}m old)`;
-        const evidence=document.createElement('details');evidence.className='player-details';const disclosure=document.createElement('summary');disclosure.textContent=`${option?.slotChemistry??plan.slotChemistry?.[player.index]??'—'}/3 chemistry`;evidence.append(disclosure,detail);content.append(position,name,evidence);
+        const evidence=document.createElement('details');evidence.className='player-details';const disclosure=document.createElement('summary');const chemLabel=`${option?.slotChemistry??plan.slotChemistry?.[player.index]??'—'}/3 chemistry`;disclosure.setAttribute('aria-label',chemLabel+' · show card details');disclosure.title=chemLabel;const chemText=document.createElement('span');chemText.className='chemistry-label';chemText.textContent=chemLabel;disclosure.append(chemText);disclosure.prepend(chemistryMarks(option?.slotChemistry??plan.slotChemistry?.[player.index]));evidence.append(disclosure,detail);content.append(position,name,evidence);
         const price=document.createElement('strong');price.className='team-lineup-price';price.textContent=option?(option.owned?'IN CLUB':fmt(option.price)):player.definitionId?'IN XI':'OPEN';
         const actions=document.createElement('div');actions.className='team-lineup-actions';actions.append(price);row.append(art,content,actions);
         if(teamResult.plan&&teamSelected.has(player.index)){
@@ -332,12 +351,12 @@ function renderTeam(){
               const chemistry=document.createElement('span');chemistry.textContent=`Squad chemistry ${alternative.chemistry}/33 (${delta(alternative.chemistry-plan.chemistry)}) · Player ${candidate.slotChemistry??'—'}/3`;
               description.append(title,detail,chemistry);button.append(picture,description);button.onclick=()=>chooseTeamAlternative(player.index,alternative.card.definitionId);picker.append(button);
             }
-            const close=document.createElement('button');close.type='button';close.textContent='Close alternatives';close.onclick=()=>{teamSwapView=null;renderTeam();};picker.append(close);row.append(picker);
+            const close=document.createElement('button');close.type='button';close.textContent='Close alternatives';close.onclick=()=>{teamSwapView=null;renderTeam();};picker.append(close);swapDrawer=picker;
           }
         }
         lineup.append(row);
       }
-      results.append(lineup);
+      layoutPitch(lineup,team.players);results.append(lineup);if(swapDrawer){results.append(swapDrawer);}
       if(teamResult.plan){
         const apply=document.createElement('button');apply.type='button';apply.id='team-apply';apply.className='primary team-apply';apply.textContent=teamResult.applied?'Players added to squad':'Add players to squad';apply.disabled=teamPending||!!teamResult.applied;apply.onclick=applyTeamConcepts;results.append(apply);
       }
@@ -409,7 +428,7 @@ function startTeamPrefetch(){
 async function loadTeamAlternatives(slotIndex){
   if(teamPending)return;
   teamUiError='';teamSwapView={slotIndex,loading:true,alternatives:[]};
-  queueTeamAlternative(slotIndex,true);renderTeam();
+  queueTeamAlternative(slotIndex,true);renderTeam();document.querySelector('.team-swap-options')?.scrollIntoView?.({block:'nearest'});
 }
 async function chooseTeamAlternative(slotIndex,definitionId){
   if(teamPending)return;teamPending=true;teamUiError='';renderTeam();
@@ -524,6 +543,8 @@ function setView(view){
   if(view==='team')void syncTeam(true);
   render();renderTrader();renderInsights();renderTeam();
 }
+for(const [id,icon] of [['trader-futbin','coin'],['trader-diagnose','shield'],['price-check','coin']])$(id).prepend(uiIcon(icon));
+for(const id of ['connect','team-refresh']){const button=$(id);button.replaceChildren(uiIcon('refresh'));button.title=id==='connect'?'Refresh SBC':'Refresh squad';button.setAttribute('aria-label',button.title);}
 document.querySelector('.club-brand').onclick=event=>{event.preventDefault();setView('sbc');};
 $('sbc-tab').onclick=()=>setView('sbc');
 $('trader-tab').onclick=()=>setView('trader');
