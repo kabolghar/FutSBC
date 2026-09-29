@@ -295,16 +295,16 @@ function renderTeam(){
         const option=planned.get(player.index),card=option||player;
         const row=document.createElement('article');row.className=`team-lineup-card${option?' is-planned':''}`;
         const art=cardArtElement('team-lineup-art',card.rating,player.position,card.assetId,card.definitionId,card.name,!!card.definitionId);
-        const content=document.createElement('div');const position=document.createElement('small');position.textContent=`${player.position} · ${option?'NEW CARD':'CURRENT'}`;
+        const content=document.createElement('div');content.className='team-lineup-description';const position=document.createElement('small');position.textContent=`${player.position} · ${option?'NEW CARD':'CURRENT'}`;
         const name=document.createElement(option?'a':'strong');name.textContent=card.name;
         if(option){name.href=option.url;name.target='_blank';name.rel='noreferrer';}
         const detail=document.createElement('span');detail.textContent=option?`${option.source==='FUT.GG'?`FUT.GG cheap #${option.metaRank}`:`FUTBIN ${Number(option.futbinRating).toFixed(1)}`} · ${option.slotChemistry} chem`:`${plan.slotChemistry?.[player.index]??'—'} chem`;
         if(option?.priceSource)detail.textContent+=` · ${option.priceSource} estimate (${Math.max(0,Math.round((Date.now()-option.priceUpdatedAt)/60000))}m old)`;
         content.append(position,name,detail);
         const price=document.createElement('strong');price.className='team-lineup-price';price.textContent=option?(option.owned?'IN CLUB':fmt(option.price)):player.definitionId?'IN XI':'OPEN';
-        row.append(art,content,price);
+        const actions=document.createElement('div');actions.className='team-lineup-actions';actions.append(price);row.append(art,content,actions);
         if(teamResult.plan&&teamSelected.has(player.index)){
-          const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.title='Swap player';swap.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg>';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending;swap.onclick=()=>loadTeamAlternatives(player.index);row.append(swap);
+          const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.title='Swap player';swap.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg>';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending||!!teamResult.applied;swap.onclick=()=>loadTeamAlternatives(player.index);actions.append(swap);
           if(teamSwapView?.slotIndex===player.index){
             const picker=document.createElement('div');picker.className='team-swap-options';
             const heading=document.createElement('strong');heading.textContent='Fits your planned team';picker.append(heading);
@@ -324,12 +324,22 @@ function renderTeam(){
         lineup.append(row);
       }
       results.append(lineup);
+      if(teamResult.plan){
+        const apply=document.createElement('button');apply.type='button';apply.id='team-apply';apply.className='primary team-apply';apply.textContent=teamResult.applied?'Concept players added to squad':'Add concept players to squad';apply.disabled=teamPending||!!teamResult.applied;apply.onclick=applyTeamConcepts;results.append(apply);
+      }
     }else{
       const reason=document.createElement('p');reason.className='team-plan-failure';reason.textContent=teamResult.planReason||'No full lineup passed every check.';results.append(reason);
       for(const group of teamResult.results||[]){if(group.options.length)continue;const note=document.createElement('p');note.className='field-note';note.textContent=`${group.player.position}: ${teamNoFitReason(group)}`;results.append(note);}
     }
   }
   reportSize();
+}
+async function applyTeamConcepts(){
+  if(teamPending||!teamResult?.plan||teamResult.applied)return;
+  teamPending=true;teamUiError='';teamSwapView=null;renderTeam();
+  try{teamResult=await call('teamApply',{planId:teamResult.planId});}
+  catch(error){teamUiError=error.message;}
+  finally{teamPending=false;renderTeam();}
 }
 async function loadTeamAlternatives(slotIndex){
   if(teamPending)return;teamPending=true;teamUiError='';teamSwapView=null;renderTeam();

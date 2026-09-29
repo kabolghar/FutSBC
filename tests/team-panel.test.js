@@ -16,6 +16,7 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
     calls.push(message);
     if(message.type==='cardArt')return {ok:true,data:{imageURL:'https://game-assets.fut.gg/test-card.webp',pageURL:'https://www.fut.gg/players/2/27-2/'}};
     if(message.type==='teamAlternatives')return {ok:true,data:{slotIndex:0,alternatives:[{card:second,chemistry:33,cost:1000,remaining:9000}]}};
+    if(message.type==='teamApply')return {ok:true,data:{...result,applied:true}};
     if(message.type==='teamSwap')return fail?{ok:false,error:'Your squad changed.'}:{ok:true,data:{...result,plan:{...result.plan,choices:[second],cost:1000,remaining:9000}}};
     return {ok:true,data:{}};
   }},storage:{onChanged:{addListener(){}}}};
@@ -42,5 +43,11 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
   assert.match(document.querySelector('.team-lineup-card').textContent,/Alternative keeper/);
   assert.equal(document.querySelector('.team-swap-options'),null);
   assert.deepEqual(Object.keys(calls.find(call=>call.type==='teamSwap')).sort(),['definitionId','planId','slotIndex','type']);
+  assert(document.querySelector('.team-lineup-actions .team-swap-button'));
+  document.getElementById('team-apply').click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(document.getElementById('team-apply').disabled,true);
+  assert.match(document.getElementById('team-apply').textContent,/added/);
+  assert.equal(calls.filter(call=>call.type==='teamApply').length,1);
   }finally{dom.window.close();}
 });

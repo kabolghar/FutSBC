@@ -157,8 +157,8 @@ h2{font:700 24px/1.05 BarlowCondensed,sans-serif}
 .team-plan-summary>div{display:flex;flex-direction:column;gap:5px;min-width:0;padding:13px;border-right:1px solid var(--line)}.team-plan-summary>div:last-child{border-right:0}
 .team-plan-summary small,.team-lineup-card small{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.08em}.team-plan-summary strong{font:700 25px/1 BarlowCondensed,sans-serif}
 .team-lineup-title{margin:16px 0 10px;font:700 27px/1 BarlowCondensed,sans-serif}
-.team-lineup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.team-lineup-card{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;min-height:82px;padding:8px 0;border-top:1px solid var(--line)}
-.team-lineup-card.is-planned{border-top-color:var(--accent)}.team-lineup-art{width:64px;min-width:64px;height:88px;background-size:236px 133px;background-position:-9px -24px}.team-lineup-card>div:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}.team-lineup-card a,.team-lineup-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:14px}.team-lineup-card a:hover{color:var(--accent)}.team-lineup-card span{color:var(--muted);font-size:12px}.team-lineup-card .team-lineup-price{color:var(--accent);font:700 18px/1 BarlowCondensed,sans-serif;white-space:nowrap}.team-plan-failure{padding:14px;border:1px solid var(--danger);color:var(--danger);font-weight:600}
+.team-lineup{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:0 20px;align-items:start}.team-lineup-card{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;min-height:82px;padding:8px 0;border-top:1px solid var(--line)}
+.team-lineup-card.is-planned{border-top-color:var(--accent)}.team-lineup-art{width:64px;min-width:64px;height:88px;background-size:236px 133px;background-position:-9px -24px}.team-lineup-description{display:flex;flex-direction:column;gap:2px;min-width:0}.team-lineup-card a,.team-lineup-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:14px}.team-lineup-card a:hover{color:var(--accent)}.team-lineup-card span{color:var(--muted);font-size:12px}.team-lineup-card .team-lineup-price{color:var(--accent);font:700 18px/1 BarlowCondensed,sans-serif;white-space:nowrap}.team-plan-failure{padding:14px;border:1px solid var(--danger);color:var(--danger);font-weight:600}
 @media(max-width:520px){.team-lineup{grid-template-columns:1fr}.team-plan-summary strong{font-size:20px}.team-plan-summary>div{padding:9px}.team-lineup-card{min-height:74px}}
 .team-option{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center;gap:18px;padding:15px 0;border-bottom:1px solid var(--line)}
 .team-option-art{width:116px;height:161px;background-size:428px 241px;background-position:-17px -45px;color:var(--text)}
@@ -245,3 +245,17 @@ footer p{margin:8px 0;line-height:1.5}
 
 .team-swap-options .team-swap-choice{grid-template-columns:64px minmax(0,1fr);align-items:center;gap:14px}
 .team-swap-description{display:grid;gap:6px;min-width:0}.team-swap-description strong{white-space:normal}.team-swap-description>span{line-height:1.5}
+
+.team-lineup-card{column-gap:14px;row-gap:0;min-height:112px;padding:12px 0}
+.team-lineup-description{overflow-wrap:anywhere;line-height:1.4}
+.team-lineup-card .team-lineup-description a,.team-lineup-card .team-lineup-description strong{white-space:normal;font-size:16px;line-height:1.3}
+.team-lineup-description>span{line-height:1.5}
+.team-lineup-actions{display:flex;flex-direction:column;align-items:flex-end;align-self:stretch;justify-content:flex-start;gap:8px;min-width:66px;padding-top:8px}
+.team-lineup-actions .team-swap-button{margin:0;flex:none}
+.team-swap-options{margin-top:12px}
+.team-apply{width:100%;margin-top:20px;min-height:48px;justify-content:center}
+@media(max-width:400px){.team-lineup-card{column-gap:10px}.team-lineup-card .team-lineup-description a,.team-lineup-card .team-lineup-description strong{font-size:14px}.team-plan-summary{grid-template-columns:1fr}.team-plan-summary>div{border-right:0;border-bottom:1px solid var(--line)}}
+.team-swap-button,.team-swap-options button{background:var(--surface-raised);border:1px solid var(--line);border-radius:4px;color:var(--text);font:inherit;cursor:pointer}
+.team-swap-button:hover:not(:disabled),.team-swap-options button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.team-swap-button:focus-visible,.team-swap-options button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.team-swap-button:disabled,.team-swap-options button:disabled{opacity:.5;cursor:default}

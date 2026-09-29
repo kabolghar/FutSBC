@@ -161,6 +161,21 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(stale.ok,false);
   assert.match(stale.error,/squad changed/);
   assert.equal(slots[0].item,original);
+  let saves=0;const unchanged=slots[5].item;
+  team.addItemToSlot=(index,item)=>{slots.find(slot=>slot.index===index).item=item;};
+  team.save=()=>{saves++;return observed([]);};
+  const applyPayload={fingerprint:fiveSnapshot.fingerprint,budget:10000,minimumChemistry:31,groups:fiveGroups.map(group=>({...group,allowRetained:false,options:group.options.slice(0,1)}))};
+  const badApply=await eaOperation('teamApply',{...applyPayload,minimumChemistry:33});
+  assert.equal(badApply.ok,false);assert.equal(saves,0);assert.equal(slots[0].item,original);
+  const beforeApply=slots.map(slot=>slot.item);
+  team.save=()=>({observe(owner,callback){queueMicrotask(()=>callback(this,{success:false,status:500}));},unobserve(){}});
+  const failedSave=await eaOperation('teamApply',applyPayload);
+  assert.equal(failedSave.ok,false);assert.equal(failedSave.stage,'team-apply-save');
+  assert.deepEqual(slots.map(slot=>slot.item),beforeApply,'restore the local lineup after a rejected save');
+  team.save=()=>{saves++;return observed([]);};
+  const applied=await eaOperation('teamApply',applyPayload);
+  assert.equal(applied.ok,true,applied.error);assert.equal(applied.applied,5);assert.equal(saves,1);
+  assert(slots.slice(0,5).every(slot=>slot.item.concept));assert.equal(slots[5].item,unchanged);
 });
 
 test('market price ceiling rounds down to an EA price step without exceeding balance',async()=>{

@@ -226,7 +226,7 @@ export async function eaOperation(action, payload = {}) {
       }
       return {ok:true,quotes,checkedAt:Date.now(),balance};
     }
-    if(action==='teamPlan'){
+    if(action==='teamPlan'||action==='teamApply'){
       const {team,players}=activeTeam();
       if(payload.fingerprint!==teamFingerprint(players))throw Error('Your active squad changed. Refresh Team before planning.');
       const groups=Array.isArray(payload.groups)?payload.groups:[];
@@ -329,6 +329,25 @@ export async function eaOperation(action, payload = {}) {
         }
         beam=[...new Set([...expanded.slice(0,192),...affordable.slice(0,192),...[...families.values()].flat().slice(0,128)])];
         if(step<bySlot.length-1&&!beam.length)break;
+      }
+      if(action==='teamApply'){
+        if(!best||best.choices.length!==groups.length||best.chemistry<Number(payload.minimumChemistry))throw Error('The recommended team no longer passes the chemistry checks. No squad changes were made.');
+        if(typeof team.addItemToSlot!=='function'||typeof team.save!=='function')throw Error('EA squad editing is unavailable.');
+        if(activeTeam().team!==team||teamFingerprint(activeTeam().players)!==payload.fingerprint)throw Error('Your squad changed while loading concepts. No squad changes were made.');
+        const previous=players.map(slot=>({index:slot.index,item:slot.item}));
+        let saving=false;
+        try{
+          for(const choice of best.choices)team.addItemToSlot(choice.slotIndex,concepts.get(Number(choice.definitionId)));
+          const after=calculator.calculate(formation,players.map(slot=>slot.item),manager);
+          if(after.chemistry!==best.chemistry)throw Error('The inserted squad chemistry did not match the preview.');
+          saving=true;await observe(team.save());
+        }catch(error){
+          for(const slot of previous)team.addItemToSlot(slot.index,slot.item);
+          if(saving)error.stage='team-apply-save';
+          error.message+=saving?' The local squad was restored; reopen your squad in EA to check whether the save succeeded.':' The local squad was restored.';
+          throw error;
+        }
+        return {ok:true,applied:best.choices.length,chemistry:best.chemistry};
       }
       return {ok:true,alternatives:[...alternatives.values()].sort(compare).slice(0,30).map(plan=>({...plan,remaining:limit-plan.cost})),progressPlan:!best&&progress?{...progress,remaining:limit-progress.cost,baselineChemistry:Number(baseline.chemistry),targetChemistry:minimumChemistry}:null,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
     }

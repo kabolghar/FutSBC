@@ -518,6 +518,22 @@ async function recommendTeam(slots,budget,broaden=false){
   teamProgress('Team check complete.');
   return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source:supplemental.size?'FUTBIN + FUT.GG':source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
 }
+async function applyTeamSuggestion(message){
+  if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before adding concepts.');
+  const saved=(await chrome.storage.session.get('futsbc-team-plan'))['futsbc-team-plan'];
+  if(!saved?.plan||saved.planId!==message.planId||saved.applied||saved.applyUncertain)throw Error('Refresh Team and build a current recommendation before adding concepts.');
+  const {tabId,team}=await connectedTeam();
+  if(team.fingerprint!==saved.team.fingerprint)throw Error('Your squad changed. Refresh Team before adding concepts.');
+  const groups=saved.plan.choices.map(choice=>({slotIndex:choice.slotIndex,allowRetained:false,options:[choice]}));
+  try{
+    await ea(tabId,'teamApply',{fingerprint:team.fingerprint,budget:Math.min(saved.totalBudget,team.balance),minimumChemistry:saved.plan.chemistry,groups},SBC_REQUEST_TIMEOUT);
+  }catch(error){
+    if(error.stage==='team-apply-save')await chrome.storage.session.set({'futsbc-team-plan':{...saved,applyUncertain:true}});
+    throw error;
+  }
+  const result={...saved,applied:true,planId:crypto.randomUUID()};
+  await chrome.storage.session.set({'futsbc-team-plan':result});return result;
+}
 // Reuse trusted, worker-saved candidates; never accept prices or lineups from the UI.
 async function swapTeamSuggestion(message){
   if(tradingBusy||sbcBuying||(await rawTradeState()).enabled||(await rawSbcBuy()).enabled)throw Error('Stop trading and SBC buying before changing recommendations.');
@@ -723,6 +739,7 @@ async function dispatch(message) {
   if(message.type==='teamRunState')return teamRun;
   if(message.type==='teamCancel'){teamRun={...teamRun,cancelled:true,status:'Stopping after the current EA request…'};return teamRun;}
   if(message.type==='teamRecommend')return runTeamRecommendation(message.slots,message.budget);
+  if(message.type==='teamApply')return applyTeamSuggestion(message);
   if(message.type==='teamAlternatives'||message.type==='teamSwap')return swapTeamSuggestion(message);
   if(message.type==='teamPriceCheck'){
     const {tabId,team}=await connectedTeam();

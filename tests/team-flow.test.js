@@ -25,6 +25,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       const [action,payload]=args;calls.push({action,payload});
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
       if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:false,chemistryChange:-1,slotChemistryChange:-1}))}}];
+      if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);return [{result:{ok:true,applied:2,chemistry:12}}];}
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
       if(action==='teamPlan'){
@@ -122,7 +123,10 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const unknown=await send('teamSwap',{slotIndex:0,definitionId:999999});assert.equal(unknown.ok,false);
   fingerprint='different';
   const staleSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(staleSwap.ok,false);assert.match(staleSwap.error,/squad changed/);
-  fingerprint='current';session['futsbc-team-plan'].checkedAt=Date.now()-11*60_000;
+  fingerprint='current';
+  const applyResult=await send('teamApply');assert.equal(applyResult.ok,true,applyResult.error);assert.equal(applyResult.data.applied,true);
+  const doubleApply=await send('teamApply');assert.equal(doubleApply.ok,false);
+  session['futsbc-team-plan'].checkedAt=Date.now()-11*60_000;
   const expiredSwap=await send('teamAlternatives',{slotIndex:0});assert.equal(expiredSwap.ok,false);assert.match(expiredSwap.error,/expired/);
   rankingGap=true;
   await import('../extension/background.js?team-partial-source');
