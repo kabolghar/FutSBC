@@ -1,3 +1,4 @@
+import {getConsoleEstimates} from './team-prices.js';
 import {isEaWebAppURL,findEaTabs} from './ea-url.js';
 import {resumeComparison} from './sbc-checkpoint.js';
 import {readFutbinTab} from './tab-reader.js';
@@ -429,6 +430,19 @@ async function recommendTeam(slots,budget){
     catch(error){throw Error(`EA could not check ${player.position} cards: ${error.message}`);}
     results.push({slotIndex,player,options:checked.options,checked:checked.checked,screening:checked.screening});
   }
+  const missingPrices=[...new Set(results.flatMap(group=>group.options.filter(option=>!option.owned&&!Number.isSafeInteger(option.estimatedPrice??option.price)).map(option=>option.definitionId)))];
+  if(missingPrices.length){
+    teamProgress(`Reading alternative console estimates · ${missingPrices.length} cards`);
+    const key='futsbc-console-estimates-v1';
+    const saved=(await chrome.storage.local.get(key))[key]||{};
+    const estimates=await getConsoleEstimates(missingPrices,saved);
+    await chrome.storage.local.set({[key]:estimates.cache});
+    const prices=new Map(estimates.quotes.map(quote=>[quote.definitionId,quote]));
+    for(const group of results)group.options=group.options.map(option=>{
+      const quote=prices.get(option.definitionId);
+      return !option.owned&&quote?{...option,price:quote.price,estimatedPrice:quote.price,priceSource:quote.source,priceUpdatedAt:quote.updatedAt}:option;
+    });
+  }
   // Estimates are sufficient for recommendations. Unknown fallback prices are
   // optimistic only inside planning; never expose an unpriced lineup as affordable.
   const quotes=new Map();let priceCheckedAt=null,cardsPriced=0,planned,pricingIncomplete=false;
@@ -485,7 +499,7 @@ async function recommendTeam(slots,budget){
     return {...option,price:quote?.price??null,priceVerified:Number.isSafeInteger(quote?.price),priceChecked:!!quote};
   });
   teamProgress('Team check complete.');
-  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:source==='FUTBIN'?'estimate':'live'};
+  return {team,results,plan:planned.plan,progressPlan:planned.progressPlan,planReason:planned.reason,pricingIncomplete,combinationsChecked:planned.combinationsChecked,totalBudget:total,checkedAt:Date.now(),priceCheckedAt,source,cardsPriced,priceMode:((planned.plan||planned.progressPlan)?.choices||results.flatMap(group=>group.options)).some(option=>option.priceEstimated)?'estimate':'live'};
 }
 async function trendRankedTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);

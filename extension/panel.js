@@ -274,7 +274,7 @@ function renderTeam(){
   if(!team.players?.length){const empty=document.createElement('p');empty.className='field-note';empty.textContent='Refresh to load your starting XI from EA.';playerList.append(empty);}
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
-    const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'FUTBIN price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
+    const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG meta ranking':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'Third-party price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;results.append(top);
     if(teamResult.plan||teamResult.progressPlan){
       const plan=teamResult.plan||teamResult.progressPlan;
       if(!teamResult.plan){const notice=document.createElement('p');notice.className='team-plan-failure';notice.textContent=`Full target not reached (${plan.targetChemistry}/33). Optional partial step: ${plan.baselineChemistry} → ${plan.chemistry} chemistry. This is not a finished meta XI.`;results.append(notice);}
@@ -284,7 +284,7 @@ function renderTeam(){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);
       }
       results.append(summary);
-      const note=document.createElement('p');note.className='team-result-note';note.textContent=`${plan.choices.length} positions updated · chemistry checked by EA · ${fmt(teamResult.combinationsChecked)} combinations · ${teamResult.priceMode==='estimate'?'FUTBIN estimates; check prices before buying.':'Prices are current listings, not reserved purchases.'}`;results.append(note);
+      const note=document.createElement('p');note.className='team-result-note';note.textContent=`${plan.choices.length} positions updated · chemistry checked by EA · ${fmt(teamResult.combinationsChecked)} combinations · ${teamResult.priceMode==='estimate'?'Third-party estimates; check prices before buying.':'Prices are current listings, not reserved purchases.'}`;results.append(note);
       const lineupTitle=document.createElement('h2');lineupTitle.className='team-lineup-title';lineupTitle.textContent=`Planned ${team.formation||'starting'} squad`;results.append(lineupTitle);
       const lineup=document.createElement('div');lineup.className='team-lineup';
       const planned=new Map(plan.choices.map(option=>[option.slotIndex,option]));
@@ -296,6 +296,7 @@ function renderTeam(){
         const name=document.createElement(option?'a':'strong');name.textContent=card.name;
         if(option){name.href=option.url;name.target='_blank';name.rel='noreferrer';}
         const detail=document.createElement('span');detail.textContent=option?`${option.source==='FUT.GG'?`FUT.GG cheap #${option.metaRank}`:`FUTBIN ${Number(option.futbinRating).toFixed(1)}`} · ${option.slotChemistry} chem`:`${plan.slotChemistry?.[player.index]??'—'} chem`;
+        if(option?.priceSource)detail.textContent+=` · ${option.priceSource} estimate (${Math.max(0,Math.round((Date.now()-option.priceUpdatedAt)/60000))}m old)`;
         content.append(position,name,detail);
         const price=document.createElement('strong');price.className='team-lineup-price';price.textContent=option?(option.owned?'IN CLUB':fmt(option.price)):player.definitionId?'IN XI':'OPEN';
         row.append(art,content,price);lineup.append(row);

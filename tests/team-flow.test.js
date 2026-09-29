@@ -5,6 +5,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
   const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,estimates=false,forceLimit=false,partialKnown=false;
+  globalThis.fetch=async()=>({ok:true,json:async()=>({prices:{},updated:{}})});
   globalThis.chrome={
     runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
     action:{onClicked:{addListener:()=>{}}},sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},
@@ -91,4 +92,14 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.equal(estimated.data.cardsPriced,0);
   assert.equal(calls.filter(call=>call.action==='teamQuote').length,priceCalls);
   assert(estimated.data.plan.choices.every(card=>card.priceEstimated&&!card.pricePending));
+  estimates=false;
+  globalThis.fetch=async url=>{if(url.endsWith('/players'))return {ok:true,text:async()=>'<title>EA FC 27 Players</title>'};const ids=new URL(url).searchParams.get('ids').split(',').map(Number);return {ok:true,json:async()=>({prices:Object.fromEntries(ids.map(id=>[id,1000])),updated:Object.fromEntries(ids.map(id=>[id,Math.floor(Date.now()/1000)])),extinct:[]})};};
+  await import('../extension/background.js?team-alternative-prices');
+  const liveBefore=calls.filter(call=>call.action==='teamQuote').length;
+  const alternative=await send('teamRecommend',{slots:[0,1],budget:50000});
+  assert.equal(alternative.ok,true,alternative.error);
+  assert.equal(alternative.data.priceMode,'estimate');
+  assert.equal(calls.filter(call=>call.action==='teamQuote').length,liveBefore,'batch estimates avoid all live price checks');
+  assert(alternative.data.plan.choices.every(card=>card.priceSource==='fodder.gg'&&card.priceUpdatedAt));
+
 });

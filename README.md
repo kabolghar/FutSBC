@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.11**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.12**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -72,3 +72,9 @@ The planner checks known prices before exploring optimistic unknown-price candid
 ### Shared team budget (v0.21.11)
 
 Among teams passing chemistry checks, the planner prioritizes covering more selected positions before extra chemistry and source rank. Affordable intermediate combinations are kept so an expensive early pick cannot crowd out later positions. Known-price partial plans no longer end the search prematurely. Partial results explicitly list unchanged selected positions.
+
+### Additional console price source (v0.21.12)
+
+Team planning now falls back from FUTBIN estimates to fodder.gg’s public console-price endpoint, fetched in batches of ten exact EA card IDs, before live EA searches. The site must still identify itself as FC 27. Updates older than six hours, missing prices, extinct cards and invalid values are excluded. A ten-minute cache avoids repeat requests; recent source estimates can survive an outage until their six-hour age limit. Each alternative estimate displays its source and age. These estimates do not authorize or guarantee a purchase price.
+
+Live research validated 30 of 30 sampled FUT.GG-ranked striker IDs against the fodder.gg response using the extension parser. This is a public website endpoint, not a contracted API; availability can change. FUT.GG’s CDN and FUTWIZ returned verification pages during this check and were not bypassed.

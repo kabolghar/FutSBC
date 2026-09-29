@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FutSBC \u00b7 FC 27 Console",
-  "version": "0.21.11",
+  "version": "0.21.12",
   "description": "Build FC 27 SBC squads, review conditional console trade plans, and find chemistry-safe team upgrades.",
   "permissions": [
     "storage",
@@ -15,7 +15,8 @@
     "https://ea.com/*",
     "https://www.futbin.com/*",
     "https://www.fut.gg/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://fodder.gg/*"
   ],
   "web_accessible_resources": [
     {
