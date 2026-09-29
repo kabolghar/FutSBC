@@ -4,6 +4,9 @@ export function readFutbin(lookupId = null, expectedURL = null) {
     const normalize=value=>decodeURI(new URL(value).pathname).replace(/\/$/,'');
     if(location.origin!=='https://www.futbin.com' || normalize(location.href)!==normalize(expectedURL)) return {error:'Waiting for the requested page to replace the previous document.'};
   }
+  const documentText=document.body?.innerText||document.body?.textContent||'';
+  if(documentText.length<1000&&/the page could not be found/i.test(documentText))return {pageUnavailable:true,error:'FUTBIN could not find this page.'};
+  if(document.readyState==='complete'&&!document.title?.trim()&&!documentText.trim()&&!document.querySelectorAll('a[href],script[src],script[data-react-data]').length)return {blankPage:true,error:'FUTBIN returned an empty document.'};
   if (lookupId !== null) {
     const currentChallenge=location.pathname.match(/^\/27\/squad-building-challenges\/[^/]+\/(\d+)\/[^/]+\/?$/);
     if(currentChallenge&&Number(currentChallenge[1])===lookupId)return {kind:'lookup',url:`https://www.futbin.com${location.pathname}`};

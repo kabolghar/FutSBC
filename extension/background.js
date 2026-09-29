@@ -1,3 +1,4 @@
+import {discoverSbc} from './sbc-discovery.js';
 import {teamLinkPages,teamCandidatePool,linkedTeamOptions} from './team-links.js';
 import {researchTraderCards} from './trading-evidence.js';
 import {getConsoleEstimates} from './team-prices.js';
@@ -1166,13 +1167,18 @@ async function dispatch(message) {
       workerTabs.push(tab.id);
       let comparisonURL=manualURL;
       if(!manualURL) {
-        let lookup=await readTab(tab.id,initialURL,previous.challenge.id);
-        if(!lookup.url && lookup.groupURL) {
-          await chrome.tabs.update(tab.id,{url:lookup.groupURL});
-          lookup=await readTab(tab.id,lookup.groupURL,previous.challenge.id);
+        try{
+          let lookup=await readTab(tab.id,initialURL,previous.challenge.id);
+          if(!lookup.url && lookup.groupURL) {
+            await chrome.tabs.update(tab.id,{url:lookup.groupURL});
+            lookup=await readTab(tab.id,lookup.groupURL,previous.challenge.id);
+          }
+          if(!lookup.url)throw Error('The FUTBIN lookup did not return this challenge.');
+          comparisonURL=lookup.url;
+        }catch(error){
+          if(error.verificationBlocked)throw error;
+          comparisonURL=await discoverSbc(chrome,tab.id,previous.challenge,{progress:async progress=>save({...await state(),progress})});
         }
-        if(!lookup.url) throw Error('No matching FUTBIN solutions found for this SBC. You can paste its Completed Challenges link as a fallback.');
-        comparisonURL=lookup.url;
       }
       const url=new URL(futbinURL(comparisonURL));url.searchParams.set('sort','ps_price');url.searchParams.set('order','asc');
       await chrome.tabs.update(tab.id,{url:url.href});

@@ -32,3 +32,10 @@ The brother's Chrome failure has not been reproduced on his laptop; the supplied
 The XI search is bounded, and available source lists are incomplete. Rankings are evidence, not a complete gameplay-performance model. Chemistry can legitimately favor a lower-ranked linking card. A club card may still be selected when it makes the best checked complete team affordable, but ownership earns no quality bonus.
 
 This review did not execute live purchases, bids or SBC submission. Automated EA/provider fixtures and browser layout checks validate the handled contracts; they cannot establish live compatibility or guaranteed profit.
+
+
+## Follow-up: exact #49 lookup failure (v0.21.36)
+
+The reported lookup was inspected in Arc. FUTBIN returned a not-found page while its homepage and SBC directory loaded. The group page for Challenge 1 published the expected exact EA ID 48 in its Completed Challenges link; the active directory's two pages did not show Challenge 2 at inspection time.
+
+Added bounded directory discovery, same-origin/season and exact-ID filtering, stale-document rejection, explicit blank/not-found detection, one blank-page retry and automatic fallback wiring. Regression coverage exercises pagination, mismatched challenges, browser verification, and full comparison recovery after a failed lookup. This does not establish that FUTBIN currently has a readable solution for EA #49.

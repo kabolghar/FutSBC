@@ -2,7 +2,7 @@ import {readFutbin} from './futbin.js';
 const pathKey=value=>decodeURI(new URL(value).pathname).replace(/\/$/,'');
 export async function readFutbinTab(api,tabId,expectedURL,lookupId=null,{attempts=75,partialChecks=25,delay=()=>new Promise(resolve=>setTimeout(resolve,400))}={}) {
   let reason='The page did not reach the requested FUTBIN address.';
-  let incompleteChecks=0;
+  let incompleteChecks=0,blankChecks=0,reloaded=false;
   let verificationPending=false;
   for(let attempt=0;attempt<attempts;attempt++) {
     const tab=await api.tabs.get(tabId);
@@ -22,6 +22,13 @@ export async function readFutbinTab(api,tabId,expectedURL,lookupId=null,{attempt
       } catch(error) {
         reason=`The page changed while it was being read: ${error.message}`;
       }
+      if(result?.pageUnavailable){const error=Error(result.error);error.pageUnavailable=true;throw error;}
+      if(result?.blankPage){
+        if(++blankChecks>=8){
+          if(!reloaded){reloaded=true;blankChecks=0;await api.tabs.update(tabId,{url:expectedURL});}
+          else {const error=Error('FUTBIN returned an empty document after retrying.');error.pageUnavailable=true;throw error;}
+        }
+      }else blankChecks=0;
       if(result?.kind&&!(result.kind==='comparison'&&result.unpricedCount>0)) return result;
       if(result?.kind==='comparison') reason=`Waiting for console prices for ${result.unpricedCount} listed squads.`;
       if(result?.verification||result?.blocked&&/verification|checking this browser/i.test(result.error||'')){

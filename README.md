@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.35**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.36**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -181,3 +181,10 @@ Stable candidates receive shortlist priority; qualified low/medium-risk ideas ap
 - Validation covers mocked slow loading, redirects, incomplete source data, ownership, price selection, chemistry, budgets, checkout uncertainty, cancellation, and request coordination. The exact failure on the second laptop has not been reproduced; provider browser checks and unavailable data can still block fetching.
 
 See [business logic audit](docs/business-logic-audit.md) for scope and remaining limitations.
+
+
+### Missing FUTBIN lookup recovery (v0.21.36)
+
+The EA lookup URL can return a not-found page or an empty document even while FUTBIN itself is working. FutSBC now detects that condition, retries a blank navigation once, and searches published FC 27 SBC directory/group links for the exact EA challenge ID. It uses the existing inactive tab, follows directory pagination within bounded limits, and never substitutes a similarly named challenge.
+
+Arc inspection of the reported EA #49 lookup reproduced FUTBIN's “The page could not be found” message. The two active-directory pages inspected listed Challenge 1, but not Challenge 2. The fallback fixes discovery when a matching directory entry exists; it cannot manufacture an unavailable solution or bypass verification. Missing matches now report the actual discovery failure instead of polling an empty document for player cards.

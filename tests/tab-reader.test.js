@@ -65,3 +65,14 @@ test('EA lookup redirects are read on the same-season group page',async()=>{
  api.tabs.get=async()=>({url:'https://www.futbin.com/26/squad-building-challenge/29'});
  await assert.rejects(()=>readFutbinTab(api,1,expected,59,fast),/requested FUTBIN address/);
 });
+
+test('not-found lookup exits immediately instead of polling for cards',async()=>{
+ const api=mock([{pageUnavailable:true,error:'FUTBIN could not find this page.'}]);
+ await assert.rejects(()=>readFutbinTab(api,1,url,null,fast),error=>error.pageUnavailable);
+ assert.equal(api.calls,1);
+});
+test('empty documents retry navigation once and then allow directory fallback',async()=>{
+ const api=mock([{blankPage:true,error:'FUTBIN returned an empty document.'}]);
+ await assert.rejects(()=>readFutbinTab(api,1,url,null,{attempts:20,delay:async()=>{}}),error=>error.pageUnavailable);
+ assert.equal(api.focused.length,1);assert.deepEqual(api.focused[0],{url});assert.equal(api.calls,16);
+});
