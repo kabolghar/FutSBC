@@ -1,0 +1,23 @@
+node_modules/
+research/
+.DS_Store
+*.zip
+
+# Credentials, local configuration and browser/session exports
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+*storage-export*.json
+*.log
+playwright/.auth/
+.auth/
+browser-profile*/
+.codex/
+.lazyweb/
+.impeccable.md

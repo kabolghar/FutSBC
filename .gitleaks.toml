@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public browser-storage namespace labels, not credentials"
+regexTarget = "secret"
+regexes = ['''^futsbc-(trade-desk|market-insights)-v1$''']

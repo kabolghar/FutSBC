@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trade desk · FutSBC</title>
+  <link rel="stylesheet" href="trade.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner"><strong>FutSBC</strong><span class="divider" aria-hidden="true"></span><span>TRADE DESK</span><span class="masthead-end">FC 27 · CONSOLE</span></div>
+  </header>
+  <main>
+    <div class="page-heading">
+      <div><p class="eyebrow">MARKET BOARD / CONSOLE</p><h1>Trade desk</h1><p class="intro">Watch the market, check the margin, and track what actually sold.</p></div>
+      <div class="tax-note"><span>EA SALE TAX</span><strong>5%</strong><small>Included in every result</small></div>
+    </div>
+
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+
+    <section class="auto-board" aria-labelledby="auto-title">
+      <div class="section-heading"><span class="section-number">LIVE</span><h2 id="auto-title">Auto trader</h2><span id="auto-state" class="count">OFF</span></div>
+      <div class="auto-content">
+        <div class="auto-main">
+          <p id="auto-status" class="auto-status" role="status" aria-live="polite">Connect to your signed-in FC 27 console club to start.</p>
+          <p class="auto-description">Checks fresh FC 27 console prices and trends on FUTBIN, then verifies short EA auctions against five exact-card buy-now listings. Bids stop when the after-tax margin disappears. A sale and profit are never guaranteed.</p>
+          <div class="auto-actions"><button id="auto-toggle" class="primary" type="button">Start auto trader <span aria-hidden="true">→</span></button><span id="auto-next" class="next-scan">Within balance · highest checked profit</span></div>
+        </div>
+        <div class="auto-figures">
+          <div><span>SESSION COINS</span><strong id="auto-coins">—</strong></div>
+          <div><span>WON COST</span><strong id="auto-spent">0</strong></div>
+          <div><span>AUCTIONS WON</span><strong id="auto-trades">0</strong></div>
+        </div>
+      </div>
+      <p class="auto-footnote">Page scans about every 20 seconds; a five-minute break from new bids after 35 minutes of activity. Active bids are still watched during a break. Stop ends new work after the current request. Automated trading breaches <a href="https://help.ea.com/en/articles/ea-sports-fc/fc-rules/" target="_blank" rel="noopener noreferrer">EA’s rules</a>; cooldowns do not make it undetectable.</p>
+      <div id="auto-history" class="auto-history" hidden></div>
+    </section>
+
+    <div class="workspace">
+      <section class="calculator" aria-labelledby="check-title">
+        <div class="section-heading"><span class="section-number">01</span><h2 id="check-title">Check a trade</h2></div>
+        <form id="quote-form">
+          <label for="player">Player</label><input id="player" name="player" type="text" maxlength="80" autocomplete="off" placeholder="Player name" required>
+          <div class="field-pair">
+            <div><label for="buy">Buy for</label><div class="coin-field"><input id="buy" name="buy" type="text" inputmode="numeric" placeholder="17,250" required><span>COINS</span></div></div>
+            <div><label for="sell">Sell for</label><div class="coin-field"><input id="sell" name="sell" type="text" inputmode="numeric" placeholder="18,750" required><span>COINS</span></div></div>
+          </div>
+          <label for="target">Minimum profit</label><div class="coin-field"><input id="target" name="target" type="text" inputmode="numeric" value="500" required><span>COINS</span></div>
+          <div class="math-board" aria-live="polite">
+            <div class="math-lead"><span>EXPECTED PROFIT</span><strong id="profit">—</strong></div>
+            <div class="math-row"><span>After EA tax</span><strong id="net">—</strong></div>
+            <div class="math-row"><span>Maximum buy for target</span><strong id="max-buy">—</strong></div>
+            <div class="math-row"><span>Break-even sale</span><strong id="break-even">—</strong></div>
+          </div>
+          <p id="quote-feedback" class="feedback">Enter prices to see the margin. Check current listings before buying.</p>
+          <button class="primary" type="submit">Save to watchlist <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+
+      <section class="watchlist" aria-labelledby="watch-title">
+        <div class="section-heading"><span class="section-number">02</span><h2 id="watch-title">Watchlist</h2><span id="watch-count" class="count">0 CARDS</span></div>
+        <p class="section-description">Your prices are estimates. Entries are ranked by net profit and flagged when they meet your target.</p>
+        <div class="table-head" aria-hidden="true"><span>PLAYER</span><span>BUY</span><span>SELL</span><span>NET PROFIT</span><span></span></div>
+        <div id="watch-rows" class="rows"><p class="empty">No cards saved yet. Check a trade or paste a price list to start.</p></div>
+        <details class="import-panel">
+          <summary>Paste a price list <span aria-hidden="true">＋</span></summary>
+          <div class="import-content"><label for="import-quotes">One player, buy, sell per line</label><textarea id="import-quotes" rows="4" placeholder="Player, buy, sell&#10;Robert Lewandowski, 17250, 18750"></textarea><div class="import-actions"><p>These estimates do not control the auto trader’s market scan.</p><button id="import-button" class="secondary" type="button">Rank these cards</button></div></div>
+        </details>
+      </section>
+    </div>
+
+    <section class="ledger" aria-labelledby="ledger-title">
+      <div class="section-heading"><span class="section-number">03</span><h2 id="ledger-title">Completed trades</h2><span id="trade-count" class="count">0 SALES</span></div>
+      <div class="ledger-content">
+        <div class="ledger-entry"><p class="section-description">Record your actual buy and sale after both transactions are complete.</p><form id="trade-form"><label for="trade-player">Player</label><input id="trade-player" type="text" maxlength="80" placeholder="Player name" required><div class="field-pair"><div><label for="trade-buy">Bought for</label><input id="trade-buy" type="text" inputmode="numeric" placeholder="17,250" required></div><div><label for="trade-sell">Sold for</label><input id="trade-sell" type="text" inputmode="numeric" placeholder="18,750" required></div></div><button class="secondary record-button" type="submit">Record completed sale</button></form></div>
+        <div class="ledger-results"><div class="ledger-summary"><span>REALIZED NET PROFIT</span><strong id="realized">0</strong><small>COINS AFTER 5% TAX</small></div><div id="trade-rows" class="trade-rows"><p class="empty">Your completed sales will appear here.</p></div></div>
+      </div>
+    </section>
+    <footer>FutSBC uses your signed-in EA Web App tab. The watchlist and manual sale ledger are saved in this browser. Live market prices can change before a card sells.</footer>
+  </main>
+  <script type="module" src="trade.js"></script>
+</body>
+</html>

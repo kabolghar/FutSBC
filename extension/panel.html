@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FutSBC · FC 27</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="standalone-brand"><strong>FutSBC</strong><span>FC 27 · CONSOLE</span></header>
+  <nav class="view-tabs" aria-label="FutSBC tools">
+    <button id="sbc-tab" class="view-tab active" type="button" aria-current="page">SBC</button>
+    <button id="trader-tab" class="view-tab" type="button">Trader</button>
+    <button id="insights-tab" class="view-tab" type="button">Market</button>
+    <button id="team-tab" class="view-tab" type="button">Team</button>
+  </nav>
+  <main>
+    <div id="sbc-view">
+    <section class="challenge-block" aria-label="Current SBC">
+      <div class="section-label"><span class="signal"></span> CURRENT SBC</div>
+      <div class="challenge-line">
+        <div><h1 id="challenge">No SBC connected</h1><p id="formation">Open an SBC in EA.</p></div>
+        <button id="connect" class="refresh" type="button" aria-label="Refresh current SBC" title="Refresh SBC">↻</button>
+      </div>
+    </section>
+
+    <section class="action-block" aria-label="Find solution">
+      <button id="compare" class="primary" type="button"><span>Find + build squad</span><span aria-hidden="true">→</span></button>
+      <div class="action-links">
+        <details class="settings">
+          <summary>Options</summary>
+          <div class="settings-body">
+            <p class="field-note">FutSBC checks every listed squad and skips incomplete lineups.</p>
+            <label for="source">FUTBIN link</label>
+            <input id="source" type="url" placeholder="Optional completed-challenges link">
+          </div>
+        </details>
+        <a href="https://www.futbin.com/27/squad-building-challenges" target="_blank" rel="noreferrer">FUTBIN ↗</a>
+      </div>
+    </section>
+
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+
+    <section id="result" class="result" aria-label="Checked solution" hidden>
+      <div class="scoreboard">
+        <div class="price-summary"><div id="price-label" class="result-label">LOWEST VERIFIED</div><div class="total"><strong id="total">—</strong><span>COINS</span></div></div>
+        <div class="result-details"><h2 id="plan-name">Lineup</h2><p id="coverage" class="coverage"></p><p id="freshness" class="freshness"></p></div>
+      </div>
+      <p id="build-status" class="build-status"></p>
+      <div class="lineup-head"><span id="lineup-count">PLAYERS</span><span id="lineup-action">EST. PRICE</span></div>
+      <div id="players"></div>
+      <section id="swap-panel" class="swap-panel" aria-label="Cheaper player swaps" hidden>
+        <div class="swap-heading"><div><span>CHEAPER SWAPS</span><h3 id="swap-title">Player</h3></div><button id="swap-close" class="text-button" type="button">Close</button></div>
+        <p id="swap-summary" class="field-note"></p>
+        <div id="swap-list"></div>
+      </section>
+      <div class="actions"><button id="complete" class="secondary wide" type="button" hidden>Add to SBC</button></div>
+      <section id="buy-section" class="buy-section" aria-label="Buy missing SBC players" hidden>
+        <div class="buy-heading"><div><span>FINISH THE SQUAD</span><h3>Buy missing players</h3></div><button id="price-check" class="secondary" type="button">Check prices</button></div>
+        <p id="checkout-summary" class="buy-summary" hidden></p>
+        <button id="buy-start" class="primary" type="button" hidden><span>Buy missing cards</span><span aria-hidden="true">→</span></button>
+        <p id="buy-status" class="field-note" role="status" aria-live="polite"></p>
+        <div class="buy-tools"><button id="buy-stop" class="secondary" type="button" hidden>Stop buying</button><button id="buy-reset" class="text-button" type="button" hidden>Clear buying session</button></div>
+      </section>
+      <p id="shopping-note" class="field-note" hidden>Use ↗ to search EA and buy a missing card yourself.</p>
+    </section>
+
+    <footer>
+      <details><summary>About prices</summary><p>FUTBIN prices are estimates. “Lowest checked” covers only the squads rechecked here. FutSBC uses your signed-in EA session and stores no password.</p><a href="https://help.ea.com/en/articles/ea-sports-fc/fc-rules/" target="_blank" rel="noreferrer">EA rules ↗</a></details>
+      <button id="reset" class="text-button" type="button">Clear session</button>
+    </footer>
+    </div>
+
+    <section id="trader-view" class="trader-view" aria-label="Auto trader" hidden>
+      <div class="trader-heading"><div><h1>Auction trader</h1><p>FC 27 · console market</p></div><span id="trader-state" class="trader-state">OFF</span></div>
+      <div class="trader-live"><strong id="trader-status" aria-live="polite">Connect to your console club to start.</strong><span id="trader-next" class="trader-next">Next scan: 20s</span></div>
+      <div class="trader-metrics">
+        <div><span>COINS</span><strong id="trader-coins">—</strong></div>
+        <div><span>SPENT</span><strong id="trader-spent">0</strong></div>
+        <div><span>WON</span><strong id="trader-count">0</strong></div>
+      </div>
+      <button id="trader-toggle" class="primary trader-toggle" type="button"><span>Start auto trader</span><span aria-hidden="true">→</span></button>
+      <div class="trader-tools">
+        <button id="trader-review" class="trader-check" type="button" hidden>Review auction</button>
+        <button id="trader-recover" class="trader-check" type="button" hidden>Resume saved auction</button>
+        <button id="trader-futbin" class="trader-check" type="button" title="Refresh FUTBIN prices">Check FUTBIN</button>
+        <button id="trader-diagnose" class="trader-check" type="button" title="Test EA market requests">Check EA</button>
+      </div>
+      <p id="trader-error" class="trader-error" role="alert" hidden></p>
+      <div id="trader-last" class="trader-last" hidden><span>LAST ATTEMPT</span><strong id="trader-last-name"></strong><small id="trader-last-detail"></small></div>
+      <details class="trader-evidence"><summary>Market evidence</summary><span id="trader-source" class="trader-source">FUTBIN has not been checked.</span><a id="trader-proof" class="trader-proof" href="https://www.futbin.com/27/market-player-list" target="_blank" rel="noreferrer" hidden></a><p>FUTBIN shortlists cards. Five EA comparables check the resale price and bid ceiling.</p></details>
+      <footer class="trader-footer"><details><summary>Trading notes</summary><p>Estimated profit is not guaranteed. Stop waits for the current EA request. Cooldowns do not prevent account action under <a href="https://help.ea.com/en/articles/ea-sports-fc/fc-rules/" target="_blank" rel="noreferrer">EA’s rules ↗</a>.</p><p>Reset clears this session. EA bids and listings remain in EA.</p></details><button id="trader-reset" class="text-button" type="button">Reset trader</button></footer>
+      <a class="trader-details-link" href="trade.html" target="_blank" rel="noreferrer">Trade desk ↗</a>
+    </section>
+    <section id="insights-view" class="insights-view" aria-label="Daily market brief" hidden>
+      <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> FC 27 · CONSOLE</span><h1>Market brief</h1><p>Entry prices, holding windows and exit checks</p></div><button id="insights-refresh" class="secondary" type="button">Refresh</button></div>
+      <div class="insights-summary"><strong id="insights-date">No brief yet</strong><span id="insights-summary">Refresh to check current FUTBIN prices.</span></div>
+      <p id="insights-error" class="trader-error" role="alert" hidden></p>
+      <div class="insights-section-head"><h2>Trade plans</h2><span id="insights-count">0</span></div>
+      <div id="insights-cards" class="insights-cards"><p class="field-note">Open your signed-in FC 27 Web App, then refresh.</p></div>
+      <div class="insights-section-head"><h2>Signals</h2><span>HEADLINES</span></div>
+      <div id="insights-news" class="insights-news"><p class="field-note">Recent FUTBIN headlines will appear here as context, not confirmed price catalysts.</p></div>
+      <details class="insights-settings"><summary>Free AI notes</summary><p>Gemini explains the checked cards and headlines. It cannot fetch news or change prices. Use a free-tier project; Google may use free-tier prompts to improve its products.</p><label for="insights-key">Gemini API key · Google AI Studio</label><div class="insights-key-row"><input id="insights-key" type="password" autocomplete="off" placeholder="Paste Gemini key"><button id="insights-save-key" class="secondary" type="button">Save</button></div><button id="insights-clear-key" class="text-button" type="button">Remove key</button><p id="insights-model-state" class="field-note">No model key saved. Local signals still work.</p></details>
+      <footer class="insights-footer"><p>Holding windows are estimates from sampled prices, player-linked news and community signals. Recheck daily. Verify live EA listings before buying; profit is never guaranteed.</p><a href="https://www.futbin.com/27/market-player-list" target="_blank" rel="noreferrer">FUTBIN market ↗</a></footer>
+    </section>
+    <section id="team-view" class="team-view" aria-label="Team upgrades" hidden>
+      <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> ACTIVE SQUAD</span><h1>Build your XI</h1><p>One lineup. Live prices. EA chemistry.</p></div><button id="team-refresh" class="secondary" type="button">Refresh</button></div>
+      <div class="team-summary"><strong id="team-name">Open your active squad</strong><span id="team-chemistry">— chemistry</span><span id="team-balance">— coins</span></div>
+      <p id="team-error" class="trader-error" role="alert" hidden></p>
+      <div class="insights-section-head team-select-head"><h2>Choose positions</h2><div><button id="team-select-empty" class="text-button" type="button">Select empty</button><button id="team-select-clear" class="text-button" type="button">Clear</button></div></div>
+      <div id="team-players" class="team-players"><p class="field-note">Refresh to load your starting XI from EA.</p></div>
+      <div class="team-controls"><label for="team-budget">Total budget</label><div class="team-budget-line"><select id="team-budget"><option value="all">All available coins</option><option value="half">Half my coins</option><option value="custom">Custom</option></select><input id="team-custom-budget" type="number" min="500" step="50" placeholder="Coins" aria-label="Custom coin budget" hidden></div><small id="team-allowance">Choose one or more players.</small></div>
+      <button id="team-find" class="primary" type="button"><span>Build a meta XI</span><span aria-hidden="true">→</span></button>
+      <div id="team-results" class="team-results" aria-live="polite"></div>
+      <footer class="insights-footer"><p>FUTBIN ratings or FUT.GG rankings shortlist cards. EA checks exact card versions, live listings, club ownership, total budget and chemistry for the complete XI. Prices can change before you buy.</p></footer>
+    </section>
+  </main>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

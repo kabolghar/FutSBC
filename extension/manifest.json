@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "FutSBC \u00b7 FC 27 Console",
+  "version": "0.21.6",
+  "description": "Build FC 27 SBC squads, review conditional console trade plans, and find chemistry-safe team upgrades.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "sidePanel",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://www.ea.com/ea-sports-fc/ultimate-team/web-app/*",
+    "https://www.futbin.com/*",
+    "https://www.fut.gg/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "panel.html"
+      ],
+      "matches": [
+        "https://www.ea.com/*"
+      ]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open FutSBC companion panel",
+    "default_popup": "open.html"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "minimum_chrome_version": "116",
+  "options_page": "panel.html"
+}

@@ -1,0 +1,538 @@
+{
+  "squadData": {
+    "squad": [
+      {
+        "value": "cardlid1"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 722
+          }
+        },
+        "playerName": "Lewandowski",
+        "clubId": {"value": 693},
+        "leagueId": {"value": 39},
+        "nationId": {"value": 37},
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/188545.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=9f72c9e7217a25aaf6a51876ffc2f605"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Robert Lewandowski",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_gold.png?fm=png&ixlib=java-2.1.0&w=644&s=e9dc670f0c41bd7079273e06ff1d6aa0"
+              }
+            }
+          }
+        },
+        "playerRating": 84,
+        "position": {
+          "value": "ST"
+        },
+        "price": {
+          "ps": {
+            "price": 750
+          }
+        }
+      },
+      {
+        "value": "cardlid2"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13154
+          }
+        },
+        "playerName": "Lederman",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/245026.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=fb5c907eda897b34742deebce734746a"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Ben Lederman",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "CAM"
+        },
+        "price": {
+          "ps": {
+            "price": 200
+          }
+        }
+      },
+      {
+        "value": "cardlid3"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13156
+          }
+        },
+        "playerName": "Szymczak",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/252494.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=174e2e89741d2b0d629246a1404306c7"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Filip Szymczak",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "ST"
+        },
+        "price": {
+          "ps": {
+            "price": 400
+          }
+        }
+      },
+      {
+        "value": "cardlid4"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13177
+          }
+        },
+        "playerName": "Leśniak",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/270381.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=d8e0d1457da81d89b36766e16a9f6f82"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Oskar Leśniak",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "CM"
+        },
+        "price": {
+          "ps": {
+            "price": 200
+          }
+        }
+      },
+      {
+        "value": "cardlid5"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13131
+          }
+        },
+        "playerName": "Łukasiak",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/73311.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=78c03facd3001d13180343f09a2bd4a2"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Kacper Łukasiak",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "CM"
+        },
+        "price": {
+          "ps": {
+            "price": 200
+          }
+        }
+      },
+      {
+        "value": "cardlid6"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13145
+          }
+        },
+        "playerName": "Pestka",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/235303.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=84f3092d32508b423450205eed1ab899"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Kamil Pestka",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "LB"
+        },
+        "price": {
+          "ps": {
+            "price": 200
+          }
+        }
+      },
+      {
+        "value": "cardlid7"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 781
+          }
+        },
+        "playerName": "Álex Baena",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/257279.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=f36a7d8d3c283fb63492f52a5e676d14"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Alejandro Baena Rodríguez",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_gold.png?fm=png&ixlib=java-2.1.0&w=644&s=e9dc670f0c41bd7079273e06ff1d6aa0"
+              }
+            }
+          }
+        },
+        "playerRating": 83,
+        "position": {
+          "value": "LM"
+        },
+        "price": {
+          "ps": {
+            "price": 700
+          }
+        }
+      },
+      {
+        "value": "cardlid8"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 856
+          }
+        },
+        "playerName": "Bednarek",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/220570.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=41e6effeb270ac4067ad8f424a12a538"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Jan Bednarek",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_gold.png?fm=png&ixlib=java-2.1.0&w=644&s=e9dc670f0c41bd7079273e06ff1d6aa0"
+              }
+            }
+          }
+        },
+        "playerRating": 82,
+        "position": {
+          "value": "CB"
+        },
+        "price": {
+          "ps": {
+            "price": 650
+          }
+        }
+      },
+      {
+        "value": "cardlid9"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 861
+          }
+        },
+        "playerName": "Kiwior",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/265693.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=f57899a65272c964bb44db81ca3cfe5f"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Jakub Kiwior",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_gold.png?fm=png&ixlib=java-2.1.0&w=644&s=e9dc670f0c41bd7079273e06ff1d6aa0"
+              }
+            }
+          }
+        },
+        "playerRating": 82,
+        "position": {
+          "value": "CB"
+        },
+        "price": {
+          "ps": {
+            "price": 650
+          }
+        }
+      },
+      {
+        "value": "cardlid10"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 10756
+          }
+        },
+        "playerName": "Jesús Clemente",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/276086.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=5e9e8c12fdb20e4fafb3a165c172ab27"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Jesús Clemente Corcho",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "RB"
+        },
+        "price": {
+          "ps": {
+            "price": 200
+          }
+        }
+      },
+      {
+        "value": "cardlid11"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13140
+          }
+        },
+        "playerName": "Szromnik",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/201035.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=e7a896c9435a364733786019484ff4dd"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Michał Szromnik",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "GK"
+        },
+        "price": {
+          "ps": {
+            "price": 400
+          }
+        }
+      },
+      {
+        "value": "cardlid14"
+      },
+      {
+        "id": {
+          "type": "futbin.frontenddata.types.SquadPlayerId.PlayerCardId",
+          "playerCardId": {
+            "value": 13142
+          }
+        },
+        "playerName": "Angielski",
+        "playerImage": {
+          "fixed": {
+            "url": {
+              "image1x": "https://cdn3.futbin.com/content/fifa27/img/players/212398.png?fm=png&ixlib=java-2.1.0&verzion=2&w=512&s=c511c9720ed45e2ffc8ce70d4efeadc3"
+            }
+          }
+        },
+        "statsCard": {
+          "title": "Karol Angielski",
+          "cardImage": {
+            "fixed": {
+              "url": {
+                "image1x": "https://cdn3.futbin.com/content/fifa27/img/cards/hd/0_bronze.png?fm=png&ixlib=java-2.1.0&w=644&s=fd1b24174347b1db873cc37078c3e32d"
+              }
+            }
+          }
+        },
+        "playerRating": 64,
+        "position": {
+          "value": "ST"
+        },
+        "price": {
+          "ps": {
+            "price": 0
+          }
+        }
+      }
+    ]
+  },
+  "sbcChallengeRequirementData": {
+    "challengeName": "England v Spain",
+    "formation": {
+      "positions": [
+        {
+          "value": "cardlid1"
+        },
+        {
+          "value": "ST"
+        },
+        {
+          "value": "cardlid2"
+        },
+        {
+          "value": "CAM"
+        },
+        {
+          "value": "cardlid3"
+        },
+        {
+          "value": "ST"
+        },
+        {
+          "value": "cardlid4"
+        },
+        {
+          "value": "CM"
+        },
+        {
+          "value": "cardlid5"
+        },
+        {
+          "value": "CM"
+        },
+        {
+          "value": "cardlid6"
+        },
+        {
+          "value": "LB"
+        },
+        {
+          "value": "cardlid7"
+        },
+        {
+          "value": "CB"
+        },
+        {
+          "value": "cardlid8"
+        },
+        {
+          "value": "CB"
+        },
+        {
+          "value": "cardlid9"
+        },
+        {
+          "value": "CB"
+        },
+        {
+          "value": "cardlid10"
+        },
+        {
+          "value": "RB"
+        },
+        {
+          "value": "cardlid11"
+        },
+        {
+          "value": "GK"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,66 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+test('Team prices every shortlisted card and sends a single budgeted XI to EA',async()=>{
+  const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
+  const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
+  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote;
+  globalThis.chrome={
+    runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
+    action:{onClicked:{addListener:()=>{}}},sidePanel:{setPanelBehavior:async()=>{},open:async()=>{}},
+    storage:{session:{get:async()=>({state:{}}),set:async()=>{}},local:{get:async()=>({}),set:async()=>{}}},
+    alarms:{create:()=>{},clear:async()=>{},onAlarm:{addListener:()=>{}}},
+    tabs:{onUpdated:{addListener:()=>{}},query:async()=>[{id:1,url:EA,active:true}],get:async id=>({id,url:id===1?EA:tabURL,status:'complete'}),create:async({url})=>{tabURL=url;return {id:2,url};},update:async(_,value)=>{tabURL=value.url;return {id:2,url:tabURL};},remove:async()=>{}},
+    scripting:{executeScript:async({target,func,args=[]})=>{
+      if(func.name==='openOverlay')return [{result:undefined}];
+      if(target.tabId===2&&func.name==='readFutbinTeamPlayers')return [{result:{blocked:true,error:'Browser verification'}}];
+      if(target.tabId===2&&func.name==='readFutggBest'){
+        const position=tabURL.includes('/gk/')?'GK':'RB';
+        return [{result:{kind:'futgg-best',url:tabURL,checkedAt:Date.now(),cards:Array.from({length:6},(_,i)=>({assetId:(position==='GK'?200:300)+i,definitionId:(position==='GK'?200:300)+i,rating:85-i,name:`${position} ${i}`,url:`https://www.fut.gg/players/${(position==='GK'?200:300)+i}-card/27-${(position==='GK'?200:300)+i}/`,metaRank:i+1,source:'FUT.GG'}))}}];
+      }
+      if(target.tabId!==1)throw Error(`Unexpected tab ${target.tabId}`);
+      const [action,payload]=args;calls.push({action,payload});
+      if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint:'current',formation:'4-4-2',name:'Current XI'}}];
+      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:null,priceVerified:false,chemistryChange:-1,slotChemistryChange:-1}))}}];
+      if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
+      if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
+      if(action==='teamPlan'){
+        assert.equal(payload.groups.length,2);
+        assert(payload.groups.every(group=>group.options.length===6),'keep all priced candidates for combined chemistry planning');
+        assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
+        assert.equal(payload.budget,50000);
+        return [{result:{ok:true,plan:{cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>group.options[0])},combinationsChecked:4}}];
+      }
+      throw Error(`Unexpected EA action ${action}`);
+    }}
+  };
+  await import('../extension/background.js?team-flow');
+  const result=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  assert.equal(result.ok,true,result.error);
+  assert.equal(result.data.plan.chemistry,12);
+  assert.equal(result.data.results.length,2);
+  assert.equal(result.data.cardsPriced,12);
+  assert.equal(calls.filter(call=>call.action==='teamQuote').flatMap(call=>call.payload.definitionIds).length,12);
+  await new Promise(resolve=>setImmediate(resolve));
+  const cached=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  assert.equal(cached.ok,true,cached.error);
+  assert.equal(calls.filter(call=>call.action==='teamQuote').length,12,'retry reuses checked prices for same squad and budget');
+  failQuotes=true;
+  const before=calls.filter(call=>call.action==='teamPlan').length;
+  const limited=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:49000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  assert.equal(limited.ok,false);
+  assert.match(limited.error,/temporarily limited market price checks/);
+  assert.equal(calls.filter(call=>call.action==='teamPlan').length,before);
+  failQuotes=false;holdQuote=true;
+  const send=(type,extra={})=>new Promise(resolve=>listener({type,...extra},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  const running=send('teamRecommend',{slots:[0,1],budget:48000});
+  for(let attempt=0;attempt<100&&!releaseQuote;attempt++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(typeof releaseQuote,'function');
+  const progress=await send('teamRunState');assert.match(progress.data.status,/1\/12/);
+  assert.equal((await send('teamCancel')).ok,true);
+  releaseQuote();
+  const stopped=await running;assert.equal(stopped.ok,false);assert.match(stopped.error,/stopped/);
+  assert.equal((await send('teamRunState')).data.running,false);
+  assert.equal(calls.filter(call=>call.action==='teamPlan').length,before);
+
+});
