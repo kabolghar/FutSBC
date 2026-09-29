@@ -18,8 +18,11 @@ export function openOverlay({initiallyOpen=true,replace=true}={}) {
     [hidden]{display:none!important}
     button{font-family:system-ui,sans-serif;cursor:pointer}
     button:focus-visible{outline:2px solid oklch(83% .13 112);outline-offset:2px}
-    .launcher{position:fixed;right:12px;bottom:12px;width:42px;height:42px;border:1px solid oklch(83% .13 112);border-radius:6px;background:oklch(83% .13 112);color:oklch(17% .009 115);box-shadow:0 5px 16px oklch(7% .005 115 / .42);font-size:23px;font-weight:900;pointer-events:auto}
-    .launcher:hover{background:oklch(89% .11 112)}
+    .launcher{position:fixed;right:12px;bottom:12px;width:52px;height:58px;display:grid;place-items:center;padding:3px;border:0;border-radius:12px;background:transparent;color:oklch(83% .13 112);filter:drop-shadow(0 4px 7px oklch(7% .005 115 / .5));pointer-events:auto;transition:transform 160ms ease,color 160ms ease}
+    .launcher svg{display:block;width:44px;height:52px;pointer-events:none}
+    .launcher:hover{color:oklch(92% .11 112);transform:translateY(-2px)}
+    .launcher:active{transform:translateY(0)}
+    @media(prefers-reduced-motion:reduce){.launcher{transition:none}.launcher:hover{transform:none}}
     .backdrop{position:fixed;inset:0;background:oklch(7% .005 115 / .65);pointer-events:auto}
     .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));height:390px;max-height:calc(100dvh - 24px);overflow:hidden;border:1px solid oklch(34% .014 115);border-radius:12px;background:oklch(17% .009 115);box-shadow:0 16px 48px oklch(7% .005 115 / .55);pointer-events:auto}
     .modal[data-view="lineup"]{width:min(760px,calc(100vw - 40px))}
@@ -36,7 +39,7 @@ export function openOverlay({initiallyOpen=true,replace=true}={}) {
   const launcher=document.createElement('button');
   launcher.className='launcher';
   launcher.type='button';
-  launcher.textContent='F';
+  launcher.innerHTML='<svg viewBox="0 0 48 56" aria-hidden="true" focusable="false"><path d="M7 3h34l4 4v25c0 9-12 17-21 21C15 49 3 41 3 32V7Z" fill="#101109" stroke="currentColor" stroke-width="2"/><path d="M12 12h25l-4 6H19v5h12l-4 6h-8v9l-7-4Z" fill="currentColor"/><path d="m27 34 3-3 3 3-3 3Zm-6 7 3-3 3 3-3 3Zm12-1 3-3 3 3-3 3Z" fill="currentColor"/></svg>';
   launcher.title='Open FutSBC';
   launcher.setAttribute('aria-label','Open FutSBC menu');
 
