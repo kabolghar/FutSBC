@@ -42,3 +42,26 @@ test('normal browser loading can finish beyond the former eight-second cutoff',a
  assert.equal((await readFutbinTab(api,1,url,null,{delay:async()=>{}})).total,5000);
  assert.equal(api.calls,26);
 });
+
+
+test('waits for all completed-table prices instead of returning a half-loaded comparison',async()=>{
+ const api=mock([{kind:'comparison',unpricedCount:3},{kind:'comparison',unpricedCount:1},{kind:'comparison',unpricedCount:0,solutions:[{consolePrice:2200}]}]);
+ assert.equal((await readFutbinTab(api,1,url,null,fast)).unpricedCount,0);
+ assert.equal(api.calls,3);
+});
+test('never accepts permanently missing comparison prices',async()=>{
+ const api=mock([{kind:'comparison',unpricedCount:2}]);
+ await assert.rejects(()=>readFutbinTab(api,1,url,null,fast),/console prices for 2 listed squads/);
+});
+test('slow card hydration is not discarded after five reads',async()=>{
+ const api=mock([...Array(15).fill({incompleteSquad:true,error:'10/11 loaded'}),{kind:'squad',total:2200}]);
+ assert.equal((await readFutbinTab(api,1,url,null,{delay:async()=>{}})).total,2200);
+});
+test('EA lookup redirects are read on the same-season group page',async()=>{
+ const actual='https://www.futbin.com/27/squad-building-challenge/29';
+ const expected='https://www.futbin.com/27/squad-building-challenge/ea/59/Upgrade';
+ const api={tabs:{get:async()=>({url:actual})},scripting:{executeScript:async({args})=>{assert.deepEqual(args,[59,actual]);return [{result:{kind:'lookup',url:'https://www.futbin.com/27/squad-building-challenges/Upgrades/59/upgrade'}}];}}};
+ assert.equal((await readFutbinTab(api,1,expected,59,fast)).kind,'lookup');
+ api.tabs.get=async()=>({url:'https://www.futbin.com/26/squad-building-challenge/29'});
+ await assert.rejects(()=>readFutbinTab(api,1,expected,59,fast),/requested FUTBIN address/);
+});

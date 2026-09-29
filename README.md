@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.34**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.35**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -171,3 +171,13 @@ Market ideas separate risk from evidence coverage. Missing price history, usage 
 Low risk is a relative, conditional short-flip category, not a promise of profit. It requires at least five prior daily prices, no more than 8% sampled range including today's quote, daily movement and current trend within 3%, fresh quotes within ten minutes, supported community demand (100 votes, 80% positive, 50,000 games), and a stressed after-tax margin of at least 100 coins and 10% of entry. The stress check assumes resale 5% below the lowest sampled price, then deducts the 5% fee. Entry must be at or below the buy ceiling; review within 24h and plan a 1–3 day window. Community use and listings do not prove completed sales liquidity.
 
 Stable candidates receive shortlist priority; qualified low/medium-risk ideas appear before ungraded or high-risk watchlist entries. Refresh Market to rebuild an older saved brief under these rules.
+
+
+### SBC loading and XI selection audit (v0.21.35)
+
+- SBC discovery follows same-season FUTBIN group/completed-page redirects and still matches the exact EA challenge ID. Completed tables wait for missing console prices; partially hydrated squads get more time. Missing fields in static HTML fall back to the rendered page instead of immediately failing the comparison.
+- XI planning compares the full candidate pool before accepting a priced subset. Free club cards no longer end the search before stronger candidates have their prices checked. Club ownership reduces acquisition cost but does not add ranking points; unusable or concept-only club rows do not count as owned cards.
+- Broader searches expand source candidates rather than repeat the same pool. Chemistry, selected-position coverage, exact card identity and total budget remain checked. FUT.GG's cheap-player ranking is labeled as a budget ranking, not a universal performance measure.
+- Validation covers mocked slow loading, redirects, incomplete source data, ownership, price selection, chemistry, budgets, checkout uncertainty, cancellation, and request coordination. The exact failure on the second laptop has not been reproduced; provider browser checks and unavailable data can still block fetching.
+
+See [business logic audit](docs/business-logic-audit.md) for scope and remaining limitations.

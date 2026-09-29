@@ -5,6 +5,8 @@ export function readFutbin(lookupId = null, expectedURL = null) {
     if(location.origin!=='https://www.futbin.com' || normalize(location.href)!==normalize(expectedURL)) return {error:'Waiting for the requested page to replace the previous document.'};
   }
   if (lookupId !== null) {
+    const currentChallenge=location.pathname.match(/^\/27\/squad-building-challenges\/[^/]+\/(\d+)\/[^/]+\/?$/);
+    if(currentChallenge&&Number(currentChallenge[1])===lookupId)return {kind:'lookup',url:`https://www.futbin.com${location.pathname}`};
     const links = [...document.querySelectorAll('a[href]')].map(a => a.href).filter(href => {
       try { return new URL(href).origin === 'https://www.futbin.com'; } catch { return false; }
     });

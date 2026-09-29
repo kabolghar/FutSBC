@@ -5,7 +5,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
   const session={};let fingerprint='current',menuPick=false,rankingGap=false,broaderSwap=false,expandedSwap=false;
-  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,holdEvaluate=false,releaseEvaluate,estimates=false,forceLimit=false,partialKnown=false;
+  const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,holdEvaluate=false,releaseEvaluate,estimates=false,forceLimit=false,partialKnown=false,ownedFallback=false;
   globalThis.fetch=async()=>({ok:true,json:async()=>({prices:{},updated:{}})});
   globalThis.chrome={
     runtime:{id:'team-flow-test',getURL:path=>`chrome-extension://team-flow-test/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
@@ -27,7 +27,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       if(action==='teamPlayerSearch')return [{result:{ok:true,cards:[{definitionId:9991,assetId:9991,rating:86,name:'Chosen player',position:'CM'}],truncated:false}}];
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
       if(action==='teamEvaluate'&&holdEvaluate){holdEvaluate=false;await new Promise(resolve=>{releaseEvaluate=resolve;});}
-      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:false,price:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
+      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:ownedFallback&&card.metaRank===30,price:ownedFallback&&card.metaRank===30?0:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
       if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);assert.equal(payload.allowChemistryTradeoff,payload.budget!==100000);return [{result:{ok:true,applied:2,chemistry:12}}];}
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
@@ -43,7 +43,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
         assert.equal(payload.groups.length,players[2].concept||menuPick?3:2);
         if(players[2].concept||menuPick)assert.equal(payload.groups.find(group=>group.slotIndex===2).allowRetained,false);
         assert(payload.groups.every(group=>group.options.length>0),'known-only planning retains the affordable candidates');
-        assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&option.price>0)));
+        assert(payload.groups.every(group=>group.options.every(option=>option.priceVerified&&(option.owned||option.price>0))));
         assert(payload.budget<=100000);
         return [{result:{ok:true,plan:{chemistryTradeoff:menuPick,cost:3000,chemistry:12,remaining:47000,choices:payload.groups.map(group=>forceLimit?(group.options.find(card=>card.pricePending)||group.options[0]):group.options[0]).slice(0,partialKnown&&payload.groups.every(group=>group.options.length===1)?1:players[2].concept||menuPick?3:2)},combinationsChecked:4}}];
       }
@@ -63,6 +63,13 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const cached=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
   assert.equal(cached.ok,true,cached.error);
   assert.equal(calls.filter(call=>call.action==='teamQuote').length,2,'retry reuses checked prices for same squad and budget');
+  ownedFallback=true;
+  const ownedStart=calls.filter(call=>call.action==='teamQuote').length;
+  const ownedSearch=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:46000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
+  assert.equal(ownedSearch.ok,true,ownedSearch.error);
+  assert(ownedSearch.data.plan.choices.every(card=>card.metaRank===1&&!card.owned),'owned rank-30 cards must not stop pricing rank-1 alternatives');
+  assert.equal(calls.filter(call=>call.action==='teamQuote').length-ownedStart,2);
+  ownedFallback=false;
   partialKnown=true;
   const allPositions=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
   assert.equal(allPositions.data.plan.choices.length,2,'a known partial plan must not stop the search for all selected positions');

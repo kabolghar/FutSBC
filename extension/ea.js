@@ -157,7 +157,7 @@ export async function eaOperation(action, payload = {}) {
           if(!Array.isArray(rows))throw Error('EA club results changed. No upgrades were suggested.');
           for(const item of rows){
             const id=Number(item.id),definitionId=Number(item.definitionId);
-            if(!Number.isSafeInteger(id)||id<1||inSquad.has(id)||!ids.includes(definitionId))continue;
+            if(!Number.isSafeInteger(id)||id<1||item.concept||item.isValid?.()===false||inSquad.has(id)||!ids.includes(definitionId))continue;
             clubByDefinition.set(definitionId,[...(clubByDefinition.get(definitionId)||[]),item]);
           }
           if(response.response?.retrievedAll===true||rows.length<criteria.count)break;

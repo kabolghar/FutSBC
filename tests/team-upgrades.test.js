@@ -121,6 +121,12 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.deepEqual(ownedFit.options.map(option=>option.ownedId),[500]);
   assert.equal(ownedFit.options[0].price,0);
   assert.equal(ownedFit.options[0].estimatedPrice,10000);
+  globalThis.services.Club.search=()=>observed([{...owned,concept:true},{...owned,isValid:()=>false}]);
+  const unusableClub=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:20000,cards:[{assetId:24,name:'Club striker',url:'https://www.futbin.com/27/player/24/club-striker',price:10000,rating:82,futbinRating:85}]});
+  assert.equal(unusableClub.options[0].owned,false,'concept or invalid club rows cannot count as free usable cards');
+  assert.equal(unusableClub.options[0].price,10000);
+  globalThis.services.Club.search=()=>observed([owned]);
+
   const fallback=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:0,cards:[{assetId:20,definitionId:20,name:'Upgrade',url:'https://www.fut.gg/players/20-upgrade/27-20/',price:null,rating:80,source:'FUT.GG',metaRank:1}]});
   assert.equal(fallback.options[0].price,null);
   assert.equal(fallback.options[0].priceVerified,false);
@@ -219,6 +225,9 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const mixed=groups.map(group=>({...group,options:group.options.map(card=>card.definitionId===22?{...card,source:'FUTBIN',futbinRating:99,metaRank:null}:card)}));
   const metaFirst=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups:mixed});
   assert.equal(metaFirst.plan.choices.find(card=>card.slotIndex===0).definitionId,22,'a cheap-list source must not automatically beat a stronger FUTBIN-rated card');
+  const clubBiased=mixed.map(group=>({...group,options:group.options.map(card=>card.definitionId===20?{...card,owned:true,price:0}:card)}));
+  const clubCompetition=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:18000,groups:clubBiased});
+  assert.equal(clubCompetition.plan.choices.find(card=>card.slotIndex===0).definitionId,22,'a free weaker club card must not beat a better ranked affordable card at equal chemistry');
   // Five affordable replacements must beat one star taking the whole budget.
   for(let index=0;index<5;index++){slots[index].generalPositionName='ST';if(index===2)slots[index].item={id:902,definitionId:902,assetId:902,rating:80,isValid:()=>true};}
   const fiveCards=Array.from({length:5},(_,index)=>({concept:true,assetId:40+index,definitionId:40+index,rating:84,preferredPosition:25}));

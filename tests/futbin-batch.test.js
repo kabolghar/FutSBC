@@ -53,3 +53,18 @@ test('a throttled response stops the remaining batch requests',async()=>{
   assert.equal(result.results[0].verification,true);
   assert.ok(result.results.every(row=>row.fallback));
 });
+
+
+test('missing static challenge links use rendered fallback, but a different challenge is rejected',async()=>{
+ setup(fixture);
+ assert.equal((await readFutbinSquadBatch([squadURL],99)).results[0].fallback,undefined);
+ globalThis.DOMParser=class {parseFromString(){return {querySelector:()=>({textContent:JSON.stringify(fixture)}),querySelectorAll:()=>[]};}};
+ assert.equal((await readFutbinSquadBatch([squadURL],46)).results[0].fallback,true);
+});
+test('missing static card prices use rendered fallback',async()=>{
+ const data=structuredClone(fixture);
+ const item=data.squadData.squad.find(item=>item.price);
+ item.price.ps.price=null;
+ setup(data);
+ assert.equal((await readFutbinSquadBatch([squadURL],46)).results[0].fallback,true);
+});

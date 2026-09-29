@@ -22,7 +22,8 @@ export async function readFutbinSquadBatch(urls,expectedChallengeId){
         try{const target=new URL(anchor.getAttribute('href'),url);return target.origin===url.origin&&/^\/27\/squad-building-challenges\/[^/]+\/\d+\//.test(target.pathname);}catch{return false;}
       });
       const challengeId=Number(link?.href.match(/challenges\/[^/]+\/(\d+)\//)?.[1]);
-      if(!challengeId||challengeId!==expectedChallengeId)return {url:url.href,error:'FUTBIN squad has no matching challenge link.'};
+      if(!challengeId)return {url:url.href,fallback:true,error:'Waiting for the rendered SBC challenge link.'};
+      if(challengeId!==expectedChallengeId)return {url:url.href,error:'FUTBIN squad has no matching challenge link.'};
       const formation=data?.sbcChallengeRequirementData?.formation?.positions;
       const entries=data?.squadData?.squad;
       if(!Array.isArray(formation)||!Array.isArray(entries))return {url:url.href,fallback:true,error:'FUTBIN squad data is incomplete.'};
@@ -43,8 +44,8 @@ export async function readFutbinSquadBatch(urls,expectedChallengeId){
         players.push({futbinSlot:Number(slot.slice(7)),slotPosition:positions.get(slot),name:item.statsCard?.title||item.playerName||'',baseId:Number(baseURL.match(/\/players\/(\d+)\.png/)?.[1]),rarity:Number(cardURL.match(/\/hd\/(\d+)[_.]/)?.[1]),rating:Number(item.playerRating),position:item.position?.value||'',clubId:Number(item.clubId?.value)||null,leagueId:Number(item.leagueId?.value)||null,nationId:Number(item.nationId?.value)||null,attributes:attributes.every(value=>Number.isSafeInteger(value)&&value>=0&&value<=99)?attributes:null,price:Number(item.price?.ps?.price),url:Number.isSafeInteger(id)&&id>0?`${url.origin}/27/player/${id}`:null});
       }
       if(players.length!==requiredPlayers)return {url:url.href,incompleteSquad:true,error:`FUTBIN has ${players.length}/${requiredPlayers} required players.`};
-      if(players.some(player=>!Number.isSafeInteger(player.baseId)||player.baseId<1||!Number.isInteger(player.rarity)||player.rarity<0||!Number.isInteger(player.rating)||player.rating<1||!player.name||!player.position))return {url:url.href,error:'FUTBIN card identity is incomplete.'};
-      if(players.some(player=>!Number.isSafeInteger(player.price)||player.price<1))return {url:url.href,error:'FUTBIN console player prices are incomplete.'};
+      if(players.some(player=>!Number.isSafeInteger(player.baseId)||player.baseId<1||!Number.isInteger(player.rarity)||player.rarity<0||!Number.isInteger(player.rating)||player.rating<1||!player.name||!player.position))return {url:url.href,fallback:true,error:'FUTBIN card identity is incomplete.'};
+      if(players.some(player=>!Number.isSafeInteger(player.price)||player.price<1))return {url:url.href,fallback:true,error:'FUTBIN console player prices are incomplete.'};
       return {kind:'squad',year:27,market:'console',name:link.textContent.trim()||data.sbcChallengeRequirementData.challengeName||'SBC squad',challengeId,requiredPlayers,players,total:players.reduce((sum,player)=>sum+player.price,0),url:url.href,checkedAt:Date.now()};
     }catch(error){return {url:url.href,fallback:true,error:`FUTBIN page request failed: ${error.message}`};}
     finally{clearTimeout(timer);}
