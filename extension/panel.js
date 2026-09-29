@@ -43,6 +43,8 @@ async function loadCardArt(element){
   if(art)applyCardArt(element,art);
 }
 function cardArtElement(className,rating,position,assetId,definitionId,name,link=false){
+  definitionId=Number(definitionId);assetId=Number(assetId);
+  if(Number.isSafeInteger(definitionId)&&definitionId>0&&(!assetId||assetId===definitionId))assetId=definitionId%0x1000000;
   const art=document.createElement(link?'a':'span');art.className=className;
   if(link){art.href=`https://www.fut.gg/players/${assetId}/27-${definitionId}/`;art.target='_blank';art.rel='noreferrer';art.setAttribute('aria-label',`View ${name} card on FUT.GG`);}else art.setAttribute('aria-hidden','true');
   const score=document.createElement('strong');score.textContent=rating||'—';
@@ -302,16 +304,19 @@ function renderTeam(){
         const price=document.createElement('strong');price.className='team-lineup-price';price.textContent=option?(option.owned?'IN CLUB':fmt(option.price)):player.definitionId?'IN XI':'OPEN';
         row.append(art,content,price);
         if(teamResult.plan&&teamSelected.has(player.index)){
-          const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.textContent='Swap';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending;swap.onclick=()=>loadTeamAlternatives(player.index);row.append(swap);
+          const swap=document.createElement('button');swap.type='button';swap.className='team-swap-button';swap.title='Swap player';swap.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg>';swap.setAttribute('aria-label',`Find alternatives for ${player.position} ${card.name}`);swap.disabled=teamPending;swap.onclick=()=>loadTeamAlternatives(player.index);row.append(swap);
           if(teamSwapView?.slotIndex===player.index){
             const picker=document.createElement('div');picker.className='team-swap-options';
             const heading=document.createElement('strong');heading.textContent='Fits your planned team';picker.append(heading);
             if(!teamSwapView.alternatives.length){const empty=document.createElement('p');empty.textContent='No checked alternative keeps this team’s chemistry and budget.';picker.append(empty);}
             for(const alternative of teamSwapView.alternatives){
-              const button=document.createElement('button');button.type='button';button.disabled=teamPending;
+              const button=document.createElement('button');button.type='button';button.className='team-swap-choice';button.disabled=teamPending;
+              const candidate=alternative.card;
+              const picture=cardArtElement('team-lineup-art',candidate.rating,player.position,candidate.assetId,candidate.definitionId,candidate.name);
+              const description=document.createElement('span');description.className='team-swap-description';
               const title=document.createElement('strong');title.textContent=alternative.card.name;
               const detail=document.createElement('span');detail.textContent=`${alternative.card.owned?'In club':`${fmt(alternative.card.price)} coins`} · ${alternative.chemistry}/33 chem · team ${fmt(alternative.cost)}`;
-              button.append(title,detail);button.onclick=()=>chooseTeamAlternative(player.index,alternative.card.definitionId);picker.append(button);
+              description.append(title,detail);button.append(picture,description);button.onclick=()=>chooseTeamAlternative(player.index,alternative.card.definitionId);picker.append(button);
             }
             const close=document.createElement('button');close.type='button';close.textContent='Close alternatives';close.onclick=()=>{teamSwapView=null;renderTeam();};picker.append(close);row.append(picker);
           }

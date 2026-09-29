@@ -84,11 +84,11 @@ h2{font:700 24px/1.05 BarlowCondensed,sans-serif}
 #players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
 .player{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:66px;padding:9px 0;border-bottom:1px solid var(--line)}
 .player-main{display:flex;align-items:center;gap:10px;min-width:0}
-.player-art,.team-mini-art,.team-option-art{display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background-color:var(--surface-raised);background-repeat:no-repeat;color:var(--accent);text-decoration:none;text-align:center}
+.player-art,.team-mini-art,.team-option-art,.team-lineup-art{display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background-color:var(--surface-raised);background-repeat:no-repeat;color:var(--accent);text-decoration:none;text-align:center}
 .player-art,.team-mini-art{width:42px;height:58px;background-size:155px 87px;background-position:-6px -16px}
 .player-art strong,.team-mini-art strong{font:700 22px/1 BarlowCondensed,sans-serif}
 .player-art small,.team-mini-art small{font-size:10px;font-weight:600}
-.player-art.has-art strong,.player-art.has-art small,.team-mini-art.has-art strong,.team-mini-art.has-art small,.team-option-art.has-art strong,.team-option-art.has-art small{visibility:hidden}
+.player-art.has-art strong,.player-art.has-art small,.team-mini-art.has-art strong,.team-mini-art.has-art small,.team-option-art.has-art strong,.team-option-art.has-art small,.team-lineup-art.has-art strong,.team-lineup-art.has-art small{visibility:hidden}
 .rating{width:36px;flex:none;color:var(--accent);font:700 30px/1 BarlowCondensed,sans-serif;font-variant-numeric:tabular-nums}
 .player-name{flex:1;min-width:0;font-size:16px;font-weight:600;line-height:1.18;overflow-wrap:anywhere}
 .player-name small{display:block;margin-top:3px;color:var(--muted);font-size:12px;font-weight:400;line-height:1.2}
@@ -157,8 +157,8 @@ h2{font:700 24px/1.05 BarlowCondensed,sans-serif}
 .team-plan-summary>div{display:flex;flex-direction:column;gap:5px;min-width:0;padding:13px;border-right:1px solid var(--line)}.team-plan-summary>div:last-child{border-right:0}
 .team-plan-summary small,.team-lineup-card small{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.08em}.team-plan-summary strong{font:700 25px/1 BarlowCondensed,sans-serif}
 .team-lineup-title{margin:16px 0 10px;font:700 27px/1 BarlowCondensed,sans-serif}
-.team-lineup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.team-lineup-card{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;min-height:82px;padding:8px 0;border-top:1px solid var(--line)}
-.team-lineup-card.is-planned{border-top-color:var(--accent)}.team-lineup-art{width:52px;min-width:52px}.team-lineup-card>div:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}.team-lineup-card a,.team-lineup-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:14px}.team-lineup-card a:hover{color:var(--accent)}.team-lineup-card span{color:var(--muted);font-size:12px}.team-lineup-card .team-lineup-price{color:var(--accent);font:700 18px/1 BarlowCondensed,sans-serif;white-space:nowrap}.team-plan-failure{padding:14px;border:1px solid var(--danger);color:var(--danger);font-weight:600}
+.team-lineup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.team-lineup-card{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;min-height:82px;padding:8px 0;border-top:1px solid var(--line)}
+.team-lineup-card.is-planned{border-top-color:var(--accent)}.team-lineup-art{width:64px;min-width:64px;height:88px;background-size:236px 133px;background-position:-9px -24px}.team-lineup-card>div:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}.team-lineup-card a,.team-lineup-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:14px}.team-lineup-card a:hover{color:var(--accent)}.team-lineup-card span{color:var(--muted);font-size:12px}.team-lineup-card .team-lineup-price{color:var(--accent);font:700 18px/1 BarlowCondensed,sans-serif;white-space:nowrap}.team-plan-failure{padding:14px;border:1px solid var(--danger);color:var(--danger);font-weight:600}
 @media(max-width:520px){.team-lineup{grid-template-columns:1fr}.team-plan-summary strong{font-size:20px}.team-plan-summary>div{padding:9px}.team-lineup-card{min-height:74px}}
 .team-option{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center;gap:18px;padding:15px 0;border-bottom:1px solid var(--line)}
 .team-option-art{width:116px;height:161px;background-size:428px 241px;background-position:-17px -45px;color:var(--text)}
@@ -237,8 +237,11 @@ footer p{margin:8px 0;line-height:1.5}
 @media(max-width:420px){main,.has-result main,.trader-active main{padding:16px}h1{font-size:26px}.player-name{font-size:15px}.player-name small{font-size:12px}.trader-heading h1{font-size:29px}.trader-metrics strong{font-size:25px}.trader-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.trader-check{text-align:center}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
-.team-swap-button{grid-column:2 / -1;justify-self:start;padding:8px 16px;min-height:40px;font-size:15px}
+.team-swap-button{grid-column:3;justify-self:end;display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0}.team-swap-button svg{display:block;pointer-events:none}
 .team-swap-options{grid-column:1 / -1;display:grid;gap:8px;padding:16px 0;border-top:1px solid var(--line,#38382b)}
 .team-swap-options button{display:grid;gap:5px;text-align:left;padding:12px;min-height:44px}
 .team-swap-options button span{font-size:14px;font-weight:400;line-height:1.5}
 .team-swap-options p{font-size:15px;line-height:1.5}
+
+.team-swap-options .team-swap-choice{grid-template-columns:64px minmax(0,1fr);align-items:center;gap:14px}
+.team-swap-description{display:grid;gap:6px;min-width:0}.team-swap-description strong{white-space:normal}.team-swap-description>span{line-height:1.5}
