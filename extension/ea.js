@@ -985,15 +985,34 @@ export async function eaOperation(action, payload = {}) {
       let previewActive=false;
       const apply=lineup=>{previewActive=true;lineup.forEach((item,index)=>squad.addItemToSlot(slots[index].index,item));};
       const restore=()=>{if(previewActive){original.forEach((item,index)=>squad.addItemToSlot(slots[index].index,item));previewActive=false;}};
+      // Evaluate an isolated EA model: no observable notifications or UI redraws
+      // during search, and no temporary changes to the user's displayed squad.
+      const copyEntity=value=>Object.assign(Object.create(Object.getPrototypeOf(value)),value);
+      if(!Array.isArray(squad._players)||!['updateChemistry','_calculateRating','_updateType'].every(key=>typeof squad[key]==='function'))throw Error('This EA client cannot safely evaluate SBC squads. No squad changes were made.');
+      const evaluationSquad=copyEntity(squad);
+      evaluationSquad._players=squad._players.map(copyEntity);
+      if(squad._manager)evaluationSquad._manager=copyEntity(squad._manager);
+      const evaluationChallenge=copyEntity(challenge);evaluationChallenge.squad=evaluationSquad;
+      const evaluationSlots=evaluationSquad.getNonBrickSlots().filter(slot=>slot.index<11);
+      if(evaluationSlots.length!==slots.length)throw Error('EA squad slots changed. Refresh the SBC.');
       let checks=0,best=null;const deadline=Date.now()+10000;
-      const score=lineup=>{
-        apply(lineup);checks++;
-        const valid=!!challenge.meetsRequirements()&&(hybrid||typeof squad.isSBCSquadEligible!=='function'||squad.isSBCSquadEligible())&&(!hybrid||lineup.reduce((sum,item)=>sum+cost(item),0)<=budget);
-        const met=challenge.eligibilityRequirements.filter(rule=>challenge.isRequirementMet(rule)).length;
-        const chemistry=Number(squad.getChemistry?.())||0;
-        const ratingCost=lineup.reduce((sum,item)=>sum+Number(item.rating||0),0);
-        // EA decides validity; chemistry is only a search heuristic, never a substitute.
+      let lastYield=Date.now();
+      const score=async lineup=>{
+        if(checks%16===0||Date.now()-lastYield>=40){
+          buildProgress(`Checking SBC requirements · ${checks.toLocaleString()} combinations…`);
+          await new Promise(resolve=>setTimeout(resolve,0));lastYield=Date.now();
+          buildProgress(`Checking SBC requirements · ${checks.toLocaleString()} combinations…`);
+          if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed during the club search. Nothing was added.');
+        }
+        lineup.forEach((item,index)=>{evaluationSlots[index].item=item;});
+        evaluationSquad.updateChemistry();evaluationSquad._calculateRating();evaluationSquad._updateType();
+        checks++;
         const total=lineup.reduce((sum,item)=>sum+cost(item),0);
+        const valid=!!evaluationChallenge.meetsRequirements()&&(hybrid||typeof evaluationSquad.isSBCSquadEligible!=='function'||evaluationSquad.isSBCSquadEligible())&&(!hybrid||total<=budget);
+        const met=evaluationChallenge.eligibilityRequirements.filter(rule=>evaluationChallenge.isRequirementMet(rule)).length;
+        const chemistry=Number(evaluationSquad.getChemistry?.())||0;
+        const ratingCost=lineup.reduce((sum,item)=>sum+Number(item.rating||0),0);
+        // EA decides validity; chemistry is only a search heuristic.
         return {valid,total,value:hybrid&&valid?1000000-total/(budget+1):met*100+chemistry-ratingCost/10000-(hybrid?total/(budget+1):0),lineup:[...lineup]};
       };
       try{
@@ -1008,7 +1027,7 @@ export async function eaOperation(action, payload = {}) {
             eligible.sort((a,b)=>Number(fits(b,index))-Number(fits(a,index))||themeScore(b,theme)-themeScore(a,theme)||cost(a)-cost(b)||a.rating-b.rating||a.id-b.id);
             lineup[index]=eligible[0];used.add(asset(eligible[0]));
           }
-          let currentScore=score(lineup);
+          let currentScore=await score(lineup);
           if(currentScore.valid&&(!best||currentScore.total<best.total))best=currentScore;
           if(best&&(!hybrid||best.total===0))break;
           for(let pass=0;pass<3&&(!best||hybrid);pass++){
@@ -1019,7 +1038,7 @@ export async function eaOperation(action, payload = {}) {
               let chosen=currentScore;
               for(const item of available.slice(0,70)){
                 if(Date.now()>deadline||checks>=6000)break;
-                const next=[...lineup];next[index]=item;const result=score(next);
+                const next=[...lineup];next[index]=item;const result=await score(next);
                 if(result.valid&&(!best||result.total<best.total))best=result;
                 if(best&&!hybrid)break;
                 if(result.value>chosen.value)chosen=result;
