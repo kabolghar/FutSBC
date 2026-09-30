@@ -82,3 +82,28 @@ test('hybrid respects balance and does not treat purchased concepts as first-own
 test('market rejection stops hybrid without saving or changing any cards',async t=>{
  const env=hybridSetup(t,{rejected:true});const original=env.slots.map(s=>s.item);const result=await hybridBuild();assert.equal(result.ok,false);assert.match(result.error,/429/);assert.deepEqual(env.slots.map(s=>s.item),original);assert.equal(env.saves,0);
 });
+
+test('hybrid missing concept versions are skipped without individual retry storms',async t=>{
+ const env=hybridSetup(t);let calls=0;
+ services.Item.searchConceptItems=()=>{calls++;return observed({response:{items:[],endOfList:true}});};
+ const result=await hybridBuild();assert.equal(result.ok,false);assert.equal(calls,1);assert.equal(env.saves,0);
+});
+
+test('a stopped in-flight club request releases the solver and leaves slots untouched',async()=>{
+ const env=setup(),original=env.slots.map(s=>s.item);let subscribed=false;
+ services.Club.search=()=>({observe(){subscribed=true;window.__futsbcCancelledSbcBuild='stop-test';},unobserve(){}});
+ const before=await eaOperation('status');
+ const result=await eaOperation('sbcHybridBuild',{challengeId:49,fingerprint:before.challenge.fingerprint,sbcBuildToken:'stop-test'});
+ assert.equal(subscribed,false,'coin balance guard must run before club reads');
+ globalThis.GameCurrency={COINS:0};services.User.getUser=()=>({getSelectedPersona:()=>({getCurrentClub:()=>({isXbox:true})}),getCurrency:()=>({amount:1000})});
+ delete window.__futsbcCancelledSbcBuild;
+ const stopped=await eaOperation('sbcHybridBuild',{challengeId:49,fingerprint:before.challenge.fingerprint,sbcBuildToken:'stop-test'});
+ assert.match(stopped.error,/stopped/);assert.equal(subscribed,true);assert.equal(env.saves,0);assert.deepEqual(env.slots.map(s=>s.item),original);
+});
+
+test('the solver expires before applying cards when its overall time budget is exhausted',async t=>{
+ const env=setup();let elapsed=0;const actualNow=Date.now;
+ t.mock.method(Date,'now',()=>actualNow()+elapsed);
+ const originalSearch=services.Club.search;services.Club.search=criteria=>{elapsed=120001;return originalSearch(criteria);};
+ const result=await build();assert.equal(result.ok,false);assert.match(result.error,/time limit/);assert.equal(env.saves,0);assert(env.slots.every(slot=>slot.item.id===0));
+});

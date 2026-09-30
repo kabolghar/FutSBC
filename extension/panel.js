@@ -71,7 +71,7 @@ function recoverContext(error) {
   return true;
 }
 async function call(type,extra={},prefetch=false) {
-  const readOnly=['teamRunState','teamCancel','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'];
+  const readOnly=['teamRunState','teamCancel','sbcBuildStop','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'];
   if(!prefetch&&swapActive&&!readOnly.includes(type))await stopTeamPrefetch();
   if(preview) throw Error('Install the extension and open FutSBC in the EA Web App. This is a visual preview.');
   try{
@@ -91,6 +91,8 @@ async function run(type,extra={}) {
 }
 function render() {
   renderBuyRecovery();
+  $('sbc-build-stop').hidden=!state.sbcBuildRunning;
+  $('sbc-build-stop').disabled=state.progress==='Saving the verified squad…';
   document.documentElement.classList.toggle('has-result',activeView==='sbc'&&!!state.plan);
   $('challenge').textContent=state.challenge?.name||'Choose a challenge';
   $('sbc-visual').hidden=!!state.plan;
@@ -613,6 +615,7 @@ $('trader-reset').onclick=async()=>{
   catch(error){if(!recovering){$('trader-error').textContent=error.message;$('trader-error').hidden=false;}}
   finally{traderPending=false;renderTrader();}
 };
+$('sbc-build-stop').onclick=async()=>{try{await call('sbcBuildStop');notice('Stopping the SBC search…');}catch(error){notice(error.message,true);}};
 $('hybrid-build').onclick=()=>run('hybridBuild');
 $('club-build').onclick=()=>run('clubBuild');
 $('connect').onclick=()=>run('connect');$('compare').onclick=()=>run('build',{url:$('source').value.trim()});$('complete').onclick=()=>run('complete',state.resolved&&!state.inserted?{mapping:[...mapping]}:{});$('reset').onclick=()=>run('reset');

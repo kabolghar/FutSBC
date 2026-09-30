@@ -7,7 +7,7 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
   const urls=[1,2,3].map(id=>`https://www.futbin.com/27/squad/${1000+id}/sbc`);
   const tabs=new Map([[1,{id:1,url:EA,active:true}]]);
   const created=[],closed=[],actions=[],squadReads=[];
-  let nextTabId=2,listener,session={},inserted=false,blocked=false,unmatchable=false,lookupMissing=false,directoryMissing=false;
+  let nextTabId=2,listener,session={},inserted=false,blocked=false,unmatchable=false,lookupMissing=false,directoryMissing=false,hangClub=false,pendingBuild;
   const players=()=>Array.from({length:10},(_,index)=>({futbinSlot:index+1,slotPosition:'CM',name:`Player ${index+1}`,baseId:1000+index,rarity:0,rating:64,position:'CM',price:200}));
   const plan=(url,price)=>({kind:'squad',year:27,market:'console',name:'2x 79+ Upgrade',challengeId:28,requiredPlayers:10,players:players().map((player,index)=>({...player,baseId:index===0?2000+Number(url.match(/(\d+)\/sbc$/)[1])%100:player.baseId,price:index===0?price-1800:200})),total:price,url,checkedAt:Date.now()});
   const challenge=()=>({id:28,name:'2x 79+ Upgrade',formation:'4-4-2',slots:Array.from({length:10},(_,index)=>({index,position:'CM'})),fingerprint:inserted?'after':'before'});
@@ -18,8 +18,10 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
     tabs:{onUpdated:{addListener:()=>{}},query:async()=>[tabs.get(1)],get:async id=>tabs.get(id),create:async options=>{assert.equal(options.active,false);const tab={id:nextTabId++,url:options.url,active:false};tabs.set(tab.id,tab);created.push(tab.id);return tab;},update:async(id,options)=>{assert.equal(options.active,undefined,'FUTBIN must not take focus');Object.assign(tabs.get(id),options);return tabs.get(id);},remove:async id=>{closed.push(id);tabs.delete(id);}},
     scripting:{executeScript:async({target,func,args})=>{
       if(target.tabId===1){
+        if(func.name==='stopSbcBuild'){pendingBuild?.([{result:{ok:false,error:'SBC build stopped. Nothing was added.'}}]);return [{result:null}];}
+        if(func.name==='sbcBuildProgress')return [{result:null}];
         const action=args[0];actions.push(action);
-        if(action==='sbcClubBuild'||action==='sbcHybridBuild'){inserted=true;return [{result:{ok:true,challenge:challenge(),checks:12,players:players().map((p,index)=>({...p,owned:action!=='sbcHybridBuild'||index!==0,ownedId:index+1,definitionId:p.baseId,price:action==='sbcHybridBuild'&&index===0?200:0,slotIndex:index}))}}];}
+        if(action==='sbcClubBuild'||action==='sbcHybridBuild'){if(hangClub)return new Promise(resolve=>{pendingBuild=resolve;});inserted=true;return [{result:{ok:true,challenge:challenge(),checks:12,players:players().map((p,index)=>({...p,owned:action!=='sbcHybridBuild'||index!==0,ownedId:index+1,definitionId:p.baseId,price:action==='sbcHybridBuild'&&index===0?200:0,slotIndex:index}))}}];}
         if(action==='concepts')inserted=true;
         const result=action==='resolve'&&unmatchable&&args[1].players[0].price===100?{ok:false,error:'Could not uniquely match Player 1 (64): 0 distinct EA cards found. No squad changes were made.',unmatchedPlayer:args[1].players[0]}:action==='resolve'?{ok:true,players:args[1].players.map((player,index)=>({...player,definitionId:2000+index})),challenge:challenge()}:action==='concepts'?{ok:true,players:args[1].players.map(player=>({...player,owned:false})),challenge:challenge()}:{ok:true,challenge:challenge()};
         return [{result}];
@@ -84,5 +86,12 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
   assert.equal(hybrid.data.plan.source,'hybrid');assert.equal(hybrid.data.plan.total,200);
   assert.equal(created.length,beforeDirect,'hybrid build skips FUTBIN');
   assert.equal(hybrid.data.resolved.filter(p=>!p.owned).length,1);
+
+  hangClub=true;const stalled=send('clubBuild');
+  for(let i=0;i<30&&!pendingBuild;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert(pendingBuild,'build must be in flight');
+  const stopped=await send('sbcBuildStop');assert.equal(stopped.ok,true,stopped.error);
+  const cancelled=await stalled;assert.equal(cancelled.ok,false);assert.match(cancelled.error,/stopped/);
+  assert.equal(session.sbcBuildRunning,false);
 
 });

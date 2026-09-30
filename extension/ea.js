@@ -19,12 +19,15 @@ export async function eaOperation(action, payload = {}) {
       }
       throw Error('Open the SBC squad screen in the Web App, then reconnect.');
     };
-    const readCancelled=()=>payload.readToken&&window.__futsbcCancelledTeamRead===payload.readToken&&['teamSnapshot','teamEvaluate','teamQuote','teamPlan'].includes(action);
-    if(readCancelled())throw Error('Background recommendations stopped.');
+    const readCancelled=()=>!payload.sbcBuildSaving&&payload.sbcBuildToken&&window.__futsbcCancelledSbcBuild===payload.sbcBuildToken||payload.readToken&&window.__futsbcCancelledTeamRead===payload.readToken&&['teamSnapshot','teamEvaluate','teamQuote','teamPlan'].includes(action);
+    if(readCancelled())throw Error(payload.sbcBuildToken?'SBC build stopped. Nothing was added.':'Background recommendations stopped.');
     const observe=(observable,allowRejection=false,stage=null)=>new Promise((resolve,reject)=>{
       const owner={};
-      const timer=setTimeout(()=>{observable.unobserve(owner);reject(Error('EA did not respond. Check the Web App connection before retrying.'));},20000);
-      observable.observe(owner,(sender,result)=>{clearTimeout(timer);sender.unobserve(owner);if(readCancelled()){reject(Error('Background recommendations stopped.'));return;}if(result.success||allowRejection)resolve(result);else{const unauthorized=Number(result.status)===401;const error=Error(unauthorized?'EA could not authenticate this request (401). Reload the EA Web App and sign in again if prompted, then reopen your squad and retry.':`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;error.stage=stage;reject(error);}});
+      const timeout=payload.sbcBuildDeadline&&!payload.sbcBuildSaving?Math.max(1,Math.min(20000,payload.sbcBuildDeadline-Date.now())):20000;
+      let cancelTimer;
+      const timer=setTimeout(()=>{clearInterval(cancelTimer);observable.unobserve(owner);reject(Error(payload.sbcBuildDeadline&&!payload.sbcBuildSaving&&Date.now()>=payload.sbcBuildDeadline?'SBC search reached its time limit. Nothing was added.':'EA did not respond. Check the Web App connection before retrying.'));},timeout);
+      if(payload.sbcBuildToken&&!payload.sbcBuildSaving)cancelTimer=setInterval(()=>{if(readCancelled()){clearTimeout(timer);clearInterval(cancelTimer);observable.unobserve(owner);reject(Error('SBC build stopped. Nothing was added.'));}},250);
+      observable.observe(owner,(sender,result)=>{clearTimeout(timer);clearInterval(cancelTimer);sender.unobserve(owner);if(readCancelled()){reject(Error(payload.sbcBuildToken?'SBC build stopped. Nothing was added.':'Background recommendations stopped.'));return;}if(result.success||allowRejection)resolve(result);else{const unauthorized=Number(result.status)===401;const error=Error(unauthorized?'EA could not authenticate this request (401). Reload the EA Web App and sign in again if prompted, then reopen your squad and retry.':`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;error.stage=stage;reject(error);}});
     });
     const coinBalance=()=>Number(services.User.getUser()?.getCurrency(GameCurrency.COINS)?.amount);
     const activeTeam=()=>{
@@ -860,6 +863,13 @@ export async function eaOperation(action, payload = {}) {
     if(challenge.id!==payload.challengeId || challenge.hasExpired() || challenge.isCompleted()) throw Error('The open challenge changed, expired, or is completed. Reconnect and compare again.');
     if(action==='sbcClubBuild'||action==='sbcHybridBuild'){
       const hybrid=action==='sbcHybridBuild';
+      payload.sbcBuildDeadline=Date.now()+120000;
+      const buildProgress=status=>{
+        if(readCancelled())throw Error('SBC build stopped. Nothing was added.');
+        if(Date.now()>=payload.sbcBuildDeadline)throw Error('SBC search reached its two-minute time limit. Nothing was added.');
+        if(payload.sbcBuildToken)window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status};
+      };
+      buildProgress('Reading your active squad…');
       const balance=hybrid?coinBalance():0;
       if(hybrid&&(!Number.isSafeInteger(balance)||balance<0))throw Error('EA could not read your coin balance. No squad changes were made.');
       const budget=balance,prices=new Map();
@@ -884,6 +894,7 @@ export async function eaOperation(action, payload = {}) {
       }
       const pool=new Map(),ownedDefinitions=new Set();let clubComplete=false;
       for(let page=0;page<30;page++){
+        buildProgress(`Reading club cards · page ${page+1}/30…`);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.count=100;criteria.offset=page*100;
         const response=await observe(services.Club.search(criteria));
         const rows=response.response?.items;
@@ -918,9 +929,10 @@ export async function eaOperation(action, payload = {}) {
         for(const ceiling of [...new Set([Math.min(750,budget),Math.min(2500,budget),Math.min(10000,budget)])]){
           if(ceiling<150)continue;
           for(const filter of unique){
-            if(requests>=42)break;
+            if(requests>=24||Date.now()+12000>=payload.sbcBuildDeadline)break;
             if(requests++)await new Promise(resolve=>setTimeout(resolve,1000));
             if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed during market discovery. Nothing was added.');
+            buildProgress(`Checking EA listings · search ${requests}/24 · up to ${ceiling.toLocaleString()} coins · ${market.size} cards found…`);
             const criteria=Object.assign(marketCriteria(null,ceiling),filter);
             const result=await searchMarket(criteria);
             for(const item of marketRows(result)){
@@ -933,7 +945,19 @@ export async function eaOperation(action, payload = {}) {
         }
         const selected=[...market.values()].sort((a,b)=>a.price-b.price).slice(0,240);
         if(selected.length){
-          const rows=await conceptRows(selected.map(({item})=>({definitionId:Number(item.definitionId)})),'definitionId');
+          const rows=[];
+          // Resolve batches once; missing card versions must not trigger hundreds of serial retries.
+          for(let offset=0;offset<selected.length;offset+=48){
+            buildProgress(`Matching card versions · ${offset}/${selected.length}…`);
+            const ids=selected.slice(offset,offset+48).map(({item})=>Number(item.definitionId));
+            for(let page=0;page<3;page++){
+              const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=ids;criteria.count=100;criteria.offset=page*100;
+              const result=await observe(services.Item.searchConceptItems(criteria));
+              if(!Array.isArray(result.response?.items))throw Error('EA concept results changed. Nothing was added.');
+              rows.push(...result.response.items);
+              if(result.response.endOfList===true||result.response.items.length<100)break;
+            }
+          }
           for(const {item,price} of selected){
             const match=rows.find(row=>row.concept&&Number(row.definitionId)===Number(item.definitionId)&&Number(row.rating)===Number(item.rating)&&Number(row.rareflag)===Number(item.rareflag));
             if(match){const projected=Object.assign(Object.create(Object.getPrototypeOf(match)),match,{tradable:true,owners:Math.max(2,Number(item.owners)||2)});pool.set(Number(match.definitionId),projected);prices.set(Number(match.definitionId),price);}
@@ -974,6 +998,7 @@ export async function eaOperation(action, payload = {}) {
       };
       try{
         for(const theme of themes){
+          buildProgress(`Checking SBC requirements · ${checks.toLocaleString()} combinations…`);
           if(Date.now()>deadline||checks>=6000)break;
           const used=new Set(fixedAssets),lineup=Array(slots.length);
           for(const [index,item] of fixed)lineup[index]=item;
@@ -1013,9 +1038,11 @@ export async function eaOperation(action, payload = {}) {
       }finally{restore();}
       if(!best)throw Error(`No valid ${hybrid?'hybrid':'club'} squad found in ${checks} checked combinations${clubComplete?'':' (club scan capped)'}. This is a bounded search${hybrid?' of owned cards and listings up to 10,000 coins per card within your balance':', not proof your club cannot solve it'}. No squad changes were made.`);
       if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed before adding players. Nothing was added.');
+      buildProgress('Preparing the verified squad…');
       if(hybrid&&(!Number.isSafeInteger(coinBalance())||coinBalance()<best.total))throw Error('Your coin balance changed and no longer covers this plan. Nothing was added.');
       const output=best.lineup.map((item,index)=>({name:teamPlayerName(item),baseId:asset(item),definitionId:Number(item.definitionId),ownedId:item.concept?undefined:Number(item.id),owned:!item.concept,rating:Number(item.rating),rarity:Number(item.rareflag),price:cost(item),position:slots[index].generalPositionName,slotPosition:slots[index].generalPositionName,futbinSlot:slots[index].index,slotIndex:slots[index].index}));
       try{
+        buildProgress('Saving the verified squad…');payload.sbcBuildSaving=true;
         apply(best.lineup);
         if(!challenge.meetsRequirements()||(!hybrid&&typeof squad.isSBCSquadEligible==='function'&&!squad.isSBCSquadEligible()))throw Error('EA did not confirm this squad.');
         await observe(services.SBC.saveChallenge(challenge),false,'sbc-club-save');

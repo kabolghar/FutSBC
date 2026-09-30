@@ -78,6 +78,7 @@ async function tradeState(){
 const state=async()=> (await chrome.storage.session.get('state')).state || {};
 const save=async value=>chrome.storage.session.set({state:value});
 let activeTeamRead=null;
+let activeSbcBuild=null;
 function checkTeamReadCancelled(){if(activeTeamRead?.cancelled)throw Error('Background recommendations stopped.');}
 async function cancelTeamRead(){
   const current=activeTeamRead;if(!current)return;
@@ -1062,6 +1063,13 @@ async function dispatch(message) {
     const next={...previous,recoveryRequired:false,watchOnly:false,candidate:null,pendingBid:null,activeBid:null,activeBids:[],status:'Transfer Targets and New Items reviewed. Ready to start.'};
     await saveTrade(next);return next;
   }
+  if(message.type==='sbcBuildStop'){
+    if(activeSbcBuild){
+      const run=activeSbcBuild;
+      await chrome.scripting.executeScript({target:{tabId:run.tabId},world:'MAIN',func:function stopSbcBuild(id){if(window.__futsbcSbcBuildProgress?.status==='Saving the verified squad…')return;window.__futsbcCancelledSbcBuild=id;},args:[run.id]});
+    }
+    return state();
+  }
   if(message.type==='state') return state();
   if(message.type==='sbcBuyState')return rawSbcBuy();
   if(message.type==='sbcBuyStop'){
@@ -1140,13 +1148,24 @@ async function dispatch(message) {
     await dispatch({type:'connect'});
     const current=await state();
     await save({...current,progress:hybrid?'Checking club cards and low-price EA listings…':'Building from your club · checking EA requirements…'});
+    const run={id:crypto.randomUUID(),tabId:current.tabId};activeSbcBuild=run;
+    await save({...await state(),sbcBuildRunning:true});
+    let polling=false;
+    const progressTimer=setInterval(async()=>{
+      if(polling||activeSbcBuild!==run)return;polling=true;
+      try{
+        const result=await chrome.scripting.executeScript({target:{tabId:run.tabId},world:'MAIN',func:function sbcBuildProgress(id){return window.__futsbcSbcBuildProgress?.id===id?window.__futsbcSbcBuildProgress.status:null;},args:[run.id]});
+        if(activeSbcBuild===run&&typeof result[0]?.result==='string'){const latest=await state();if(activeSbcBuild===run&&latest.progress!==result[0].result)await save({...latest,progress:result[0].result});}
+      }catch{}finally{polling=false;}
+    },1000);
     try{
-      const result=await ea(current.tabId,hybrid?'sbcHybridBuild':'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint});
+      const result=await ea(current.tabId,hybrid?'sbcHybridBuild':'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint,sbcBuildToken:run.id});
       const plan={source:hybrid?'hybrid':'club',year:27,market:'console',challengeId:result.challenge.id,name:result.challenge.name,players:result.players,total:result.players.reduce((sum,p)=>sum+p.price,0),checkedAt:Date.now(),checks:result.checks,budget:result.budget};
       validateSavedPlan(plan);
       const next={...current,challenge:result.challenge,plan,resolved:result.players,mapping:result.players.map(player=>player.slotIndex),alternatives:[],listedSolutions:[],swapOptions:null,checkout:null,inserted:true,approved:true,progress:null};
       await save(next);return next;
     }catch(clubError){await save({...await state(),progress:null});throw clubError;}
+    finally{activeSbcBuild=null;clearInterval(progressTimer);await save({...await state(),sbcBuildRunning:false});}
   }
   if(message.type==='build') {
     await dispatch({type:'connect'});
@@ -1350,7 +1369,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
     dispatch(message).then(data=>respond({ok:true,data})).catch(error=>respond({ok:false,error:error.message}));
     return true;
   }
-  const readOnly=['teamRunState','teamCancel','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'].includes(message.type);
+  const readOnly=['teamRunState','teamCancel','sbcBuildStop','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'].includes(message.type);
   if(busy&&!readOnly) {respond({ok:false,error:'Please wait for the current operation.'});return false;}
   const locks=!readOnly;if(locks)busy=true;
   (async()=>{

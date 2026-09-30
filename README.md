@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.39**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.40**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -214,3 +214,8 @@ Results separate owned cards and concepts. **Check prices** and the existing **B
 A stopped purchase that needs review now shows a **Buying session** recovery box on the SBC screen, even without a saved squad or while using the club builder. After checking EA New Items and your club, use **Clear buying session** to unlock the builder. Clearing keeps the reviewed transaction reference and invalidates old checkout approval; purchased cards stay in EA.
 
 A failed ownership lookup or market search before a buy request is sent no longer creates an uncertain-purchase lock. Requests whose purchase outcome is genuinely unknown still stop and require review. Interrupted final squad checks are distinguished from interrupted purchases.
+
+
+### Hybrid search progress and cancellation (v0.21.40)
+
+Hybrid builds show club pages read, market searches completed, cards found, card versions matched and lineup combinations checked. **Stop search** cancels discovery and releases pending read callbacks; it is disabled while saving the verified squad. Search has a two-minute deadline before saving, up to 24 paced market queries, and batched concept matching with no per-card retry loop. Missing concept versions are excluded rather than triggering hundreds of requests. These limits reduce search coverage; they do not establish that no solution exists. EA's final save can take up to its separate request timeout.
