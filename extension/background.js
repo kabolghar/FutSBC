@@ -96,7 +96,7 @@ async function ea(tabId,action,payload,timeoutMs=0) {
   const results=timeoutMs?await Promise.race([request,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(`EA ${action} did not respond within ${Math.round(timeoutMs/1000)} seconds.`)),timeoutMs);})]).finally(()=>clearTimeout(timer)):await request;
   checkTeamReadCancelled();
   const result=results[0]?.result;
-  if(!result?.ok){const error=Error(result?.error||'EA integration unavailable.');error.status=result?.status;error.stage=result?.stage;error.page=result?.page;error.unmatchedPlayer=result?.unmatchedPlayer;throw error;}
+  if(!result?.ok){const error=Error(result?.error||'EA integration unavailable.');error.purchaseAttempted=result?.purchaseAttempted;error.status=result?.status;error.stage=result?.stage;error.page=result?.page;error.unmatchedPlayer=result?.unmatchedPlayer;throw error;}
   return result;
 }
 const readTab=(tabId,url,lookupId=null)=>readFutbinTab(chrome,tabId,url,lookupId);
@@ -171,7 +171,7 @@ async function runSbcBuy(){
     if(!session.approved||!session.resolved||session.plan?.url!==run.planURL||session.challenge?.fingerprint!==run.fingerprint)throw Error('The SBC changed during buying. Check the squad and your club before restarting.');
     const quote=run.quotes[run.index];
     if(!quote){
-      await saveSbcBuy({...run,pending:{name:'SBC squad check',index:run.index},status:'Filling the final SBC squad…'});
+      await saveSbcBuy({...run,pending:{name:'SBC squad check',index:run.index,operation:'fill'},status:'Filling the final SBC squad…'});
       const mapping=Array.isArray(session.mapping)?session.mapping:suggestMapping(session.resolved,session.challenge.slots);
       const result=await ea(session.tabId,'concepts',{challengeId:session.plan.challengeId,players:session.resolved,mapping,fingerprint:session.challenge.fingerprint},SBC_REQUEST_TIMEOUT);
       await save({...session,resolved:result.players,challenge:result.challenge,mapping,checkout:null,inserted:true,approved:true});
@@ -201,7 +201,8 @@ async function runSbcBuy(){
     if(next.enabled)armSbcBuy(Date.now()+SBC_BUY_DELAY_MS);
   }catch(error){
     const run=await rawSbcBuy();
-    await saveSbcBuy({...run,enabled:false,review:!!run.pending,status:`Buying stopped: ${error.message}`});
+    const uncertain=!!run.pending&&run.pending.operation!=='fill'&&error.purchaseAttempted!==false;
+    await saveSbcBuy({...run,enabled:false,review:uncertain,pending:uncertain?run.pending:null,status:`Buying stopped: ${error.message}`});
   }finally{sbcBuying=false;}
 }
 async function marketTab(session){
@@ -854,6 +855,10 @@ chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name===TRADE_ALARM)void runAu
 void (async()=>{
   const previous=await rawSbcBuy();
   if(!previous.enabled)return;
+  if(previous.pending?.operation==='fill'){
+    await saveSbcBuy({...previous,enabled:false,review:false,pending:null,status:'The final squad check was interrupted. Reopen the SBC and check its cards before continuing.'});
+    return;
+  }
   if(previous.pending){
     await saveSbcBuy({...previous,enabled:false,review:true,status:`Purchase of ${previous.pending.name} was interrupted. Check New Items and your club before restarting.`});
     return;
@@ -1067,12 +1072,13 @@ async function dispatch(message) {
   if(message.type==='sbcBuyReset'){
     const current=await rawSbcBuy();
     if(current.enabled||sbcBuying)throw Error('Stop buying and wait for the current EA request first.');
-    const next={enabled:false,status:'Buying session cleared. Cards already bought remain in EA.'};
+    const next={enabled:false,reviewedPurchase:current.pending||current.reviewedPurchase||null,status:'Buying session cleared. Cards already bought remain in EA.'};
+    const session=await state();await save({...session,checkout:null});
     await saveSbcBuy(next);await chrome.alarms.clear(SBC_BUY_ALARM);return next;
   }
   const buySession=await rawSbcBuy();
   if(buySession.enabled||sbcBuying)throw Error('Stop SBC buying before changing the squad or starting another action.');
-  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','complete','reset'].includes(message.type))throw Error('Check New Items and your club, then clear the buying session before continuing.');
+  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','complete','reset'].includes(message.type))throw Error('A previous purchase needs review. Check EA New Items and your club, then use Clear buying session on the SBC screen.');
   if(message.type==='swapOptions'){
     if((await tradeState()).enabled||tradingBusy)throw Error('Stop the trader before checking SBC swaps.');
     const session=await state();

@@ -20,7 +20,7 @@ globalThis.chrome={
   if(action==='sbcQuote'&&quoteFailure===payload.player.definitionId)return [{result:{ok:false,status:521,error:'EA rejected the request (521).'}}];
   const result=action==='status'?{ok:true,challenge:challenge()}
    :action==='sbcQuote'?{ok:true,phase:'quoted',definitionId:payload.player.definitionId,price:payload.player.definitionId===202?300:500,tradeId:'999',balance:1000}
-   :action==='sbcBuyOne'?buyOutcome==='uncertain'?{ok:true,phase:'uncertain',definitionId:payload.player.definitionId,price:500,warning:'EA did not confirm the purchase. Check New Items.'}:{ok:true,phase:'in-club',definitionId:payload.player.definitionId,price:500,balance:500}
+   :action==='sbcBuyOne'?buyOutcome==='pre-bid'?{ok:false,error:'EA search failed (401).',purchaseAttempted:false}:buyOutcome==='uncertain'?{ok:true,phase:'uncertain',definitionId:payload.player.definitionId,price:500,warning:'EA did not confirm the purchase. Check New Items.'}:{ok:true,phase:'in-club',definitionId:payload.player.definitionId,price:500,balance:500}
    :action==='concepts'?{ok:true,players:payload.players.map(card=>({...card,owned:true})),challenge:challenge('final')}
    :action==='sbcSwapCheck'?{ok:true,valid:true,player:{...payload.player,definitionId:202}}
    :action==='sbcSwapApply'?{ok:true,player:{...payload.player,definitionId:202,owned:false},challenge:challenge('swapped')}
@@ -133,4 +133,24 @@ test('saved squads can refresh live quotes after FUTBIN prices expire',async()=>
  assert.equal(prepared.data.plan.checkedAt,original,'must not pretend old FUTBIN prices are fresh');
  assert.ok(actions.includes('sbcQuote'));
  assert.equal(actions.includes('sbcBuyOne'),false);
+});
+
+test('failure before sending a purchase request clears the pending marker without review lock',async()=>{
+ reset();buyOutcome='pre-bid';
+ assert.equal((await send('sbcPrepare')).ok,true);await tick();
+ assert.equal((await send('sbcBuyStart')).ok,true);await tick();
+ alarmListener({name:'futsbc-sbc-buy'});
+ await until(()=>buySaved.enabled===false);
+ assert.equal(buySaved.review,false);assert.equal(buySaved.pending,null);
+ assert.equal((await send('sbcPrepare')).ok,true);
+});
+
+test('clearing a reviewed buying session unlocks building and invalidates old purchase approval',async()=>{
+ reset();saved.checkout={total:500};buySaved={enabled:false,review:true,pending:{name:'Starter',tradeId:'999'}};
+ assert.equal((await send('sbcPrepare')).ok,false);await tick();
+ const cleared=await send('sbcBuyReset');assert.equal(cleared.ok,true,cleared.error);
+ assert.equal(buySaved.pending,undefined);assert.equal(buySaved.review,undefined);
+ assert.equal(buySaved.reviewedPurchase.tradeId,'999');assert.equal(saved.checkout,null);
+ assert.equal(saved.resolved[0].name,'Starter');
+ await tick();assert.equal((await send('sbcPrepare')).ok,true);
 });

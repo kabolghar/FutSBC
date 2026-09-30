@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.38**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.39**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -207,3 +207,10 @@ Use **SBCs → Options → Club + market** to generate a squad from EA's require
 Market discovery uses increasing price ceilings (750, 2,500 and 10,000 coins per card, capped by balance), explicit league/nation/club requirements, club links and squad positions. It makes up to 42 paced searches and resolves up to 240 priced card versions. The solver checks complete squads and keeps the lowest purchase cost it finds across its bounded search; it does not claim a global market minimum. First-owner and tradability checks treat market cards as purchased, tradeable cards.
 
 Results separate owned cards and concepts. **Check prices** and the existing **Buy missing cards** flow recheck availability before buying; generating a hybrid squad never purchases or submits anything. Listings can expire or change price. High-cost SBCs or narrow candidate coverage may still have no result. The 10,000-per-card discovery ceiling is a search limit, not proof that more expensive cards cannot solve the challenge.
+
+
+### Buying-session recovery (v0.21.39)
+
+A stopped purchase that needs review now shows a **Buying session** recovery box on the SBC screen, even without a saved squad or while using the club builder. After checking EA New Items and your club, use **Clear buying session** to unlock the builder. Clearing keeps the reviewed transaction reference and invalidates old checkout approval; purchased cards stay in EA.
+
+A failed ownership lookup or market search before a buy request is sent no longer creates an uncertain-purchase lock. Requests whose purchase outcome is genuinely unknown still stop and require review. Interrupted final squad checks are distinguished from interrupted purchases.

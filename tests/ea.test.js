@@ -62,3 +62,12 @@ test('SBC quote identifies an EA search rejection without attempting a purchase'
  assert.equal(result.status,521);
  assert.match(result.error,/Market page 1.*521/);
 });
+
+test('SBC ownership lookup failure reports that no purchase was attempted',async()=>{
+ setup();globalThis.GameCurrency={COINS:'coins'};
+ services.User.getUser=()=>({getSelectedPersona:()=>({getCurrentClub:()=>({isPlaystation:true})}),getCurrency:()=>({amount:1000})});
+ services.Club.search=()=>{throw Error('EA lookup failed (401).');};
+ services.Item.bid=()=>{throw Error('A bid must never be sent.');};
+ const result=await eaOperation('sbcBuyOne',{challengeId:59,player,maxPrice:450,remaining:450});
+ assert.equal(result.ok,false);assert.match(result.error,/401/);assert.equal(result.purchaseAttempted,false);
+});

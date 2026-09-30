@@ -1,6 +1,7 @@
 // Inspected against EA FC 27 public client build 11321. No raw EA endpoints or credentials.
 // Called only by chrome.scripting from our trusted extension service worker.
 export async function eaOperation(action, payload = {}) {
+  let sbcPurchaseAttempted=false;
   try {
     if (String(window.fut_year) !== '2027') throw Error('Open the FC 27 Web App and sign in first.');
     if (typeof getAppMain !== 'function' || typeof services === 'undefined') throw Error('The FC client is not ready.');
@@ -1042,7 +1043,7 @@ export async function eaOperation(action, payload = {}) {
       const price=Number(auction(item).buyNowPrice),tradeId=String(auction(item).tradeId);
       if(!Number.isSafeInteger(price)||price<150||price>maxPrice||price>remaining||price>balance||!auction(item).canBuy?.(balance))return {ok:true,phase:'unavailable',definitionId:player.definitionId,balance};
       let response;
-      try{response=await observe(services.Item.bid(item,price));}
+      try{sbcPurchaseAttempted=true;response=await observe(services.Item.bid(item,price));}
       catch(error){return {ok:true,phase:'uncertain',definitionId:player.definitionId,price,tradeId,warning:`EA did not confirm the purchase of ${player.name}: ${error.message} Check New Items before restarting.`};}
       const won=[...(response.data?.items||[]),...(response.response?.items||[])].find(row=>Number(row.definitionId)===player.definitionId&&Number(row.id)>0)||(auction(item)?.isWon?.()?item:null);
       if(!won||!(auction(item)?.isWon?.()||auction(won)?.isWon?.()||won.pile===ItemPile.PURCHASED))return {ok:true,phase:'uncertain',definitionId:player.definitionId,price,tradeId,warning:`EA accepted the purchase request for ${player.name}, but the won card was not confirmed. Check New Items before restarting.`};
@@ -1149,5 +1150,5 @@ export async function eaOperation(action, payload = {}) {
       return {ok:true,challenge:snapshot(),players:payload.players.map((player,index)=>({...player,owned:!items[index].concept}))};
     }
     throw Error('Unsupported operation.');
-  } catch(error) { return {ok:false,error:error.message,status:error.status??null,stage:error.stage??null,page:error.page??null,unmatchedPlayer:error.unmatchedPlayer??null}; }
+  } catch(error) { return {ok:false,...(action==='sbcBuyOne'?{purchaseAttempted:sbcPurchaseAttempted}:{}),error:error.message,status:error.status??null,stage:error.stage??null,page:error.page??null,unmatchedPlayer:error.unmatchedPlayer??null}; }
 }

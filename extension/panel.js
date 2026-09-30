@@ -90,6 +90,7 @@ async function run(type,extra={}) {
   finally{busy=false;render();}
 }
 function render() {
+  renderBuyRecovery();
   document.documentElement.classList.toggle('has-result',activeView==='sbc'&&!!state.plan);
   $('challenge').textContent=state.challenge?.name||'Choose a challenge';
   $('sbc-visual').hidden=!!state.plan;
@@ -132,6 +133,16 @@ function render() {
   }
   renderSbcBuy();
   reportSize();
+}
+function renderBuyRecovery(){
+  const needsReview=!!buy.pending||!!buy.review;
+  $('buy-recovery').hidden=!buy.enabled&&!needsReview;
+  $('buy-recovery-status').textContent=buy.status||(needsReview?'A previous purchase needs review.':'Buying is active.');
+  $('buy-recovery-note').hidden=!needsReview||buy.enabled;
+  $('buy-recovery-stop').hidden=!buy.enabled;
+  $('buy-recovery-stop').disabled=buyPending;
+  $('buy-recovery-clear').hidden=!!buy.enabled;
+  $('buy-recovery-clear').disabled=buyPending||busy;
 }
 function renderSbcBuy(){
   $('buy-section').hidden=!state.approved||state.plan?.source==='club';
@@ -607,7 +618,7 @@ $('club-build').onclick=()=>run('clubBuild');
 $('connect').onclick=()=>run('connect');$('compare').onclick=()=>run('build',{url:$('source').value.trim()});$('complete').onclick=()=>run('complete',state.resolved&&!state.inserted?{mapping:[...mapping]}:{});$('reset').onclick=()=>run('reset');
 $('swap-close').onclick=()=>run('swapDismiss');
 $('price-check').onclick=()=>run('sbcPrepare');
-for(const [id,type] of [['buy-start','sbcBuyStart'],['buy-stop','sbcBuyStop'],['buy-reset','sbcBuyReset']])$(id).onclick=async()=>{if(buyPending)return;buyPending=true;render();try{buy=await call(type);notice('');}catch(error){if(!recovering)notice(error.message,true);}finally{buyPending=false;render();}};
+for(const [id,type] of [['buy-recovery-clear','sbcBuyReset'],['buy-recovery-stop','sbcBuyStop'],['buy-start','sbcBuyStart'],['buy-stop','sbcBuyStop'],['buy-reset','sbcBuyReset']])$(id).onclick=async()=>{if(buyPending)return;buyPending=true;render();try{buy=await call(type);if(type==='sbcBuyReset')state=await call('state');notice('');}catch(error){if(!recovering)notice(error.message,true);}finally{buyPending=false;render();}};
 if(!preview){
   let reconnectAfterReload=false;
   try{reconnectAfterReload=!!sessionStorage.getItem(recoveryKey);}catch{}
