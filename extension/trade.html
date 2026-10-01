@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trade desk · FutSBC</title>
   <link rel="stylesheet" href="trade.css">
+  <link rel="stylesheet" href="trader-portfolio.css">
 </head>
 <body>
   <header class="masthead">
@@ -24,14 +25,15 @@
         <div class="auto-main">
           <p id="auto-status" class="auto-status" role="status" aria-live="polite">Connect to your signed-in FC 27 console club to start.</p>
           <p class="auto-description">Checks fresh FC 27 console prices and trends on FUTBIN, then verifies short EA auctions against five exact-card buy-now listings. Bids stop when the after-tax margin disappears. A sale and profit are never guaranteed.</p>
-          <div class="auto-actions"><button id="auto-toggle" class="primary" type="button">Start auto trader <span aria-hidden="true">→</span></button><span id="auto-next" class="next-scan">Within balance · highest checked profit</span></div>
+          <div class="auto-actions"><button id="auto-toggle" class="primary" type="button">Start auto trader <span aria-hidden="true">→</span></button><span id="auto-next" class="next-scan">Within balance · return per coin</span></div>
         </div>
         <div class="auto-figures">
           <div><span>SESSION COINS</span><strong id="auto-coins">—</strong></div>
-          <div><span>WON COST</span><strong id="auto-spent">0</strong></div>
-          <div><span>AUCTIONS WON</span><strong id="auto-trades">0</strong></div>
+          <div><span>NET · 24H</span><strong id="auto-spent">0</strong></div>
+          <div><span>SOLD</span><strong id="auto-trades">0</strong></div>
         </div>
       </div>
+      <div id="auto-portfolio" class="trader-portfolio"></div>
       <p class="auto-footnote">Page scans about every 20 seconds; a five-minute break from new bids after 35 minutes of activity. Active bids are still watched during a break. Stop ends new work after the current request. Automated trading breaches <a href="https://help.ea.com/en/articles/ea-sports-fc/fc-rules/" target="_blank" rel="noopener noreferrer">EA’s rules</a>; cooldowns do not make it undetectable.</p>
       <div id="auto-history" class="auto-history" hidden></div>
     </section>

@@ -6,6 +6,7 @@
   <title>FutSBC · FC 27</title>
   <link rel="stylesheet" href="panel.css">
   <link rel="stylesheet" href="matchday.css">
+  <link rel="stylesheet" href="trader-portfolio.css">
 </head>
 <body>
   <header class="standalone-brand"><a class="club-brand" href="#" aria-label="FutSBC home"><svg viewBox="0 0 48 56" aria-hidden="true" focusable="false"><path d="M7 3h34l4 4v25c0 9-12 17-21 21C15 49 3 41 3 32V7Z" fill="#101109" stroke="currentColor" stroke-width="2"/><path d="M12 12h25l-4 6H19v5h12l-4 6h-8v9l-7-4Z" fill="currentColor"/><path d="m27 34 3-3 3 3-3 3Zm-6 7 3-3 3 3-3 3Zm12-1 3-3 3 3-3 3Z" fill="currentColor"/></svg><strong>FutSBC<span>SQUAD LAB</span></strong></a><span class="edition">FC 27 <i>Console</i></span></header>
@@ -89,9 +90,10 @@
       <div class="trader-live"><svg id="trader-orbit" class="trader-orbit" viewBox="0 0 160 160" role="img" aria-label="Trader idle"><circle cx="80" cy="80" r="66"/><circle cx="80" cy="80" r="46"/><path d="M80 4v24m0 104v24M4 80h24m104 0h24"/><g class="orbit-hand"><path d="M80 80V16"/><circle cx="80" cy="16" r="5"/></g><path class="orbit-arrows" d="M61 70h38l-9-9m9 29H61l9 9"/></svg><div class="trader-message"><strong id="trader-status" aria-live="polite">Connect to your console club to start.</strong><span id="trader-next" class="trader-next">Next scan: 20s</span></div></div>
       <div class="trader-metrics">
         <div><span>COINS</span><strong id="trader-coins">—</strong></div>
-        <div><span>SPENT</span><strong id="trader-spent">0</strong></div>
-        <div><span>WON</span><strong id="trader-count">0</strong></div>
+        <div><span>NET · 24H</span><strong id="trader-spent">0</strong></div>
+        <div><span>SOLD</span><strong id="trader-count">0</strong></div>
       </div>
+      <div id="trader-portfolio" class="trader-portfolio"></div>
       <button id="trader-toggle" class="primary trader-toggle" type="button"><span>Start auto trader</span><span aria-hidden="true">→</span></button>
       <div class="trader-tools">
         <button id="trader-review" class="trader-check" type="button" hidden>Review auction</button>
@@ -101,7 +103,7 @@
       </div>
       <p id="trader-error" class="trader-error" role="alert" hidden></p>
       <div id="trader-last" class="trader-last" hidden><span>LAST ATTEMPT</span><strong id="trader-last-name"></strong><small id="trader-last-detail"></small></div>
-      <details class="trader-evidence"><summary>Market evidence</summary><span id="trader-source" class="trader-source">FUTBIN has not been checked.</span><a id="trader-proof" class="trader-proof" href="https://www.futbin.com/27/market-player-list" target="_blank" rel="noreferrer" hidden></a><p>FUTBIN shortlists cards. Five EA comparables check the resale price and bid ceiling.</p></details>
+      <details class="trader-evidence"><summary>Market evidence</summary><span id="trader-source" class="trader-source">FUTBIN has not been checked.</span><a id="trader-proof" class="trader-proof" href="https://www.futbin.com/27/market-player-list" target="_blank" rel="noreferrer" hidden></a><p id="trader-scan-reasons"></p><p>FUTBIN shortlists cards. Five EA comparables check the resale price and bid ceiling.</p></details>
       <footer class="trader-footer"><details><summary>Trading notes</summary><p>Estimated profit is not guaranteed. Stop waits for the current EA request. Cooldowns do not prevent account action under <a href="https://help.ea.com/en/articles/ea-sports-fc/fc-rules/" target="_blank" rel="noreferrer">EA’s rules ↗</a>.</p><p>Reset clears this session. EA bids and listings remain in EA.</p></details><button id="trader-reset" class="text-button" type="button">Reset trader</button></footer>
       <a class="trader-details-link" href="trade.html" target="_blank" rel="noreferrer">Trade desk ↗</a>
     </section>

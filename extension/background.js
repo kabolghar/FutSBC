@@ -1,6 +1,6 @@
 import {discoverSbc} from './sbc-discovery.js';
 import {teamLinkPages,teamCandidatePool,linkedTeamOptions} from './team-links.js';
-import {quickFlipCards,reconcileSales} from './trader-performance.js';
+import {quickFlipCards,reconcileSales,portfolioSummary,selectHuntCard} from './trader-performance.js';
 const SALES_KEY='futsbc-trader-sales-v1';
 const salesLedger=async()=> (await chrome.storage.local.get(SALES_KEY))[SALES_KEY]||[];
 import {getConsoleEstimates} from './team-prices.js';
@@ -800,12 +800,12 @@ async function runAutoTrade(){
       armTrade(nextAt);return;
     }
     let evidence=session.marketEvidence;
-    if(!Array.isArray(evidence?.cards)||!evidence.cards.length||evidence.researchVersion!==3||now-evidence.checkedAt>60_000){
+    if(!Array.isArray(evidence?.cards)||!evidence.cards.length||evidence.researchVersion!==4||now-evidence.checkedAt>60_000){
       await saveTrade({...session,inFlight:true,inFlightAt:now,candidate:null,status:'Refreshing FUTBIN console prices…'});
       const futbinTabId=await marketTab(session);
       const market=await collectFutbinMarket(futbinTabId,current.balance);
       const cards=await quickFlipTraderCards(market.pages,current.balance);
-      evidence={checkedAt:Date.now(),sourceURL:market.pages.at(-1)?.url,rows:market.pages.reduce((sum,page)=>sum+page.rowCount,0),researchVersion:3,shortlisted:cards.length,bands:market.pages.length,assetId:cards[0]?.assetId??null,cards};
+      evidence={checkedAt:Date.now(),sourceURL:market.pages.at(-1)?.url,rows:market.pages.reduce((sum,page)=>sum+page.rowCount,0),researchVersion:4,shortlisted:cards.length,bands:market.pages.length,assetId:cards[0]?.assetId??null,cards};
       session={...await tradeState(),futbinTabId,marketEvidence:evidence,inFlight:false,inFlightAt:null};
       await saveTrade(session);
       if(!session.enabled)return;
@@ -815,14 +815,14 @@ async function runAutoTrade(){
       await saveTrade({...session,lastHuntAt:Date.now(),nextAt,status:`Checked ${evidence.rows} FUTBIN rows; no basic card had sufficiently fresh, stable price estimates for a quick-flip check.`});
       armTrade(nextAt);return;
     }
-    const card=evidence.cards[(session.huntIndex||0)%evidence.cards.length];
+    const card=selectHuntCard(evidence.cards,activeBids,await salesLedger(),session.huntIndex||0);
     await saveTrade({...session,inFlight:true,inFlightAt:Date.now(),candidate:{name:card.name},status:`Scanning expiring ${card.name} auctions…`});
     const hunt=await ea(session.tabId,'tradeAuctionHunt',{cards:[card],startPage:session.huntPages?.[card.assetId]||1,existingTradeIds:activeBids.map(order=>order.tradeId)},TRADE_REQUEST_TIMEOUT);
     session=await tradeState();
     activeBids=[...activeBids,...hunt.bids];
     const selected=hunt.bids[0];
     evidence={...evidence,selected:selected?{name:selected.name,tradeId:selected.tradeId,futbinPrice:selected.futbinPrice,eaReference:selected.reference,bid:selected.lastBid,sell:selected.sell,estimatedProfit:Math.floor(selected.sell*.95)-selected.lastBid,url:selected.futbinURL}:evidence.selected};
-    session={...session,activeBids,activeBid:null,marketEvidence:evidence,lastBalance:hunt.balance,lastHuntAt:Date.now(),huntIndex:(session.huntIndex||0)+1,huntPages:{...session.huntPages,[card.assetId]:hunt.nextPage||1},inFlight:false,inFlightAt:null,candidate:null};
+    session={...session,activeBids,activeBid:null,marketEvidence:evidence,lastBalance:hunt.balance,lastHuntAt:Date.now(),lastScan:{at:Date.now(),name:card.name,auctions:hunt.auctions,pages:hunt.pages,candidates:hunt.candidates,rejections:hunt.rejections||{}},huntIndex:(session.huntIndex||0)+1,huntPages:{...session.huntPages,[card.assetId]:hunt.nextPage||1},inFlight:false,inFlightAt:null,candidate:null};
     if(hunt.halt){
       const rateLimited=hunt.halt.status===429;
       await saveTrade({...session,enabled:false,recoveryRequired:activeBids.length>0,nextAt:null,rateLimitAt:rateLimited?Date.now():session.rateLimitAt,cooldownUntil:rateLimited?Date.now()+RATE_LIMIT_PAUSE_MS:session.cooldownUntil,status:`EA stopped auction targeting (${hunt.halt.status}). ${activeBids.length} saved bid(s) remain tracked. Check Transfer Targets before restarting.`});
@@ -942,7 +942,7 @@ async function dispatch(message) {
     }
     return {...current,modelConfigured:!!key,modelName:GEMINI_MODEL};
   }
-  if(message.type==='tradeState') return tradeState();
+  if(message.type==='tradeState') return {...await tradeState(),portfolio:portfolioSummary(await salesLedger())};
   if(message.type==='tradeCheckFutbin'){
     if(busy||tradingBusy)throw Error('Wait for the current operation to finish.');
     const previous=await tradeState();

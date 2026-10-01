@@ -1,3 +1,4 @@
+import {renderPortfolio} from './trader-portfolio-ui.js';
 import {suggestMapping} from './core.js';
 const embedded=window.parent!==window;
 let reportSize=()=>{};
@@ -172,14 +173,17 @@ function renderTrader(){
   const pendingReview=trader.recoveryRequired&&trader.pendingBid&&['unavailable','unconfirmed'].includes(trader.pendingBid.lastReview?.phase);
   $('trader-status').textContent=trader.cooldownUntil&&!pauseRemaining&&!active?'The rate-limit pause ended. Test one normal market search in EA before restarting.':trader.status||(pendingReview?`EA has not confirmed ${trader.pendingBid.name} (${trader.pendingBid.tradeId}). Continue monitoring this saved auction only; new searches stay off.`:'Connect to your signed-in console club to start.');
   $('trader-coins').textContent=Number.isSafeInteger(trader.lastBalance)?fmt(trader.lastBalance):'—';
-  $('trader-spent').textContent=fmt(trader.spent||0);
-  $('trader-count').textContent=fmt(trader.completedTrades||0);
+  $('trader-spent').textContent=`${trader.portfolio?.dayProfit>0?'+':''}${fmt(trader.portfolio?.dayProfit||0)}`;
+  renderPortfolio($('trader-portfolio'),trader.portfolio);
+  $('trader-count').textContent=fmt(trader.portfolio?.sales||0);
   const remaining=active&&trader.nextAt?Math.max(0,Math.ceil((trader.nextAt-Date.now())/1000)):0;
   const watching=trader.activeBids?.length||Number(!!trader.activeBid);
   $('trader-next').textContent=pauseRemaining?`${watching?`${watching} bids · `:''}Break ${Math.floor(pauseRemaining/60)}:${String(pauseRemaining%60).padStart(2,'0')}`:remaining?`${watching?`${watching} bids · next check`:'Next scan'} ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`:active?'Checking EA…':'Scans every 20s';
   const evidence=trader.marketEvidence;
   const evidenceAge=evidence?.checkedAt?Math.max(0,Math.floor((Date.now()-evidence.checkedAt)/60_000)):null;
   $('trader-source').textContent=evidenceAge===null?'FUTBIN has not been checked.':`FUTBIN ${evidenceAge<10?'checked':'last checked'} ${evidenceAge}m ago${evidenceAge>=10?' · stale':''} · ${evidence.rows} rows · ${evidence.shortlisted} shortlisted`;
+  const scan=trader.lastScan,reasons=scan?.rejections||{},labels={ineligible:'other cards',watched:'already watched',time:'outside 8–180s',bid:'bid unavailable or above ceiling',price:'price or margin not supported'};
+  $('trader-scan-reasons').textContent=scan?`${scan.name}: ${scan.candidates||0} candidates from ${scan.auctions||0} listings. ${Object.entries(reasons).filter(([,count])=>count>0).map(([key,count])=>`${count} ${labels[key]||key}`).join(' · ')}`:'';
   const selected=evidence?.selected,proof=$('trader-proof');
   proof.hidden=!selected;
   if(selected){

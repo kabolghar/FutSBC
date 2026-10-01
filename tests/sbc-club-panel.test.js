@@ -5,7 +5,7 @@ import {JSDOM} from 'jsdom';
 
 test('club result is labeled as owned, hides buying and leaves submission in EA',async()=>{
  const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
- const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+ const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
  try{
   dom.window.eval(script+`\nstate={challenge:{id:49,name:'Challenge 2',slots:[{index:0,position:'CM'}]},plan:{source:'club',name:'Challenge 2',total:0,checks:45,checkedAt:Date.now(),players:[{name:'Owned card',baseId:100,definitionId:100,ownedId:123,owned:true,price:0,rating:61,position:'CM'}]},inserted:true,approved:true};render();window.showLoading=()=>{state.sbcBuildRunning=true;state.progress='Checking EA listings · search 5/24';busy=true;render();};window.showHybrid=()=>{state.plan.source='hybrid';state.plan.players[0].owned=false;state.plan.players[0].price=200;state.plan.total=200;render();};`);

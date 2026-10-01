@@ -1,3 +1,4 @@
+import {renderPortfolio} from './trader-portfolio-ui.js';
 import {coins,tradeMath,rankQuotes,parseQuotes} from './trade-core.js';
 
 const $=id=>document.getElementById(id);
@@ -26,13 +27,14 @@ function renderAuto(){
   $('auto-state').textContent=active?'ON':'OFF';
   $('auto-status').textContent=autoState.status||'Connect to your signed-in FC 27 console club to start.';
   $('auto-coins').textContent=Number.isSafeInteger(autoState.lastBalance)?fmt(autoState.lastBalance):'—';
-  $('auto-spent').textContent=fmt(autoState.spent||0);
-  $('auto-trades').textContent=fmt(autoState.completedTrades||0);
+  $('auto-spent').textContent=`${autoState.portfolio?.dayProfit>0?'+':''}${fmt(autoState.portfolio?.dayProfit||0)}`;
+  renderPortfolio($('auto-portfolio'),autoState.portfolio);
+  $('auto-trades').textContent=fmt(autoState.portfolio?.sales||0);
   $('auto-toggle').disabled=autoPending;
   $('auto-toggle').classList.toggle('stop',active);
   $('auto-toggle').replaceChildren(document.createTextNode(active?'Stop auto trader':'Start auto trader'),element('span','',active?'■':'→'));
   const remaining=active&&autoState.nextAt?Math.max(0,Math.ceil((autoState.nextAt-Date.now())/1000)):0;
-  $('auto-next').textContent=remaining?`Next scan in ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`:'Within balance · highest checked profit';
+  $('auto-next').textContent=remaining?`Next scan in ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`:'Within balance · return per coin';
   const last=autoState.lastTrade;
   $('auto-history').hidden=!last;
   $('auto-history').textContent=last?`LAST ATTEMPT  ${last.name} · ${last.purchased?`won for ${fmt(last.buy)}`:'win unverified'} · ${last.listed?`listed ${fmt(last.sell)}`:'not listed'}`:'';

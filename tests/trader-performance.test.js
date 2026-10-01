@@ -20,3 +20,24 @@ test('quick flips need stable recent estimates, not community or news claims',()
  assert.deepEqual(quickFlipCards([card],losses,now),[]);
  assert.equal(quickFlipCards([card],losses,now+8*86400000).length,1);
 });
+
+test('portfolio shows realized losses, drawdown and pending capital separately',async()=>{
+ const {portfolioSummary}=await import('../extension/trader-performance.js');
+ const rows=[{...record,name:'A',soldAt:now-2,profit:100,timeToSellMs:120000},{...record,itemId:'2',soldAt:now-1,profit:-150,timeToSellMs:240000},{...record,itemId:'3',state:'expired'}];
+ const summary=portfolioSummary(rows,now);
+ assert.equal(summary.realized,-50);assert.equal(summary.maxDrawdown,150);assert.equal(summary.inventoryCost,700);assert.equal(summary.sales,2);assert.equal(summary.expired,1);assert.equal(summary.averageSellMinutes,3);
+});
+
+test('hunt diversification prefers a card without bids or pending inventory',async()=>{
+ const {selectHuntCard}=await import('../extension/trader-performance.js');
+ const cards=[{assetId:10},{assetId:11},{assetId:12}];
+ assert.equal(selectHuntCard(cards,[{definitionId:10}],[{...record,definitionId:11}],0,now).assetId,12);
+ assert.equal(selectHuntCard(cards,[],[],1,now).assetId,11);
+});
+
+test('learned turnover ranking compares return per coin instead of raw profit',()=>{
+ const cards=[{assetId:10,consolePrice:10000,eaAverage:10000,updatedSeconds:20,trend:0},{assetId:11,consolePrice:1000,eaAverage:1000,updatedSeconds:20,trend:0}];
+ const ledger=cards.flatMap(card=>Array.from({length:3},(_,index)=>({...record,itemId:`${card.assetId}-${index}`,definitionId:card.assetId,buy:card.consolePrice,soldAt:now,profit:card.assetId===10?1000:200,timeToSellMs:3600000})));
+ const selected=quickFlipCards(cards,ledger,now);
+ assert.equal(selected[0].assetId,11);assert.equal(selected[0].expectedSellMinutes,60);
+});

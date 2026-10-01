@@ -608,16 +608,23 @@ export async function eaOperation(action, payload = {}) {
         nextPage=page>=10?1:page+1;
         if(result.data.items.length<20||!added){nextPage=1;break;}
       }
-      const rows=[...all.values()],candidates=[];
+      const rows=[...all.values()],candidates=[],rejections={ineligible:0,watched:0,time:0,bid:0,price:0};
       for(const item of rows){
         const data=auction(item),base=Number(item.assetId)||Number(item.definitionId)%0x1000000;
         const seconds=Number(data?.getSecondsRemaining?.());
         const bid=Number(data?.currentBid)>0?UTCurrencyInputControl.getIncrementAboveVal(Number(data.currentBid)):Number(data?.startingBid);
-        if(!item?.isPlayer?.()||base!==card.assetId||Number(item.rareflag??0)>1||known.has(String(data?.tradeId))||!Number.isFinite(seconds)||seconds<8||seconds>180||!Number.isSafeInteger(bid)||bid<150||bid>balance||bid>=card.consolePrice*.9||Number.isSafeInteger(card.researchBidCeiling)&&bid>card.researchBidCeiling||data?.buyNowPrice>0&&bid>=data.buyNowPrice||!data?.canBid?.(bid,balance))continue;
+        if(!item?.isPlayer?.()||base!==card.assetId||Number(item.rareflag??0)>1){rejections.ineligible++;continue;}
+        if(known.has(String(data?.tradeId))){rejections.watched++;continue;}
+        if(!Number.isFinite(seconds)||seconds<8||seconds>180){rejections.time++;continue;}
+        if(!Number.isSafeInteger(bid)||bid<150||bid>balance||bid>=card.consolePrice*.9||Number.isSafeInteger(card.researchBidCeiling)&&bid>card.researchBidCeiling||data?.buyNowPrice>0&&bid>=data.buyNowPrice||!data?.canBid?.(bid,balance)){rejections.bid++;continue;}
         const offer=quote(rows,Number(item.definitionId),data.tradeId,card.consolePrice,bid,card.marginStrategy);
-        if(offer)candidates.push({item,bid,seconds,offer});
+        if(offer){
+          const minutes=Number.isFinite(card.expectedSellMinutes)?Math.max(1,card.expectedSellMinutes):60;
+          const efficiency=offer.profit/bid/minutes;
+          candidates.push({item,bid,seconds,offer,efficiency});
+        }else rejections.price++;
       }
-      candidates.sort((a,b)=>b.offer.profit-a.offer.profit||a.seconds-b.seconds);
+      candidates.sort((a,b)=>b.efficiency-a.efficiency||a.seconds-b.seconds||b.offer.profit-a.offer.profit);
       const bids=[];
       let uncertain=null;
       for(const candidate of candidates){
@@ -626,7 +633,7 @@ export async function eaOperation(action, payload = {}) {
         if(!Number.isSafeInteger(available)||bid>available||!data?.canBid?.(bid,available))continue;
         const order={name:String(item.name||item.commonName||item.lastName||card.name||`Card ${item.definitionId}`),definitionId:Number(item.definitionId),tradeId:String(data.tradeId),sell:offer.sell,quoteValidUntil:offer.quoteValidUntil,comparables:offer.comparables,reference:offer.reference,futbinPrice:card.consolePrice,futbinURL:card.url,quoteAt:Date.now(),lastBid:bid,seconds,misses:0,marginStrategy:card.marginStrategy,researchAt:card.checkedAt,researchBidCeiling:card.researchBidCeiling,bidCeiling:Math.min(Number.isSafeInteger(card.researchBidCeiling)?card.researchBidCeiling:Infinity,Math.floor(offer.sell*.95)-offer.minimumProfit)};
         try{await observe(services.Item.target(item));known.add(order.tradeId);}
-        catch(error){if([401,429].includes(Number(error.status)))return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,nextPage,halt:{status:Number(error.status),error:error.message}};continue;}
+        catch(error){if([401,429].includes(Number(error.status)))return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,rejections,nextPage,halt:{status:Number(error.status),error:error.message}};continue;}
         const balanceBeforeBid=coinBalance();
         try{await observe(services.Item.bid(item,bid));bids.push(order);uncommitted-=bid;}
         catch(error){
@@ -647,7 +654,7 @@ export async function eaOperation(action, payload = {}) {
           break;
         }
       }
-      return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,nextPage,uncertain};
+      return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,rejections,nextPage,uncertain};
     }
     if(action==='tradeWatchBatch') {
       const orders=Array.isArray(payload.orders)?payload.orders.slice(0,50):[];

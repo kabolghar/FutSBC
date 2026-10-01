@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.45**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.46**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -253,3 +253,10 @@ Auction trading now uses a separate quick-flip shortlist, independent of the Mar
 For bids up to 1,500 coins the minimum estimated net margin is the greater of 10 coins and 2% of the bid; above that it is 50 coins or 4%. Existing orders retain their previous strategy and original ceiling. Verified auction comparables can be reused for 30 seconds without resetting their age; listing a won card always checks fresh resale prices.
 
 The trader retains a local ledger of up to 500 listed wins across session resets. Once per minute while running, it checks the Transfer List by exact item identity. Only EA's explicit sold state and sale price establish realized profit, including negative outcomes. Missing or removed items remain unverified. Repeated losses, expired inventory and slower confirmed sales reduce a card's priority; three recorded sales with nonpositive aggregate profit exclude it until those outcomes age out of the seven-day window. The ledger does not automatically relist, collect, quick-sell or treat disappeared cards as sold.
+
+
+### Trading priorities and outcomes (v0.21.46)
+
+The trader ranks observed auction opportunities by estimated profit per coin and learned sale time. Shortlists use realized return per coin and observed turnover after at least three confirmed sales; unknown turnover uses a one-hour ranking baseline, not a prediction. The hunt scheduler favours cards without existing bids or pending inventory to spread exposure, while keeping the user's balance as the purchase ceiling.
+
+Both trader views show net profit over the last 24 hours and confirmed sale count. Trade history separates pending inventory cost, confirmed net profit (including losses), largest realized drawdown and approximate observed time to sell. The latter is an upper-bound observation from periodic checks, not an exact transaction timestamp. Missing items remain unverified. Market evidence includes the last scan's rejection counts so an empty scan explains whether auctions were outside the time window, already watched, above the bid ceiling or unsupported by price checks. These features do not establish superiority over another service or promise earnings.

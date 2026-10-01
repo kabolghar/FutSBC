@@ -5,7 +5,7 @@ import {JSDOM} from 'jsdom';
 
 test('Team swap picker shows whole-team totals, replaces only after a successful check, and preserves suggestions on error',async()=>{
   const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
-  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
   const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
   const {window}=dom;const calls=[];let fail=false;
   const team={name:'Test XI',chemistry:30,balance:10000,players:[{index:0,position:'GK',name:'Current GK',definitionId:1,rating:82}],formation:'4-4-2'};
@@ -62,7 +62,7 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
 
 test('building a team prefetches swaps once, prioritizes an opened slot, and reuses ready results',async()=>{
   const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
-  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
   const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
   const {window}=dom,calls=[],waiting=[];
   const players=Array.from({length:3},(_,index)=>({index,position:['GK','RB','CB'][index],name:`Current ${index}`,definitionId:index+1,rating:80}));
@@ -118,7 +118,7 @@ test('building a team prefetches swaps once, prioritizes an opened slot, and reu
 
 test('EA-added concepts are detected and removed from replacement selection',async()=>{
   const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
-  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
   const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
   const original={fingerprint:'empty',players:[{index:0,position:'CAM',definitionId:0,name:'Open position'}],balance:10000};
   let current={...original,fingerprint:'messi',players:[{index:0,position:'CAM',definitionId:158023,assetId:158023,rating:85,name:'Messi',concept:true}]};
@@ -136,7 +136,7 @@ test('EA-added concepts are detected and removed from replacement selection',asy
 
 test('menu picker selects an exact version and sends a locked pick without editing EA',async()=>{
  const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
- const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+ const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'}),calls=[];
  const team={fingerprint:'unchanged',balance:10000,players:[{index:0,position:'CAM',definitionId:0,name:'Open position'}]};
  const card={definitionId:158023,assetId:158023,name:'Messi',rating:85,position:'CAM',rarity:1};
@@ -158,7 +158,7 @@ test('menu picker selects an exact version and sends a locked pick without editi
 
  test('future budget exceeds balance and shows the actual lineup shortfall',async()=>{
  const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
- const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/,'');
+ const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
  dom.window.chrome={runtime:{id:'test',sendMessage:async()=>({ok:true,data:{}})},storage:{onChanged:{addListener(){}}}};
  try{

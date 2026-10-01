@@ -229,7 +229,7 @@ test('page hunt bids on multiple expiring auctions and retries delayed Transfer 
   }};
   const evidence={assetId:10,name:'Test Player',consolePrice:1600,checkedAt:Date.now(),url:'https://www.futbin.com/27/player/10/test-player'};
   const blocked=await eaOperation('tradeAuctionHunt',{cards:[{...evidence,researchBidCeiling:900}]});
-  assert.equal(blocked.bids.length,0);assert.equal(actions.length,0);pages.length=0;
+  assert.equal(blocked.bids.length,0);assert.equal(actions.length,0);assert.equal(blocked.rejections.bid,2);assert.equal(blocked.rejections.time,20);pages.length=0;
   const hunt=await eaOperation('tradeAuctionHunt',{cards:[{...evidence,researchBidCeiling:950}]});
   assert.ok(hunt.bids.every(order=>order.researchBidCeiling===950));
   assert.equal(hunt.ok,true);
