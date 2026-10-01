@@ -41,6 +41,31 @@ export async function eaOperation(action, payload = {}) {
       if(players.length<11)throw Error('EA did not return a complete starting XI. Open your active squad and retry.');
       return {team,players};
     };
+    // Cache read-only concept metadata, never club ownership or purchases.
+    // Scope it to this client and squad; applying a team always queries afresh.
+    const teamConceptRows=async(criteria,stage=null)=>{
+      const scope=teamFingerprint(activeTeam().players),search=services.Item.searchConceptItems;
+      let cache=window.__futsbcTeamConceptCache;
+      if(!cache||cache.client!==services||cache.search!==search||cache.scope!==scope){
+        cache={client:services,search,scope,queries:new Map(),cards:new Map()};
+        window.__futsbcTeamConceptCache=cache;
+      }
+      const key=JSON.stringify([[...criteria.defId].sort((a,b)=>a-b),criteria.count,criteria.offset]);
+      const cached=cache.queries.get(key);
+      if(action!=='teamApply'&&cached&&Date.now()-cached.at<60_000){
+        if(readCancelled())throw Error('Background recommendations stopped.');
+        return {response:{items:cached.rows}};
+      }
+      const result=await observe(search.call(services.Item,criteria),false,stage);
+      const rows=result.response?.items;
+      if(Array.isArray(rows)&&rows.length&&rows.every(item=>item?.concept)){
+        const at=Date.now();cache.queries.set(key,{at,rows});
+        for(const item of rows)cache.cards.set(Number(item.definitionId),{at,item});
+        while(cache.queries.size>64)cache.queries.delete(cache.queries.keys().next().value);
+        while(cache.cards.size>528)cache.cards.delete(cache.cards.keys().next().value);
+      }
+      return result;
+    };
     const hasTeamCard=item=>Number(item?.definitionId)>0&&(item?.isValid?.()||item?.concept===true);
     const teamPlayerName=item=>{
       if(!hasTeamCard(item))return 'Open position';
@@ -137,7 +162,7 @@ export async function eaOperation(action, payload = {}) {
       for(let offset=0;offset<wanted.length;offset+=12){
         const batch=wanted.slice(offset,offset+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=batch.map(card=>['FUT.GG','User','Menu'].includes(card.source)?card.definitionId:card.assetId);criteria.count=100;criteria.offset=0;
-        const response=await observe(services.Item.searchConceptItems(criteria),false,'team-concept-search');
+        const response=await teamConceptRows(criteria,'team-concept-search');
         if(!Array.isArray(response.response?.items))throw Error('EA concept search changed. No upgrades were suggested.');
         addConceptRows(response.response.items,batch);
       }
@@ -145,7 +170,7 @@ export async function eaOperation(action, payload = {}) {
       for(let offset=0;offset<missing.length;offset+=12){
         const batch=missing.slice(offset,offset+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=[...new Set(batch.map(card=>card.assetId))];criteria.count=100;criteria.offset=0;
-        const response=await observe(services.Item.searchConceptItems(criteria),false,'team-concept-search');
+        const response=await teamConceptRows(criteria,'team-concept-search');
         if(!Array.isArray(response.response?.items))throw Error('EA base-card concept search changed. No upgrades were suggested.');
         addConceptRows(response.response.items,batch);
       }
@@ -290,9 +315,14 @@ export async function eaOperation(action, payload = {}) {
       const ids=[...new Set(groups.flatMap(group=>group.options||[]).map(option=>Number(option.definitionId)))];
       if(ids.length>528||ids.some(id=>!Number.isSafeInteger(id)||id<1))throw Error('The planned cards could not be verified.');
       const concepts=new Map();
-      for(let start=0;start<ids.length;start+=12){
-        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=ids.slice(start,start+12);criteria.count=100;criteria.offset=0;
-        const found=await observe(services.Item.searchConceptItems(criteria));
+      const cached=window.__futsbcTeamConceptCache;
+      if(action==='teamPlan'&&cached?.client===services&&cached.search===services.Item.searchConceptItems&&cached.scope===payload.fingerprint){
+        for(const id of ids){const row=cached.cards.get(id);if(row&&Date.now()-row.at<60_000)concepts.set(id,row.item);}
+      }
+      const uncached=ids.filter(id=>!concepts.has(id));
+      for(let start=0;start<uncached.length;start+=12){
+        const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=uncached.slice(start,start+12);criteria.count=100;criteria.offset=0;
+        const found=await teamConceptRows(criteria);
         if(!Array.isArray(found.response?.items))throw Error('EA concept search changed.');
         for(const item of found.response.items)if(item?.concept&&ids.includes(Number(item.definitionId)))concepts.set(Number(item.definitionId),item);
       }
@@ -300,7 +330,7 @@ export async function eaOperation(action, payload = {}) {
       for(let start=0;start<missing.length;start+=12){
         const batch=missing.slice(start,start+12);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=[...new Set(batch.map(id=>id%0x1000000))];criteria.count=100;criteria.offset=0;
-        const found=await observe(services.Item.searchConceptItems(criteria));
+        const found=await teamConceptRows(criteria);
         if(!Array.isArray(found.response?.items))throw Error('EA concept search changed.');
         for(const item of found.response.items)if(item?.concept&&batch.includes(Number(item.definitionId)))concepts.set(Number(item.definitionId),item);
       }

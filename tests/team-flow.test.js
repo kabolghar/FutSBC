@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async()=>{
+test('Team prices only proposed fallback cards and uses FUTBIN estimates without market searches',async(t)=>{
+  const realNow=Date.now;let now=realNow();Date.now=()=>now;t.after(()=>{Date.now=realNow;});
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
   const session={};let fingerprint='current',menuPick=false,rankingGap=false,broaderSwap=false,expandedSwap=false;
@@ -68,12 +69,13 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const ownedSearch=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:46000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
   assert.equal(ownedSearch.ok,true,ownedSearch.error);
   assert(ownedSearch.data.plan.choices.every(card=>card.metaRank===1&&!card.owned),'owned rank-30 cards must not stop pricing rank-1 alternatives');
-  assert.equal(calls.filter(call=>call.action==='teamQuote').length-ownedStart,2);
+  assert.equal(calls.filter(call=>call.action==='teamQuote').length-ownedStart,0,'changing budget reuses recent exact-card prices');
   ownedFallback=false;
   partialKnown=true;
   const allPositions=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:50000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));
   assert.equal(allPositions.data.plan.choices.length,2,'a known partial plan must not stop the search for all selected positions');
   partialKnown=false;
+  now+=6*60_000;
   failQuotes=true;
   const before=calls.filter(call=>call.action==='teamPlan').length;
   const limited=await new Promise(resolve=>listener({type:'teamRecommend',slots:[0,1],budget:49000},{id:'team-flow-test',url:'chrome-extension://team-flow-test/panel.html'},resolve));

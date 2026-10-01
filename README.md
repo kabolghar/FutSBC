@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.46**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.47**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -21,7 +21,7 @@ To update, replace the files in the installed folder, click **Reload** in the ex
 - **Team:** Select positions, choose a total budget, and build a proposed XI. A complete recommendation requires at least 30 chemistry, two chemistry per new player, and no chemistry loss for retained players. The search is bounded to checked candidates; source rank is not proof of the best possible team. This feature does not buy cards. **Add concept players to squad** inserts the reviewed suggestions as concepts and saves the squad after a fresh chemistry check; unchanged positions stay in place.
 - **Team swaps:** Use **Swap** beside a selected position in a completed plan. Alternatives show the full team cost and chemistry, hold your other suggestions fixed, and are rechecked when selected. Swaps update the recommendation only. Refresh after ten minutes or if your actual squad changes.
 - **Team coverage:** Sparse FUTBIN results use additional FUT.GG candidates automatically. The planner prioritizes covering all selected positions, reserves budget for remaining slots, and preserves affordable chemistry-link combinations. Provider outages and incompatible retained players can still prevent a complete result; the search is not an exhaustive proof that no team exists.
-- **Team progress:** The panel shows its current stage and card count. **Stop team check** stops after the current request. Recent quotes can be reused for five minutes for the same squad and budget in the same running worker. A first full check can take several minutes.
+- **Team progress:** The panel shows its current stage and card count. **Stop team check** stops after the current request. Recent exact-card quotes can be reused for five minutes across budget and squad edits in the same EA tab and running worker, when the quoted price fits the new budget. Read-only concept metadata is reused for one minute within the same squad; adding players always rechecks exact cards and ownership. FUTBIN squad comparisons overlap up to two page reads after a successful first read and stop new reads on throttling. First checks still depend on provider response times.
 - **Market:** Review sampled prices and conditional trade ideas. Optional Gemini notes interpret the collected evidence; they do not guarantee future prices or profits.
 - **Trader:** Optional automated bidding/listing. It is off until started. Read the displayed checks and limits before using it. Live auction transactions have not been verified in the release audit.
 
@@ -255,7 +255,7 @@ For bids up to 1,500 coins the minimum estimated net margin is the greater of 10
 The trader retains a local ledger of up to 500 listed wins across session resets. Once per minute while running, it checks the Transfer List by exact item identity. Only EA's explicit sold state and sale price establish realized profit, including negative outcomes. Missing or removed items remain unverified. Repeated losses, expired inventory and slower confirmed sales reduce a card's priority; three recorded sales with nonpositive aggregate profit exclude it until those outcomes age out of the seven-day window. The ledger does not automatically relist, collect, quick-sell or treat disappeared cards as sold.
 
 
-### Trading priorities and outcomes (v0.21.46)
+### Trading priorities and outcomes (v0.21.47)
 
 The trader ranks observed auction opportunities by estimated profit per coin and learned sale time. Shortlists use realized return per coin and observed turnover after at least three confirmed sales; unknown turnover uses a one-hour ranking baseline, not a prediction. The hunt scheduler favours cards without existing bids or pending inventory to spread exposure, while keeping the user's balance as the purchase ceiling.
 

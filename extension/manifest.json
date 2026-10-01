@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FutSBC \u00b7 FC 27 Console",
-  "version": "0.21.46",
+  "version": "0.21.47",
   "description": "Build FC 27 SBC squads, review conditional console trade plans, and find chemistry-safe team upgrades.",
   "permissions": [
     "storage",

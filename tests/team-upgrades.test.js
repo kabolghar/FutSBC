@@ -115,6 +115,21 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   delete window.__futsbcCancelledTeamRead;services.Item.searchConceptItems=conceptSearch;
   const result=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:12000,cards});
   assert.deepEqual(result.options.map(option=>option.assetId),[20]);
+  let cachedConceptCalls=0,freshClubCalls=0;
+  services.Item.searchConceptItems=criteria=>{cachedConceptCalls++;return conceptSearch(criteria);};
+  services.Club.search=criteria=>{freshClubCalls++;return clubSearch(criteria);};
+  const repeatPayload={slotIndex:0,fingerprint:snapshot.fingerprint,budget:12000,cards:[cards[0]]};
+  await eaOperation('teamEvaluate',repeatPayload);
+  await eaOperation('teamEvaluate',repeatPayload);
+  assert.equal(cachedConceptCalls,1,'repeat evaluation reuses concept metadata');
+  assert.equal(freshClubCalls,2,'ownership remains a fresh check');
+  const cachedPlanPayload={fingerprint:snapshot.fingerprint,budget:12000,groups:[{slotIndex:0,options:[{...result.options[0],price:1000,priceVerified:true}]}]};
+  await eaOperation('teamPlan',cachedPlanPayload);
+  assert.equal(cachedConceptCalls,1,'complete-team planning reuses evaluated exact definitions');
+  const realNow=Date.now;Date.now=()=>realNow()+61_000;
+  try{await eaOperation('teamPlan',cachedPlanPayload);}finally{Date.now=realNow;}
+  assert.equal(cachedConceptCalls,2,'expired metadata is fetched again');
+  services.Item.searchConceptItems=conceptSearch;services.Club.search=clubSearch;
   const empty=await eaOperation('teamEvaluate',{slotIndex:2,fingerprint:snapshot.fingerprint,budget:12000,cards:[{assetId:23,name:'New CM',url:'https://www.futbin.com/27/player/23/new-cm',price:10000,rating:81,futbinRating:84}]});
   assert.deepEqual(empty.options.map(option=>option.assetId),[23]);
   const ownedFit=await eaOperation('teamEvaluate',{slotIndex:0,fingerprint:snapshot.fingerprint,budget:0,cards:[{assetId:24,name:'Club striker',url:'https://www.futbin.com/27/player/24/club-striker',price:10000,rating:82,futbinRating:85}]});

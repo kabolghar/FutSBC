@@ -68,3 +68,33 @@ test('missing static card prices use rendered fallback',async()=>{
  setup(data);
  assert.equal((await readFutbinSquadBatch([squadURL],46)).results[0].fallback,true);
 });
+
+test('accessible squad reads overlap at most two requests and preserve input order',async()=>{
+  setup(fixture);
+  const urls=Array.from({length:5},(_,i)=>`https://www.futbin.com/27/squad/${100013678+i}/sbc`);
+  let active=0,peak=0,calls=0;
+  globalThis.fetch=async url=>{
+    calls++;active++;peak=Math.max(peak,active);
+    await new Promise(resolve=>setTimeout(resolve,5));active--;
+    return {ok:true,url,text:async()=>'<html><script data-react-data></script></html>'};
+  };
+  const batch=await readFutbinSquadBatch(urls,46);
+  assert.equal(peak,2);assert.equal(calls,5);
+  assert.deepEqual(batch.results.map(row=>row.url),urls);
+  assert(batch.results.every(row=>row.kind==='squad'));
+});
+
+test('overlapped throttle prevents subsequent reads beyond those already in flight',async()=>{
+  setup(fixture);
+  const urls=Array.from({length:6},(_,i)=>`https://www.futbin.com/27/squad/${100013678+i}/sbc`);
+  let calls=0;
+  globalThis.fetch=async url=>{
+    calls++;
+    if(url===urls[1])return {ok:false,status:429};
+    if(url===urls[2])await new Promise(resolve=>setTimeout(resolve,5));
+    return {ok:true,url,text:async()=>'<html><script data-react-data></script></html>'};
+  };
+  const batch=await readFutbinSquadBatch(urls,46);
+  assert.equal(calls,3);
+  assert(batch.results.slice(3).every(row=>row.fallback));
+});

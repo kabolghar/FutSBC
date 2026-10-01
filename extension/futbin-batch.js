@@ -50,14 +50,22 @@ export async function readFutbinSquadBatch(urls,expectedChallengeId){
     }catch(error){return {url:url.href,fallback:true,error:`FUTBIN page request failed: ${error.message}`};}
     finally{clearTimeout(timer);}
   };
-  const results=[];
-  let unavailable=false;
-  for(const url of urls){
-    // Stop the batch at a browser check or throttle instead of issuing a burst.
-    if(unavailable){results.push({url,fallback:true,error:'Waiting for normal page navigation.'});continue;}
-    const result=await readOne(url);
-    results.push(result);
-    unavailable=Boolean(result.verification);
-  }
+  const results=new Array(urls.length),completed=new Map();
+  let unavailable=false,cursor=0;
+  const readNext=async()=>{
+    const index=cursor++,url=urls[index];
+    if(unavailable){results[index]={url,fallback:true,error:'Waiting for normal page navigation.'};return;}
+    let pending=completed.get(url);
+    if(!pending){pending=readOne(url);completed.set(url,pending);}
+    const result=await pending;
+    results[index]=result;
+    if(result.verification)unavailable=true;
+  };
+  // Probe first. Once accessible, overlap at most two ordinary page reads.
+  // A throttle stops new reads; an already in-flight read can still finish.
+  if(urls.length)await readNext();
+  await Promise.all(Array.from({length:Math.max(0,Math.min(2,urls.length-1))},async()=>{
+    while(cursor<urls.length)await readNext();
+  }));
   return {kind:'batch',results};
 }

@@ -535,7 +535,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
   // optimistic only inside planning; never expose an unpriced lineup as affordable.
   const maxPriceChecks=Math.min(120,Math.max(24,selected.length*12));
   const quotes=new Map();let priceCheckedAt=null,cardsPriced=0,planned,pricingIncomplete=false;
-  const cachePrefix=JSON.stringify([tabId,team.fingerprint,total]);
+  const cachePrefix=JSON.stringify([tabId]);
   for(const result of results)result.options=result.options.map(option=>({...option,
     price:option.owned?0:option.estimatedPrice??option.price,
     priceEstimated:!option.owned&&Number.isSafeInteger(option.estimatedPrice??option.price)}));
@@ -544,7 +544,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[]){
     const groups=results.map(({slotIndex,options,locked})=>({slotIndex,allowRetained:!locked,options:options.flatMap(option=>{
       if(option.owned||option.priceEstimated)return [{...option,priceVerified:true}];
       const key=`${cachePrefix}:${option.definitionId}`,cached=teamQuoteCache.get(key);
-      if(cached&&Date.now()-cached.checkedAt<5*60_000)quotes.set(option.definitionId,cached.quote);
+      if(cached&&Date.now()-cached.checkedAt<5*60_000&&cached.quote.price!=null&&cached.quote.price<=total)quotes.set(option.definitionId,cached.quote);
       const quote=quotes.get(option.definitionId);
       if(quote)return Number.isSafeInteger(quote.price)?[{...option,price:quote.price,priceVerified:true}]:[];
       return [{...option,price:150,priceVerified:true,pricePending:true}];
