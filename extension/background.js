@@ -1,6 +1,8 @@
 import {discoverSbc} from './sbc-discovery.js';
 import {teamLinkPages,teamCandidatePool,linkedTeamOptions} from './team-links.js';
-import {researchTraderCards} from './trading-evidence.js';
+import {quickFlipCards,reconcileSales} from './trader-performance.js';
+const SALES_KEY='futsbc-trader-sales-v1';
+const salesLedger=async()=> (await chrome.storage.local.get(SALES_KEY))[SALES_KEY]||[];
 import {getConsoleEstimates} from './team-prices.js';
 import {isEaWebAppURL,findEaTabs} from './ea-url.js';
 import {resumeComparison} from './sbc-checkpoint.js';
@@ -695,17 +697,10 @@ async function swapTeamSuggestion(message){
   const result={...saved,allowChemistryTradeoff:true,planId:crypto.randomUUID(),team,plan,totalBudget:budget,combinationsChecked:checked.combinationsChecked};
   await chrome.storage.session.set({'futsbc-team-plan':result});return result;
 }
-async function trendRankedTraderCards(pages,balance){
+async function quickFlipTraderCards(pages,balance){
   const eligible=selectMarketCards(pages,balance,Date.now(),350);
   if(!eligible.length)return [];
-  const saved=await insightsState();
-  const {snapshot,history}=recordMarketSnapshot(saved.history,pages);
-  await saveInsights({...saved,history});
-  const news=await collectFutbinNews();
-  const preliminary=buildMarketBrief(snapshot,history,balance,news.headlines);
-  let signals={};try{signals=await tradingSignals(preliminary.candidates.slice(0,8));}catch{}
-  const brief=buildMarketBrief(snapshot,history,balance,news.headlines,Date.now(),signals);
-  return researchTraderCards(eligible,brief);
+  return quickFlipCards(eligible,await salesLedger());
 }
 const HUNT_INTERVAL_MS=20_000;
 const WATCH_INTERVAL_MS=8_000;
@@ -729,6 +724,16 @@ async function runAutoTrade(){
     let activeBids=Array.isArray(session.activeBids)?session.activeBids:(session.activeBid?[session.activeBid]:[]);
     session={...session,activeBids,activeBid:null,lastBalance:current.balance};
     await saveTrade(session);
+    if(!session.lastInventoryAt||Date.now()-session.lastInventoryAt>=60_000){
+      const ledger=await salesLedger(),pending=ledger.filter(record=>!record.soldAt);
+      if(pending.length){
+        const inventory=await ea(session.tabId,'tradeInventory',{records:pending},TRADE_REQUEST_TIMEOUT);
+        const nextLedger=reconcileSales(ledger,inventory.updates||[]);
+        await chrome.storage.local.set({[SALES_KEY]:nextLedger});
+        session={...session,realizedProfit:nextLedger.filter(record=>record.soldAt).reduce((sum,record)=>sum+record.profit,0),unsoldCards:nextLedger.filter(record=>!record.soldAt).length};
+      }
+      session={...session,lastInventoryAt:Date.now()};await saveTrade(session);
+    }
     if(activeBids.length){
       await saveTrade({...session,inFlight:true,inFlightAt:Date.now(),candidate:{name:`${activeBids.length} watched auction(s)`},status:`Checking ${activeBids.length} Transfer Target(s)…`});
       const watched=await ea(session.tabId,'tradeWatchBatch',{orders:activeBids},TRADE_REQUEST_TIMEOUT);
@@ -743,13 +748,20 @@ async function runAutoTrade(){
           remaining.push({...order,...update,lastBid:update.bid??order.lastBid});
         }else if(update.phase==='listed'){
           if(!order.winAccounted){wonCount++;spent+=update.paid;}
-          finished.push({name:order.name,definitionId:order.definitionId,buy:update.paid,sell:update.sell,purchased:true,listed:true,at:Date.now()});
+          finished.push({name:order.name,definitionId:order.definitionId,itemId:update.itemId,tradeId:order.tradeId,buy:update.paid,sell:update.sell,purchased:true,listed:true,at:Date.now()});
         }else if(['missing-watch','won-unlisted','error'].includes(update.phase)){
           const winAccounted=order.winAccounted||update.phase==='won-unlisted'&&Number.isSafeInteger(update.paid);
           remaining.push({...order,...update,winAccounted});
           if(winAccounted&&!order.winAccounted){wonCount++;spent+=update.paid;}
           review=review||update.warning||`Could not verify ${order.name} in Transfer Targets. Check EA before restarting.`;
         }
+      }
+      if(finished.length){
+        const ledger=await salesLedger();
+        for(const record of finished){
+          if(record.itemId&&!ledger.some(saved=>saved.tradeId===record.tradeId))ledger.push({...record,listedAt:record.at,state:'selling'});
+        }
+        await chrome.storage.local.set({[SALES_KEY]:ledger.slice(-500)});
       }
       activeBids=remaining;
       session={...session,activeBids,inFlight:false,inFlightAt:null,candidate:null,watchFailures:0,lastBalance:watched.balance,spent:(session.spent||0)+spent,completedTrades:(session.completedTrades||0)+wonCount,history:[...finished,...(session.history||[])].slice(0,25),lastTrade:finished[0]||session.lastTrade};
@@ -788,19 +800,19 @@ async function runAutoTrade(){
       armTrade(nextAt);return;
     }
     let evidence=session.marketEvidence;
-    if(!Array.isArray(evidence?.cards)||!evidence.cards.length||evidence.researchVersion!==2||now-evidence.checkedAt>60_000){
+    if(!Array.isArray(evidence?.cards)||!evidence.cards.length||evidence.researchVersion!==3||now-evidence.checkedAt>60_000){
       await saveTrade({...session,inFlight:true,inFlightAt:now,candidate:null,status:'Refreshing FUTBIN console prices…'});
       const futbinTabId=await marketTab(session);
       const market=await collectFutbinMarket(futbinTabId,current.balance);
-      const cards=await trendRankedTraderCards(market.pages,current.balance);
-      evidence={checkedAt:Date.now(),sourceURL:market.pages.at(-1)?.url,rows:market.pages.reduce((sum,page)=>sum+page.rowCount,0),researchVersion:2,shortlisted:cards.length,bands:market.pages.length,assetId:cards[0]?.assetId??null,cards};
+      const cards=await quickFlipTraderCards(market.pages,current.balance);
+      evidence={checkedAt:Date.now(),sourceURL:market.pages.at(-1)?.url,rows:market.pages.reduce((sum,page)=>sum+page.rowCount,0),researchVersion:3,shortlisted:cards.length,bands:market.pages.length,assetId:cards[0]?.assetId??null,cards};
       session={...await tradeState(),futbinTabId,marketEvidence:evidence,inFlight:false,inFlightAt:null};
       await saveTrade(session);
       if(!session.enabled)return;
     }
     if(!evidence.cards.length){
       const nextAt=Date.now()+HUNT_INTERVAL_MS;
-      await saveTrade({...session,lastHuntAt:Date.now(),nextAt,status:`Checked ${evidence.rows} FUTBIN rows; no card has sufficient price history, community demand and current news coverage for a new bid.`});
+      await saveTrade({...session,lastHuntAt:Date.now(),nextAt,status:`Checked ${evidence.rows} FUTBIN rows; no basic card had sufficiently fresh, stable price estimates for a quick-flip check.`});
       armTrade(nextAt);return;
     }
     const card=evidence.cards[(session.huntIndex||0)%evidence.cards.length];

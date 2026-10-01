@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.44**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.45**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -244,3 +244,12 @@ Each shortlisted card keeps its own auction-page cursor instead of repeatedly se
 New orders keep their initial profit-based bid ceiling as well as the research ceiling. Rebids stop when research is more than five minutes old, the available balance is insufficient, or the next bid would reach buy-now. These checks run before another price search. Won cards still receive a fresh resale check. An exact-card mismatch pauses the trader for review; authentication and rate-limit errors during targeting stop the hunt rather than being silently skipped.
 
 Profit remains an estimate after the 5% market fee, not a guarantee of a completed sale. This update does not bypass EA request restrictions.
+
+
+### Quick auction flips (v0.21.45)
+
+Auction trading now uses a separate quick-flip shortlist, independent of the Market tab's investment recommendations. Basic cards require recent FUTBIN estimates (at most two minutes old), an absolute trend no greater than 5%, and close agreement with the supplied EA average. The final trade still needs five distinct active exact-card listings. These are asking prices, not evidence of demand or a low-risk classification.
+
+For bids up to 1,500 coins the minimum estimated net margin is the greater of 10 coins and 2% of the bid; above that it is 50 coins or 4%. Existing orders retain their previous strategy and original ceiling. Verified auction comparables can be reused for 30 seconds without resetting their age; listing a won card always checks fresh resale prices.
+
+The trader retains a local ledger of up to 500 listed wins across session resets. Once per minute while running, it checks the Transfer List by exact item identity. Only EA's explicit sold state and sale price establish realized profit, including negative outcomes. Missing or removed items remain unverified. Repeated losses, expired inventory and slower confirmed sales reduce a card's priority; three recorded sales with nonpositive aggregate profit exclude it until those outcomes age out of the seven-day window. The ledger does not automatically relist, collect, quick-sell or treat disappeared cards as sold.

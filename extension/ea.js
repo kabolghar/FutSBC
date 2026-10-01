@@ -243,18 +243,24 @@ export async function eaOperation(action, payload = {}) {
     const tick=price=>price<1000?50:price<10000?100:price<50000?250:price<100000?500:1000;
     const floorPrice=price=>Math.floor(price/tick(price))*tick(price);
     const previousPrice=price=>Math.max(150,floorPrice(price-1));
-    const quote=(rows,definitionId,tradeId,futbinPrice,buy)=>{
+    const quotePrices=(values,futbinPrice,buy,strategy=null)=>{
+      const prices=values.filter(price=>Number.isSafeInteger(price)&&price>=150).sort((a,b)=>a-b);
+      if(prices.length<5)return null;
+      const reference=prices[0],sell=Math.min(previousPrice(reference),floorPrice(futbinPrice));
+      const minimumProfit=strategy==='quick-flip'?Math.max(buy<=1500?10:50,Math.ceil(buy*(buy<=1500 ? .02 : .04))):Math.max(200,Math.ceil(buy*.08/50)*50);
+      const profit=Math.floor(sell*.95)-buy;
+      return sell>buy&&profit>=minimumProfit?{sell,reference,profit,minimumProfit,comparables:prices.slice(0,5)}:null;
+    };
+    const quote=(rows,definitionId,tradeId,futbinPrice,buy,strategy=null)=>{
       const unique=new Map();
       for(const row of rows){
         const data=auction(row),id=String(data?.tradeId||'');
         if(Number(row.definitionId)===definitionId&&/^\d+$/.test(id)&&id!==String(tradeId)&&Number(data?.getSecondsRemaining?.())>0)unique.set(id,row);
       }
       const prices=[...unique.values()].map(row=>Number(auction(row)?.buyNowPrice)).filter(price=>Number.isSafeInteger(price)&&price>=150).sort((a,b)=>a-b);
-      if(prices.length<5)return null;
-      const reference=prices[0],sell=Math.min(previousPrice(reference),floorPrice(futbinPrice));
-      const minimumProfit=Math.max(200,Math.ceil(buy*.08/50)*50);
-      const profit=Math.floor(sell*.95)-buy;
-      return sell>buy&&profit>=minimumProfit?{sell,reference,profit,minimumProfit,comparables:prices.slice(0,5)}:null;
+      const offer=quotePrices(prices,futbinPrice,buy,strategy);
+      const lifetime=Math.min(30,...[...unique.values()].map(row=>Number(auction(row)?.getSecondsRemaining?.())));
+      return offer?{...offer,quoteValidUntil:Date.now()+Math.max(0,lifetime)*1000}:null;
     };
     if(action==='teamQuote'){
       const {players}=activeTeam();
@@ -447,6 +453,22 @@ export async function eaOperation(action, payload = {}) {
       }
       return {ok:true,rejections,alternatives:[...alternatives.values()].sort(compare).slice(0,30).map(plan=>({...plan,remaining:limit-plan.cost})),progressPlan:!best&&progress?{...progress,remaining:limit-progress.cost,baselineChemistry:Number(baseline.chemistry),targetChemistry:minimumChemistry}:null,plan:best?{...best,remaining:limit-best.cost,baselineChemistry:Number(baseline.chemistry)}:null,reason:best?null:`No checked team meets ${minimumChemistry} chemistry, at least two chemistry for new cards, and your budget without reducing retained players’ chemistry. Try a larger budget or include existing players among the positions to replace.`,combinationsChecked:checked};
     }
+    if(action==='tradeInventory'){
+      if(typeof services.Item.requestTransferItems!=='function')return {ok:true,updates:[],unavailable:true};
+      const result=await observe(services.Item.requestTransferItems());
+      const rows=watchedItems(result);
+      if(!rows)throw Error('EA did not return the Transfer List.');
+      const records=Array.isArray(payload.records)?payload.records:[];
+      const byItem=new Map(rows.map(item=>[String(item.id),item]));
+      const updates=records.map(record=>{
+        const item=byItem.get(String(record.itemId)),data=auction(item);
+        if(!item||Number(item.definitionId)!==record.definitionId)return {itemId:record.itemId,definitionId:record.definitionId,phase:'unverified'};
+        const sold=data?.isSold?.()===true;
+        const sale=Number(data?.currentBid);
+        return {itemId:record.itemId,definitionId:record.definitionId,phase:sold&&Number.isSafeInteger(sale)&&sale>=150?'sold':data?.isExpired?.()?'expired':data?.isSelling?.()?'selling':'unverified',sale:sold?sale:null};
+      });
+      return {ok:true,updates};
+    }
     if(action==='tradeStatus') {
       const balance=coinBalance();
       if(!Number.isSafeInteger(balance)||balance<0) throw Error('EA did not provide a coin balance.');
@@ -592,7 +614,7 @@ export async function eaOperation(action, payload = {}) {
         const seconds=Number(data?.getSecondsRemaining?.());
         const bid=Number(data?.currentBid)>0?UTCurrencyInputControl.getIncrementAboveVal(Number(data.currentBid)):Number(data?.startingBid);
         if(!item?.isPlayer?.()||base!==card.assetId||Number(item.rareflag??0)>1||known.has(String(data?.tradeId))||!Number.isFinite(seconds)||seconds<8||seconds>180||!Number.isSafeInteger(bid)||bid<150||bid>balance||bid>=card.consolePrice*.9||Number.isSafeInteger(card.researchBidCeiling)&&bid>card.researchBidCeiling||data?.buyNowPrice>0&&bid>=data.buyNowPrice||!data?.canBid?.(bid,balance))continue;
-        const offer=quote(rows,Number(item.definitionId),data.tradeId,card.consolePrice,bid);
+        const offer=quote(rows,Number(item.definitionId),data.tradeId,card.consolePrice,bid,card.marginStrategy);
         if(offer)candidates.push({item,bid,seconds,offer});
       }
       candidates.sort((a,b)=>b.offer.profit-a.offer.profit||a.seconds-b.seconds);
@@ -602,7 +624,7 @@ export async function eaOperation(action, payload = {}) {
         if(bids.length>=capacity)break;
         const {item,bid,seconds,offer}=candidate,data=auction(item),available=Math.min(coinBalance(),uncommitted);
         if(!Number.isSafeInteger(available)||bid>available||!data?.canBid?.(bid,available))continue;
-        const order={name:String(item.name||item.commonName||item.lastName||card.name||`Card ${item.definitionId}`),definitionId:Number(item.definitionId),tradeId:String(data.tradeId),sell:offer.sell,reference:offer.reference,futbinPrice:card.consolePrice,futbinURL:card.url,quoteAt:Date.now(),lastBid:bid,seconds,misses:0,researchAt:card.checkedAt,researchBidCeiling:card.researchBidCeiling,bidCeiling:Math.min(Number.isSafeInteger(card.researchBidCeiling)?card.researchBidCeiling:Infinity,Math.floor(offer.sell*.95)-offer.minimumProfit)};
+        const order={name:String(item.name||item.commonName||item.lastName||card.name||`Card ${item.definitionId}`),definitionId:Number(item.definitionId),tradeId:String(data.tradeId),sell:offer.sell,quoteValidUntil:offer.quoteValidUntil,comparables:offer.comparables,reference:offer.reference,futbinPrice:card.consolePrice,futbinURL:card.url,quoteAt:Date.now(),lastBid:bid,seconds,misses:0,marginStrategy:card.marginStrategy,researchAt:card.checkedAt,researchBidCeiling:card.researchBidCeiling,bidCeiling:Math.min(Number.isSafeInteger(card.researchBidCeiling)?card.researchBidCeiling:Infinity,Math.floor(offer.sell*.95)-offer.minimumProfit)};
         try{await observe(services.Item.target(item));known.add(order.tradeId);}
         catch(error){if([401,429].includes(Number(error.status)))return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,nextPage,halt:{status:Number(error.status),error:error.message}};continue;}
         const balanceBeforeBid=coinBalance();
@@ -652,11 +674,11 @@ export async function eaOperation(action, payload = {}) {
           try{
             let result=fresh.get(order.definitionId);
             if(!result){result=await searchMarket(marketCriteria(order.definitionId));fresh.set(order.definitionId,result);}
-            const offer=quote(result.data?.items||[],order.definitionId,order.tradeId,order.futbinPrice,paid);
+            const offer=quote(result.data?.items||[],order.definitionId,order.tradeId,order.futbinPrice,paid,order.marginStrategy);
             if(!offer){updates.push({tradeId:order.tradeId,phase:'won-unlisted',paid,warning:`Won ${order.name}, but no current profitable sale price was verified. Check New Items.`});continue;}
             if(!item.hasPriceLimits?.()&&typeof services.Item.requestMarketData==='function')await observe(services.Item.requestMarketData(item));
             await observe(services.Item.list(item,previousPrice(offer.sell),offer.sell,3600));
-            updates.push({tradeId:order.tradeId,phase:'listed',paid,sell:offer.sell});
+            updates.push({tradeId:order.tradeId,phase:'listed',paid,sell:offer.sell,itemId:String(item.id||''),definitionId:order.definitionId});
           }catch(error){updates.push({tradeId:order.tradeId,phase:'won-unlisted',paid,warning:`Won ${order.name}, but listing failed: ${error.message} Check New Items.`});}
           continue;
         }
@@ -672,11 +694,12 @@ export async function eaOperation(action, payload = {}) {
         }
         let result=fresh.get(order.definitionId);
         try{
-          if(!result){result=await searchMarket(marketCriteria(order.definitionId));fresh.set(order.definitionId,result);}
-          const offer=quote(result.data?.items||[],order.definitionId,order.tradeId,order.futbinPrice,nextBid);
+          const cached=!result&&Number.isSafeInteger(order.quoteAt)&&Date.now()>=order.quoteAt&&Date.now()-order.quoteAt<=30_000&&Number.isFinite(order.quoteValidUntil)&&Date.now()<order.quoteValidUntil&&Array.isArray(order.comparables)&&order.comparables.length>=5;
+          if(!result&&!cached){result=await searchMarket(marketCriteria(order.definitionId));fresh.set(order.definitionId,result);}
+          const offer=cached?quotePrices(order.comparables,order.futbinPrice,nextBid,order.marginStrategy):quote(result.data?.items||[],order.definitionId,order.tradeId,order.futbinPrice,nextBid,order.marginStrategy);
           const available=coinBalance();
           if(!offer||!Number.isSafeInteger(nextBid)||nextBid<150||nextBid>available||Number.isSafeInteger(order.bidCeiling)&&nextBid>order.bidCeiling||Number.isSafeInteger(order.researchBidCeiling)&&nextBid>order.researchBidCeiling||!data?.canBid?.(nextBid,available))updates.push({tradeId:order.tradeId,phase:'outbid-cap'});
-          else{await observe(services.Item.bid(item,nextBid));updates.push({tradeId:order.tradeId,phase:'bid',bid:nextBid,sell:offer.sell,reference:offer.reference,seconds,quoteAt:Date.now(),misses:0});}
+          else{await observe(services.Item.bid(item,nextBid));updates.push({tradeId:order.tradeId,phase:'bid',bid:nextBid,sell:offer.sell,reference:offer.reference,quoteValidUntil:cached?order.quoteValidUntil:offer.quoteValidUntil,comparables:offer.comparables,seconds,quoteAt:cached?order.quoteAt:Date.now(),misses:0});}
         }catch(error){updates.push({tradeId:order.tradeId,phase:'error',warning:`Could not verify the next bid on ${order.name}: ${error.message}`});}
       }
       return {ok:true,balance:coinBalance(),updates,watched:rows.length};

@@ -393,3 +393,35 @@ test('an auction rebid cannot accidentally become a buy-now purchase',async()=>{
   assert.equal(market.bids,0);
   assert.equal(market.searches.length,0);
 });
+
+test('quick flips accept small net margins only with five exact live comparables',async()=>{
+ const market=setupMarket({auctionMode:true,comparablePrices:[850,900,950,1000,1050]});market.outbid(650);
+ const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:10,name:'Player',lastBid:600,futbinPrice:800,marginStrategy:'quick-flip'}]});
+ assert.equal(result.updates[0].phase,'bid');assert.equal(result.updates[0].bid,700);assert.equal(result.updates[0].sell,800);
+});
+
+test('verified auction quotes expire without extending their age on cached rebids',async()=>{
+ for(const age of [10000,31000]){
+  const market=setupMarket({auctionMode:true,comparablePrices:[1500,1550,1600,1650,1700]});
+  const quoteAt=Date.now()-age;
+  const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:10,name:'Player',lastBid:850,futbinPrice:1600,quoteAt,quoteValidUntil:quoteAt+30000,comparables:[1500,1550,1600,1650,1700]}]});
+  assert.equal(result.updates[0].phase,'bid');
+  assert.equal(market.searches.length,age<30000?0:1);
+  if(age<30000)assert.equal(result.updates[0].quoteAt,quoteAt);
+ }
+});
+
+test('transfer list reconciliation uses immutable item identity and explicit sold state',async()=>{
+ setupMarket();
+ const obs=result=>({observe(owner,fn){queueMicrotask(()=>fn(this,result));},unobserve(){}});
+ services.Item.requestTransferItems=()=>obs({success:true,response:{items:[{id:'7',definitionId:10,getAuctionData:()=>({isSold:()=>true,currentBid:800})}]}});
+ const result=await eaOperation('tradeInventory',{records:[{itemId:'7',definitionId:10},{itemId:'8',definitionId:10}]});
+ assert.equal(result.updates[0].phase,'sold');assert.equal(result.updates[0].sale,800);assert.equal(result.updates[1].phase,'unverified');
+});
+
+
+test('cached auction prices stop being usable when their underlying auctions expire',async()=>{
+ const market=setupMarket({auctionMode:true,comparablePrices:[1500,1550,1600,1650,1700]});
+ const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:10,name:'Player',lastBid:850,futbinPrice:1600,quoteAt:Date.now()-1000,quoteValidUntil:Date.now()-1,comparables:[1500,1550,1600,1650,1700]}]});
+ assert.equal(result.updates[0].phase,'bid');assert.equal(market.searches.length,1);
+});
