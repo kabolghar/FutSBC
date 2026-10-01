@@ -44,3 +44,20 @@ test('finish settings and an owned-card swap send rating limits and exclusions',
   assert.equal(dom.window.sent.type,'repairBuild');assert.deepEqual([...dom.window.sent.extra.excludedDefinitionIds],[102,101]);
  }finally{dom.window.close();}
 });
+
+test('points UI presents remaining score and owned selection without traditional shopping',async()=>{
+ const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
+ const script='const renderPortfolio=()=>{};\n'+(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import .*\n/gm,'');
+ const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
+ try{
+  dom.window.eval(script+`\nstate={challenge:{id:7,name:'Score challenge',kind:'points',submitted:500,target:2500,slots:[]},pointsPlan:{score:1800,target:2000,shortfall:200,excess:0,checked:12,players:[{itemId:'1',definitionId:1,name:'Selected card',rating:80,score:1800}]}};run=async(type,extra)=>{window.sent={type,extra};};render();`);
+  const doc=dom.window.document;
+  assert.equal(doc.getElementById('points-result').hidden,false);
+  assert.match(doc.getElementById('points-summary').textContent,/200 still needed/);
+  assert.equal(doc.getElementById('result').hidden,true);
+  assert.equal(doc.getElementById('sbc-source-options').hidden,true);
+  assert.equal(doc.getElementById('repair-rating').value,'82');
+  doc.querySelector('#points-players button').click();assert.equal(dom.window.sent.type,'pointsBuild');assert.deepEqual([...dom.window.sent.extra.excludedDefinitionIds],[1]);
+  doc.getElementById('compare').click();assert.equal(dom.window.sent.type,'build');assert.equal(dom.window.sent.extra.maxRating,82);
+ }finally{dom.window.close();}
+});

@@ -1103,7 +1103,7 @@ async function dispatch(message) {
   }
   const buySession=await rawSbcBuy();
   if(buySession.enabled||sbcBuying)throw Error('Stop SBC buying before changing the squad or starting another action.');
-  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','repairBuild','complete','reset'].includes(message.type))throw Error('A previous purchase needs review. Check EA New Items and your club, then use Clear buying session on the SBC screen.');
+  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','repairBuild','pointsBuild','complete','reset'].includes(message.type))throw Error('A previous purchase needs review. Check EA New Items and your club, then use Clear buying session on the SBC screen.');
   if(message.type==='swapOptions'){
     if((await tradeState()).enabled||tradingBusy)throw Error('Stop the trader before checking SBC swaps.');
     const session=await state();
@@ -1165,6 +1165,16 @@ async function dispatch(message) {
   if(message.type==='swapDismiss'){
     const session=await state();const next={...session,swapOptions:null};await save(next);return next;
   }
+  if(message.type==='pointsBuild'){
+    if(tradingBusy||(await rawTradeState()).enabled)throw Error('Stop trading before selecting SBC cards.');
+    await dispatch({type:'connect'});const current=await state();
+    if(current.challenge?.kind!=='points')throw Error('Open the points SBC Work Area first.');
+    const run={id:crypto.randomUUID(),tabId:current.tabId};activeSbcBuild=run;
+    await save({...current,sbcBuildRunning:true,progress:'Checking eligible Item Scores…'});
+    let polling=false;const timer=setInterval(async()=>{if(polling||activeSbcBuild!==run)return;polling=true;try{const result=await chrome.scripting.executeScript({target:{tabId:run.tabId},world:'MAIN',func:function sbcBuildProgress(id){return window.__futsbcSbcBuildProgress?.id===id?window.__futsbcSbcBuildProgress.status:null;},args:[run.id]});if(activeSbcBuild===run&&typeof result[0]?.result==='string')await save({...await state(),progress:result[0].result});}catch{}finally{polling=false;}},1000);
+    try{const result=await ea(current.tabId,'sbcPointsBuild',{fingerprint:current.challenge.fingerprint,sbcBuildToken:run.id,maxRating:message.maxRating??82,excludedDefinitionIds:message.excludedDefinitionIds||[]},SBC_REQUEST_TIMEOUT);const next={...await state(),challenge:result.challenge,pointsPlan:result,sbcBuildRunning:false,repairSettings:{challengeId:current.challenge.id,maxRating:message.maxRating??82,excludedDefinitionIds:message.excludedDefinitionIds||[],excludedCards:[...(current.repairSettings?.excludedCards||[]),...(current.pointsPlan?.players||[])].filter(card=>(message.excludedDefinitionIds||[]).includes(card.definitionId))},plan:null,progress:null};await save(next);return next;}
+    finally{activeSbcBuild=null;clearInterval(timer);await save({...await state(),sbcBuildRunning:false,progress:null});}
+  }
   if(message.type==='clubBuild'||message.type==='hybridBuild'||message.type==='repairBuild'){
     const repair=message.type==='repairBuild',hybrid=repair||message.type==='hybridBuild';
     if(tradingBusy||(await rawTradeState()).enabled)throw Error('Stop trading before building an SBC from your club.');
@@ -1196,6 +1206,7 @@ async function dispatch(message) {
   }
   if(message.type==='build') {
     await dispatch({type:'connect'});
+    if((await state()).challenge?.kind==='points')return dispatch({type:'pointsBuild',maxRating:message.maxRating,excludedDefinitionIds:message.excludedDefinitionIds});
     try{await dispatch({type:'compare',url:message.url,mode:message.mode});}
     catch(error){
       if(!error.sbcUnavailable||String(message.url||'').trim())throw error;
@@ -1217,7 +1228,7 @@ async function dispatch(message) {
     const tabs=await findEaTabs(chrome.tabs);
     let lastError='Open the FC 27 Web App and an SBC squad first.';
     for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))) {
-      try {const result=await ea(tab.id,'status');const s=await state();const unchanged=s.tabId===tab.id&&s.challenge?.id===result.challenge.id&&s.challenge?.fingerprint===result.challenge.fingerprint;const next=unchanged?{...s,challenge:result.challenge}:{...s,tabId:tab.id,challenge:result.challenge,plan:null,resolved:null,alternatives:[],listedSolutions:[],incompleteSolutions:[],swapOptions:null,checkout:null,inserted:false,approved:false};await save(next);return next;}catch(e){lastError=e.message;}
+      try {const result=await ea(tab.id,'status');const s=await state();const unchanged=s.tabId===tab.id&&s.challenge?.id===result.challenge.id&&s.challenge?.fingerprint===result.challenge.fingerprint;const next=unchanged?{...s,challenge:result.challenge}:{...s,tabId:tab.id,challenge:result.challenge,pointsPlan:null,plan:null,resolved:null,alternatives:[],listedSolutions:[],incompleteSolutions:[],swapOptions:null,checkout:null,inserted:false,approved:false};await save(next);return next;}catch(e){lastError=e.message;}
     }
     throw Error(lastError);
   }

@@ -93,14 +93,15 @@ async function run(type,extra={}) {
 function render() {
   renderBuyRecovery();
   renderRepairSettings();
+  renderPoints();
   $('sbc-build-stop').hidden=!state.sbcBuildRunning;
   $('sbc-build-stop').disabled=state.progress==='Saving the verified squad…';
   document.documentElement.classList.toggle('has-result',activeView==='sbc'&&!!state.plan);
   $('challenge').textContent=state.challenge?.name||'Choose a challenge';
-  $('sbc-visual').hidden=!!state.plan;
-  $('formation').textContent=state.challenge?`${state.challenge.formation||'SBC'} · #${state.challenge.id}`:'Open an SBC in EA.';
+  $('sbc-visual').hidden=!!state.plan||state.challenge?.kind==='points'&&!!state.pointsPlan;
+  $('formation').textContent=state.challenge?.kind==='points'?`${fmt(state.challenge.submitted)} / ${fmt(state.challenge.target)} Item Score`:state.challenge?`${state.challenge.formation||'SBC'} · #${state.challenge.id}`:'Open an SBC in EA.';
   for(const id of ['connect','compare','club-build','hybrid-build','repair-build','repair-rating','source','reset'])$(id).disabled=busy;
-  $('compare').firstElementChild.textContent=state.plan?'Find another squad':'Build this SBC';
+  $('compare').firstElementChild.textContent=state.challenge?.kind==='points'?'Select scoring cards':state.plan?'Find another squad':'Build this SBC';
   $('result').hidden=!state.plan;
   if(!state.plan){$('swap-panel').hidden=true;$('buy-section').hidden=true;reportSize();return;}
   const p=state.plan;
@@ -138,15 +139,36 @@ function render() {
   renderSbcBuy();
   reportSize();
 }
+function renderPoints(){
+  const points=state.challenge?.kind==='points',plan=points?state.pointsPlan:null;
+  $('repair-build').hidden=points;$('sbc-source-options').hidden=points;
+  $('repair-help').textContent=points?'Select eligible club and Storage cards by Item Score. Active-squad cards, favorites, loans, evolutions and specials stay protected.':'Keep your cards. Fill gaps first; change as few cards as needed. Club cards first, then cheap market concepts.';
+  $('points-result').hidden=!plan;
+  if(!plan)return;
+  $('sbc-visual').hidden=true;
+  $('points-total').textContent=`${fmt(plan.score)} / ${fmt(plan.target)}`;
+  $('points-count').textContent=`${plan.players.length} cards selected`;
+  $('points-summary').textContent=plan.shortfall?`${fmt(plan.shortfall)} still needed · this is a partial batch`:`${fmt(plan.excess)} excess · ${plan.checked} eligible cards checked`;
+  $('points-players').replaceChildren();
+  for(const player of plan.players){
+    const row=document.createElement('div');row.className='player';
+    const main=document.createElement('div');main.className='player-main';
+    const art=cardArtElement('player-art',player.rating,'',Number(player.definitionId)%0x1000000,player.definitionId,player.name);
+    const name=document.createElement('div');name.className='player-name';name.textContent=player.name;
+    const score=document.createElement('span');score.className='player-price';score.textContent=`${fmt(player.score)} pts`;
+    const swap=document.createElement('button');swap.type='button';swap.className='icon-button';swap.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg>';swap.setAttribute('aria-label',`Leave out ${player.name}`);swap.title='Leave this card out and reselect';swap.disabled=busy;swap.onclick=()=>{const settings=repairSettings();settings.excludedDefinitionIds=[...new Set([...settings.excludedDefinitionIds,player.definitionId])];state.repairSettings={...settings,challengeId:state.challenge.id,excludedCards:[...(state.repairSettings?.excludedCards||[]),player]};run('pointsBuild',settings);};
+    main.append(art,name,score);row.append(main,swap);$('points-players').append(row);
+  }
+}
 function repairSettings(){
   const saved=state.repairSettings&&state.repairSettings.challengeId===state.challenge?.id?state.repairSettings:{};
   return {maxRating:Number($('repair-rating').value),excludedDefinitionIds:[...(saved.excludedDefinitionIds||[])]};
 }
 function renderRepairSettings(){
   const saved=state.repairSettings&&state.repairSettings.challengeId===state.challenge?.id?state.repairSettings:{};
-  $('repair-rating').value=saved.maxRating??99;
+  $('repair-rating').value=saved.maxRating??(state.challenge?.kind==='points'?82:99);
   const excluded=new Set(saved.excludedDefinitionIds||[]);
-  const cards=new Map([...(saved.excludedCards||[]),...(state.challenge?.slots||[]).filter(card=>card.definitionId>0)].map(card=>[card.definitionId,card]));
+  const cards=new Map([...(saved.excludedCards||[]),...(state.pointsPlan?.players||[]),...(state.challenge?.slots||[]).filter(card=>card.definitionId>0)].map(card=>[card.definitionId,card]));
   $('repair-exclusions').replaceChildren();$('repair-exclusions-empty').hidden=cards.size>0;
   for(const card of cards.values()){
     const label=document.createElement('label');label.className='sbc-exclude-card';
@@ -649,7 +671,7 @@ $('repair-build').onclick=()=>run('repairBuild',repairSettings());
 $('repair-rating').onchange=()=>{state.repairSettings={...state.repairSettings,challengeId:state.challenge?.id,...repairSettings()};};
 $('hybrid-build').onclick=()=>run('hybridBuild');
 $('club-build').onclick=()=>run('clubBuild');
-$('connect').onclick=()=>run('connect');$('compare').onclick=()=>run('build',{url:$('source').value.trim()});$('complete').onclick=()=>run('complete',state.resolved&&!state.inserted?{mapping:[...mapping]}:{});$('reset').onclick=()=>run('reset');
+$('connect').onclick=()=>run('connect');$('compare').onclick=()=>run('build',{...repairSettings(),url:$('source').value.trim()});$('complete').onclick=()=>run('complete',state.resolved&&!state.inserted?{mapping:[...mapping]}:{});$('reset').onclick=()=>run('reset');
 $('swap-close').onclick=()=>run('swapDismiss');
 $('price-check').onclick=()=>run('sbcPrepare');
 for(const [id,type] of [['buy-recovery-clear','sbcBuyReset'],['buy-recovery-stop','sbcBuyStop'],['buy-start','sbcBuyStart'],['buy-stop','sbcBuyStop'],['buy-reset','sbcBuyReset']])$(id).onclick=async()=>{if(buyPending)return;buyPending=true;render();try{buy=await call(type);if(type==='sbcBuyReset')state=await call('state');notice('');}catch(error){if(!recovering)notice(error.message,true);}finally{buyPending=false;render();}};

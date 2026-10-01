@@ -73,6 +73,71 @@ export async function eaOperation(action, payload = {}) {
       const display=String(data.commonName||data.name||[data.firstName,data.lastName].filter(Boolean).join(' ')||item.commonName||item.name||item.lastName||'').trim();
       return display||`Player ${Number(item.rating)||''}`.trim();
     };
+    const workArea=[current,current?.workAreaController,...(current?.childViewControllers||[])].find(controller=>controller?.getViewModel?.()?.getChallenge?.()?.isOneClickChallenge?.());
+    if(workArea&&['status','sbcPointsBuild'].includes(action)){
+      const model=workArea.getViewModel(),challenge=model.getChallenge();
+      const snapshot=()=>({id:challenge.id,name:String(challenge.name||'Points SBC'),kind:'points',formation:'Item Score',target:Number(challenge.scoreRequirement),submitted:Number(challenge.submittedScore)||0,selected:Number(model.getSelectedScore()),selectionLimit:Number(model.getSelectionLimit()),slots:[],fingerprint:`points:${challenge.id}:${challenge.scoreRequirement}:${challenge.submittedScore}:${[...model.getSelectedItemIds()].map(String).sort().join(',')}`});
+      const before=snapshot(),selectionBefore=JSON.stringify([...model.getSelectedItemIds()]);
+      if(action==='status')return {ok:true,challenge:before};
+      if(payload.fingerprint!==before.fingerprint)throw Error('The points challenge changed. Refresh and retry.');
+      const target=before.target-before.submitted,limit=before.selectionLimit,maxRating=payload.maxRating??82;
+      if(!Number.isSafeInteger(target)||target<1||target>100000||!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(maxRating)||maxRating<1||maxRating>99)throw Error('EA did not provide a supported score target or selection limit.');
+      if(!Array.isArray(payload.excludedDefinitionIds||[])||(payload.excludedDefinitionIds||[]).length>528||(payload.excludedDefinitionIds||[]).some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Invalid card exclusions.');
+      payload.sbcBuildDeadline=Date.now()+90000;
+      const excluded=new Set(payload.excludedDefinitionIds||[]),protectedIds=new Set();
+      const active=await observe(services.Squad.requestSquadByType('active'));
+      const activeSquad=active.data?.squad||active.response?.squad||active.response;
+      if(!activeSquad?.getPlayers)throw Error('Could not check your active squad. Nothing selected.');
+      for(const slot of activeSquad.getPlayers())if(slot.item?.id)protectedIds.add(String(slot.item.id));
+      const candidates=new Map(),deadline=Date.now()+90000;
+      const check=()=>{if(readCancelled())throw Error('SBC build stopped. Nothing was selected.');if(Date.now()>deadline)throw Error('Points search timed out. Nothing was selected.');};
+      for(const pile of [PileSearchType.CLUB,PileSearchType.STORAGE].filter(value=>value!=null)){
+        for(let offset=0;offset<5000;offset+=100){
+          check();window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status:`Reading eligible cards · ${candidates.size} checked…`};
+          const criteria=new UTSearchCriteriaDTO();criteria.sbcChallengeId=challenge.id;criteria.pileSearchType=pile;criteria.isFavorite=false;criteria.count=100;criteria.offset=offset;
+          const result=await observe(services.Club.search(criteria));
+          const items=result.response?.items;if(!Array.isArray(items))throw Error('EA did not return eligible cards. Nothing selected.');
+          for(const item of items){
+            const score=Number(item.sbsScore),rating=Number(item.rating);
+            if(!item.isValid?.()||!Number.isSafeInteger(Number(item.id))||Number(item.id)<1||!Number.isSafeInteger(Number(item.definitionId))||Number(item.definitionId)<1||item.concept||!Number.isSafeInteger(score)||score<1||score>100000||!Number.isInteger(rating)||rating>maxRating||protectedIds.has(String(item.id))||services.SBC.isItemInSquad(Number(item.id))||excluded.has(Number(item.definitionId))||Number(item.loans)>=0||item.isLimitedUse?.()||item.isEnrolledInAcademy?.()||Number(item.endTime)>0||item.loan?.remaining>0||item.isFavorite===true||typeof item.isFavorite==='function'&&item.isFavorite()||item.isEvolution?.()||Number(item.rareflag)>1)continue;
+            candidates.set(String(item.id),{item,score,rating,pile});
+          }
+          if(result.response.retrievedAll===true||items.length<100)break;
+          if(offset===4900)throw Error('Eligible card coverage is incomplete. Narrow the rating limit and retry.');
+        }
+      }
+      check();
+      // Each owned instance is distinct: duplicate definitions are legal in Simplified SBCs.
+      const rows=[...candidates.values()].sort((a,b)=>a.rating-b.rating),cap=Math.min(100000,target+Math.max(0,...rows.map(row=>row.score)));
+      let states=new Map([['0:0',{score:0,cost:0,rows:[]}]]);
+      for(let index=0;index<rows.length;index++){
+        const row=rows[index];
+        for(const previous of [...states.values()]){
+          const score=previous.score;
+          if(previous.rows.length>=limit||score>=target)continue;
+          const sum=score+row.score;if(sum>cap)continue;
+          const cost=previous.cost+Math.pow(2,Math.max(0,row.rating-60)/3),key=`${previous.rows.length+1}:${sum}`,known=states.get(key);
+          if(!known||cost<known.cost||cost===known.cost&&previous.rows.length+1<known.rows.length)states.set(key,{score:sum,cost,rows:[...previous.rows,row]});
+        }
+        if(states.size>150000)throw Error('The score search is too broad. Lower the rating limit and retry.');
+        if(index%10===0){check();window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status:`Finding a low-waste batch · ${index+1}/${rows.length} cards…`};await new Promise(resolve=>setTimeout(resolve,0));}
+      }
+      const scored=[...states.values()].map(value=>[value.score,value]);
+      const options=scored.filter(([score])=>score>=target).sort((a,b)=>a[0]-b[0]||a[1].cost-b[1].cost);
+      const best=options[0]||scored.sort((a,b)=>b[0]-a[0]||a[1].cost-b[1].cost)[0];
+      const [score,selection]=best;
+      if(!selection.rows.length)throw Error('No eligible unprotected cards found under this rating limit.');
+      check();if(JSON.stringify([...model.getSelectedItemIds()])!==selectionBefore)throw Error('Your Work Area selection changed during the search. Nothing selected.');if(snapshot().fingerprint!==before.fingerprint)throw Error('The challenge progress changed. Nothing selected.');
+      // Stage a reviewable selection only. Never call EA submission or consume cards.
+      const oldIds=[...model.getSelectedItemIds()];
+      try{
+        model.clearSelection();
+        for(const row of selection.rows){const item=row.item;model._itemEntityMap.set(item.id,item);model._itemScoreMap.set(item.id,row.score);model._itemTabMap.set(item.id,row.pile===PileSearchType.STORAGE?OneClickSBCWorkAreaTab.STORAGE:OneClickSBCWorkAreaTab.CLUB);if(!model.selectItem(item))throw Error('EA selection limit changed.');}
+        if(model.getSelectedScore()!==score)throw Error('EA did not confirm the selected score.');
+        workArea._refreshCurrentPage();
+      }catch(error){model.clearSelection();for(const id of oldIds){const item=model._itemEntityMap.get(id);if(item)model.selectItem(item);}workArea._refreshCurrentPage();throw error;}
+      return {ok:true,challenge:snapshot(),score,target,excess:Math.max(0,score-target),shortfall:Math.max(0,target-score),checked:rows.length,players:selection.rows.map(({item,score})=>({itemId:String(item.id),definitionId:Number(item.definitionId),name:teamPlayerName(item),rating:Number(item.rating),score,owned:true}))};
+    }
     const teamFingerprint=players=>players.map(slot=>`${slot.index}:${slot.item?.definitionId||0}:${slot.item?.id||0}:${!!slot.item?.concept}:${slot.generalPositionName||''}`).join('|');
     if(action==='teamSnapshot'){
       const {team,players}=activeTeam();

@@ -262,3 +262,11 @@ The trader retains a local ledger of up to 500 listed wins across session resets
 The trader ranks observed auction opportunities by estimated profit per coin and learned sale time. Shortlists use realized return per coin and observed turnover after at least three confirmed sales; unknown turnover uses a one-hour ranking baseline, not a prediction. The hunt scheduler favours cards without existing bids or pending inventory to spread exposure, while keeping the user's balance as the purchase ceiling.
 
 Both trader views show net profit over the last 24 hours and confirmed sale count. Trade history separates pending inventory cost, confirmed net profit (including losses), largest realized drawdown and approximate observed time to sell. The latter is an upper-bound observation from periodic checks, not an exact transaction timestamp. Missing items remain unverified. Market evidence includes the last scan's rejection counts so an empty scan explains whether auctions were outside the time window, already watched, above the bid ceiling or unsupported by price checks. These features do not establish superiority over another service or promise earnings.
+
+### Simplified / points SBCs (v0.21.49)
+
+Open the challenge’s **Work Area** and click **Select scoring cards**. FutSBC reads EA’s challenge-specific Item Scores from eligible club and SBC Storage items, accounts for submitted progress, and stages a selection in EA for your review. It never submits or consumes cards. Duplicate owned copies can count separately.
+
+The selector minimizes excess score within the checked pool, then prefers lower-rated cards. The default rating cap is 82; change it in Finish settings. Active-squad items, cards used in squads, favorites, loans, evolutions and special cards are protected. The swap icon excludes a card version and rebuilds the selection. EA’s per-submission item limit is respected. If the available batch falls short, the result explicitly shows remaining points; submit only after reviewing in EA, then refresh to select the next batch.
+
+This route selects owned cards only; it does not buy market cards or infer eligibility/Item Scores from ratings. A bounded search or insufficient eligible cards may require a narrower pool or a different rating cap. Club cards have no acquisition cost here, but can have resale or opportunity value.

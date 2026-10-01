@@ -35,11 +35,11 @@
         <div class="settings-body">
           <label for="repair-rating">Max rating for added cards</label>
           <input id="repair-rating" type="number" min="1" max="99" step="1" value="99">
-          <p class="field-note">Keep your cards. Fill gaps first; change as few cards as needed. Club cards first, then cheap market concepts.</p>
+          <p id="repair-help" class="field-note">Keep your cards. Fill gaps first; change as few cards as needed. Club cards first, then cheap market concepts.</p>
           <fieldset class="sbc-exclusions"><legend>Cards to leave out</legend><div id="repair-exclusions"></div><p id="repair-exclusions-empty" class="field-note">Placed cards appear here. You can also exclude a card with its swap icon after building.</p></fieldset>
         </div>
       </details>
-      <div class="action-links">
+      <div id="sbc-source-options" class="action-links">
         <details class="settings">
           <summary>Options</summary>
           <div class="settings-body">
@@ -65,6 +65,11 @@
     <button id="sbc-build-stop" class="secondary" type="button" hidden>Stop search</button>
     <div id="notice" role="status" aria-live="polite" hidden></div>
 
+    <section id="points-result" class="result" aria-label="Selected Item Scores" hidden>
+      <div class="scoreboard"><div><span class="result-label">ITEM SCORE</span><h2 id="points-total"></h2></div><div><strong id="points-count"></strong><p id="points-summary" class="field-note"></p></div></div>
+      <div id="points-players"></div>
+      <p class="field-note">Selected in EA’s Work Area. Review there before submitting. No cards consumed.</p>
+    </section>
     <section id="result" class="result" aria-label="Checked solution" hidden>
       <div class="scoreboard">
         <div class="price-summary"><div id="price-label" class="result-label">LOWEST VERIFIED</div><div class="total"><strong id="total">—</strong><span>COINS</span></div></div>

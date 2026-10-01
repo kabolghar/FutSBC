@@ -114,3 +114,12 @@ main,.has-result main,.team-active main,.insights-active main,.trader-active mai
 .insight-card-head em[data-risk=high]{color:var(--danger)}
 .insight-card-head em[data-risk=medium]{color:var(--text)}
 .insight-card-head em[data-risk=unrated]{color:var(--muted)}
+/* Points exchanges use compact selection rows instead of a positional card tray. */
+#points-players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+#points-players .player{display:grid;grid-template-columns:minmax(0,1fr) 36px;align-items:center;min-height:88px;padding:12px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
+#points-players .player-main{display:flex;flex-direction:row;align-items:center;text-align:left;gap:10px}
+#points-players .player-art{width:42px;min-width:42px;height:58px;background-size:155px 87px;background-position:-6px -16px}
+#points-players .player-name{font-size:15px;flex:1;min-width:0}
+#points-players .player-price{font:600 17px BarlowCondensed,sans-serif;white-space:nowrap;color:var(--accent)}
+#points-players button{width:36px;height:36px;padding:6px}
+@media(max-width:720px){#points-players{grid-template-columns:1fr}}

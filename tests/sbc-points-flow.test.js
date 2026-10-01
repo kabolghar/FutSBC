@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+test('primary build routes a Work Area through owned score selection without FUTBIN or traditional plan validation',async()=>{
+ let listener,session={};const actions=[];const challenge={id:7,name:'Points',kind:'points',target:2500,submitted:0,slots:[],fingerprint:'before'};
+ globalThis.chrome={runtime:{id:'points-test',getURL:path=>`chrome-extension://points-test/${path}`,onMessage:{addListener:fn=>listener=fn}},storage:{session:{get:async()=>({state:session}),set:async value=>session=value.state},local:{get:async()=>({}),set:async()=>{}}},alarms:{create(){},clear:async()=>{},onAlarm:{addListener(){}}},tabs:{onUpdated:{addListener(){}},query:async()=>[{id:1,url:'https://www.ea.com/ea-sports-fc/ultimate-team/web-app/',active:true}],get:async()=>({url:'https://www.ea.com/ea-sports-fc/ultimate-team/web-app/'}),create:async()=>{throw Error('Must not open FUTBIN');}},scripting:{executeScript:async({args})=>{actions.push(args[0]);if(args[0]==='status')return [{result:{ok:true,challenge}}];assert.equal(args[0],'sbcPointsBuild');assert.equal(args[1].maxRating,81);assert.deepEqual(args[1].excludedDefinitionIds,[42]);return [{result:{ok:true,challenge:{...challenge,fingerprint:'after'},score:2500,target:2500,shortfall:0,excess:0,checked:5,players:[{itemId:'1',definitionId:1,rating:81,name:'Owned',score:2500,owned:true}]}}];}}};
+ await import('../extension/background.js?points-flow');
+ const response=await new Promise(resolve=>listener({type:'build',maxRating:81,excludedDefinitionIds:[42]},{id:'points-test',url:chrome.runtime.getURL('panel.html')},resolve));
+ assert.equal(response.ok,true,response.error);assert.equal(response.data.plan,null);assert.equal(response.data.pointsPlan.score,2500);assert.equal(response.data.sbcBuildRunning,false);assert.equal(response.data.repairSettings.maxRating,81);assert.deepEqual(actions,['status','status','sbcPointsBuild']);
+});
