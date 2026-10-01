@@ -120,3 +120,58 @@ test('the solver expires before applying cards when its overall time budget is e
  const before=await eaOperation('status');const result=await eaOperation('sbcClubBuild',{challengeId:49,fingerprint:before.challenge.fingerprint,sbcBuildToken:'cpu-stop'});
  assert.match(result.error,/stopped/);assert.equal(env.saves,0);assert(env.slots.every(slot=>slot.item.id===0));
  });
+
+test('hybrid can solve from an empty club entirely with the cheapest checked market versions',async t=>{
+ const env=hybridSetup(t,{balance:2000});env.pool.length=0;
+ const cards=[101,102,103,104].map((id,index)=>({...env.good[0],id,assetId:id,definitionId:id,rating:80,concept:false,isPlayer:()=>true,getAuctionData:()=>({buyNowPrice:[200,300,400,900][index],getSecondsRemaining:()=>100,canBuy:()=>true})}));
+ services.Item.searchTransferMarket=criteria=>observed({data:{items:cards.filter(item=>item.getAuctionData().buyNowPrice<=criteria.maxBuy)}});
+ services.Item.searchConceptItems=criteria=>observed({response:{items:cards.filter(item=>criteria.defId.includes(item.definitionId)).map(item=>({...item,id:0,concept:true})),endOfList:true}});
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,900);assert(result.players.every(player=>!player.owned));assert.deepEqual(new Set(result.players.map(player=>player.definitionId)),new Set([101,102,103]));assert.equal(env.saves,1);
+});
+test('hybrid includes high-rated basic club fodder while protecting active squad and unrelated specials',async t=>{
+ const env=hybridSetup(t,{balance:2000});env.pool.splice(0,env.pool.length,...env.good.map(item=>({...item,rating:88})),{...env.good[0],id:999,assetId:999,definitionId:999,rating:99,rareflag:3});
+ env.challenge.meetsRequirements=function(){return this.squad.getNonBrickSlots().every(slot=>slot.item.rating===88);};env.challenge.isRequirementMet=env.challenge.meetsRequirements;
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,0);assert(result.players.every(player=>player.owned&&player.rating===88));assert(!result.players.some(player=>player.definitionId===999));
+});
+test('rating and rarity requirements drive searches beyond 10,000 coins without losing cheaper filler',async t=>{
+ const env=hybridSetup(t,{balance:50000});env.pool.length=0;
+ globalThis.SBCEligibilityKey={TEAM_RATING:1,PLAYER_RARITY:2};globalThis.SBCEligibilityScope={GREATER:1,LOWER:2,EXACT:3};
+ env.challenge.eligibilityRequirements=[{getFirstKey:()=>1,getValue:()=>[84],scope:1},{getFirstKey:()=>2,getValue:()=>[3],count:1,scope:1}];
+ const query=[];const cards=[{id:101,rating:80,rareflag:0,price:500},{id:102,rating:84,rareflag:0,price:2000},{id:103,rating:88,rareflag:3,price:35000}].map(card=>({...env.good[0],...card,assetId:card.id,definitionId:card.id,isPlayer:()=>true,getAuctionData:()=>({buyNowPrice:card.price,getSecondsRemaining:()=>100,canBuy:()=>true})}));
+ services.Item.searchTransferMarket=criteria=>{query.push({...criteria});return observed({data:{items:cards.filter(item=>item.price<=criteria.maxBuy&&(!criteria.ovrMin||item.rating>=criteria.ovrMin)&&(!criteria.ovrMax||item.rating<=criteria.ovrMax)&&(!criteria.rarities||criteria.rarities.includes(item.rareflag)))}});};
+ services.Item.searchConceptItems=criteria=>observed({response:{items:cards.filter(item=>criteria.defId.includes(item.definitionId)).map(item=>({...item,id:0,concept:true})),endOfList:true}});
+ env.challenge.meetsRequirements=function(){const items=this.squad.getNonBrickSlots().map(slot=>slot.item);return items.every(item=>item.isValid?.())&&items.reduce((sum,item)=>sum+item.rating,0)>=252&&items.some(item=>item.rareflag===3);};env.challenge.isRequirementMet=env.challenge.meetsRequirements;
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,37500);assert(query.some(row=>row.maxBuy===50000));assert(query.some(row=>row.rarities?.includes(3)));assert(query.some(row=>row.ovrMin===84));
+ delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;
+});
+
+test('smooth requirement scoring finds a mixed cheap lineup while a minimum-rating rule is still unmet',async t=>{
+ const env=hybridSetup(t,{balance:5000});env.pool.length=0;
+ globalThis.SBCEligibilityKey={PLAYER_MIN_OVR:1};globalThis.SBCEligibilityScope={GREATER:1,LOWER:2,EXACT:3};
+ env.challenge.eligibilityRequirements=[{getFirstKey:()=>1,getValue:()=>[80],count:2,scope:1}];
+ const cards=Array.from({length:33},(_,index)=>({...env.good[0],id:100+index,assetId:100+index,definitionId:100+index,rating:index>=30?80:60,price:index>=30?500:200,isPlayer:()=>true,getAuctionData(){return {buyNowPrice:this.price,getSecondsRemaining:()=>100,canBuy:()=>true};}}));
+ services.Item.searchTransferMarket=criteria=>observed({data:{items:cards.filter(item=>item.price<=criteria.maxBuy&&(!criteria.ovrMin||item.rating>=criteria.ovrMin))}});
+ services.Item.searchConceptItems=criteria=>observed({response:{items:cards.filter(item=>criteria.defId.includes(item.definitionId)).map(item=>({...item,id:0,concept:true})),endOfList:true}});
+ env.challenge.getNumberOfPlayersByOVR=function(){return this.squad.getNonBrickSlots().filter(slot=>slot.item.rating>=80).length;};
+ env.challenge.meetsRequirements=function(){return this.squad.getNonBrickSlots().every(slot=>slot.item.isValid?.())&&this.getNumberOfPlayersByOVR()>=2;};env.challenge.isRequirementMet=env.challenge.meetsRequirements;
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,1200);assert.equal(result.players.filter(player=>player.rating>=80).length,2);
+ delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;
+});
+
+test('hybrid builds an eleven-player gold chemistry puzzle from club cards without FUTBIN',async t=>{
+ const env=hybridSetup(t,{balance:2000});for(let index=3;index<11;index++)env.slots.push({index,generalPositionName:'CM',item:{id:0,definitionId:0,isValid:()=>false}});
+ globalThis.SBCEligibilityKey={PLAYER_QUALITY:1,LEAGUE_COUNT:2,NATION_COUNT:3,SAME_LEAGUE_COUNT:4,SAME_NATION_COUNT:5};globalThis.SBCEligibilityScope={GREATER:1,LOWER:2,EXACT:3};globalThis.ItemRatingTier={BRONZE:1,SILVER:2,GOLD:3};
+ const rule=(key,value,scope)=>({getFirstKey:()=>key,getValue:()=>[value],scope});
+ env.challenge.eligibilityRequirements=[rule(1,3,3),rule(2,3,3),rule(3,2,3),rule(4,6,2),rule(5,6,2)];
+ env.pool.splice(0,env.pool.length,...Array.from({length:18},(_,index)=>({...env.good[0],id:100+index,assetId:100+index,definitionId:100+index,rating:index<3?60:80,nationId:index<9?1:2,leagueId:index<9?1:index<14?2:3})));
+ const counts=items=>{const result=new Map();for(const id of items)result.set(id,(result.get(id)||0)+1);return result;};
+ env.challenge.isRequirementMet=function(rule){const items=this.squad.getNonBrickSlots().map(slot=>slot.item),key=rule.getFirstKey(),value=rule.getValue()[0];if(key===1)return items.every(item=>item.rating>=75);const map=counts(items.map(item=>key===2||key===4?item.leagueId:item.nationId));return key===2||key===3?map.size===value:Math.max(...map.values())<=value;};
+ env.challenge.meetsRequirements=function(){return this.eligibilityRequirements.every(rule=>this.isRequirementMet(rule));};
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,0);assert.equal(result.players.length,11);assert(result.players.every(player=>player.owned&&player.rating>=75));assert.equal(env.challenge.meetsRequirements(),true);
+ delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;delete globalThis.ItemRatingTier;
+});
+
+test('from-rules hybrid rebuild replaces stale concepts instead of requiring their exact expensive versions',async t=>{
+ const env=hybridSetup(t);env.slots[0].item={...env.good[0],id:0,assetId:99999,definitionId:99999,concept:true,rating:90};
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,200);assert(!result.players.some(player=>player.definitionId===99999));assert.equal(env.saves,1);
+});
