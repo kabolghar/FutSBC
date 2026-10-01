@@ -23,13 +23,13 @@ test('ranking chooses the highest estimated net profit within the current balanc
   assert.equal(evaluateListing(15000,listings[1].comparables,14999),null);
 });
 
-function setupMarket({stale=false,omitFromExact=false,listFails=false,broadStatus=null,exactStatus=null,watchedStatus=null,watchedShape='response',closed=false,rejectCombinedBid=false,buyPrice=1000,extraBroad=0,auctionMode=false,comparablePrices=[1300,1350,1400,1450,1500]}={}){
+function setupMarket({stale=false,omitFromExact=false,listFails=false,broadStatus=null,exactStatus=null,watchedStatus=null,watchedShape='response',closed=false,targetStatus=null,duplicateComparables=false,rejectCombinedBid=false,buyPrice=1000,extraBroad=0,auctionMode=false,comparablePrices=[1300,1350,1400,1450,1500]}={}){
   const obs=result=>({observe(owner,fn){queueMicrotask(()=>fn(this,result));},unobserve(){}});
   let currentBid=900,highest=false,auctionWon=false,lastPlacedBid=0;
   const listing=(tradeId,buyNowPrice,definitionId=10)=>({definitionId,rating:83,name:'Test Player',isPlayer:()=>true,getAuctionData:()=>({tradeId,buyNowPrice,currentBid,startingBid:900,getSecondsRemaining:()=>600,canBuy:()=>true,canBid:()=>true,isWon:()=>auctionMode?auctionWon:bids>0,isHighestBid:()=>highest,isClosedTrade:()=>closed})});
   const broad=[listing(99,buyPrice),...Array.from({length:extraBroad},(_,index)=>listing(200+index,buyPrice+index+1,11+index))];
   const target=listing(99,stale?buyPrice+100:buyPrice);
-  const exact=[...(omitFromExact?[]:[target]),...comparablePrices.map((price,index)=>listing(index+1,price))];
+  const exact=[...(omitFromExact?[]:[target]),...comparablePrices.map((price,index)=>listing(duplicateComparables?1:index+1,price))];
   let bids=0,lists=0,cacheClears=0,marketSelections=0,cachedItems=null;
   const searches=[];
   globalThis.window={fut_year:'2027'};
@@ -46,7 +46,7 @@ function setupMarket({stale=false,omitFromExact=false,listFails=false,broadStatu
       const status=rejectCombinedBid&&criteria.defId&&criteria.maxBid?512:criteria.defId?exactStatus:broadStatus;
       return obs({success:status===null,status,data:{items:status===null?cachedItems:[]}});
     },
-    target:()=>obs({success:true}),
+    target:()=>obs({success:targetStatus===null,status:targetStatus}),
     bid:(_item,amount)=>{bids++;if(auctionMode){currentBid=amount;lastPlacedBid=amount;highest=true;return obs({success:true,data:{items:[target]}});}return obs({success:true,data:{items:[{definitionId:10}]}});},
     list:()=>{lists++;return obs({success:!listFails,status:listFails?500:200,data:{}});},
     requestWatchedItems:()=>obs({success:watchedStatus===null,status:watchedStatus,...(watchedShape==='data'?{data:{items:watchedStatus===null?[target]:[]}}:watchedShape==='missing'?{}:{response:{items:watchedStatus===null?[target]:[]}})})
@@ -205,7 +205,7 @@ test('a bought card with a failed listing halts with a manual recovery instructi
 test('page hunt bids on multiple expiring auctions and retries delayed Transfer Targets',async()=>{
   const obs=result=>({observe(owner,fn){queueMicrotask(()=>fn(this,result));},unobserve(){}});
   const watched=[],won=new Set(),pages=[],listed=[],actions=[];
-  let hideWatch=false;
+  let hideWatch=false,targetRejected=false;
   const card=(id,price,seconds)=>{
     const data={tradeId:String(id),buyNowPrice:price,currentBid:900,startingBid:900,getSecondsRemaining:()=>seconds,canBid:()=>true,isWon:()=>won.has(String(id)),isHighestBid:()=>watched.includes(item),isClosedTrade:()=>false};
     const item={assetId:10,definitionId:10,rareflag:0,name:'Test Player',isPlayer:()=>true,hasPriceLimits:()=>true,getAuctionData:()=>data};
@@ -223,7 +223,7 @@ test('page hunt bids on multiple expiring auctions and retries delayed Transfer 
     clearTransferMarketCache:()=>{},
     searchTransferMarket:(_criteria,page)=>{pages.push(page);return obs({success:true,data:{items:page===1?[...comparison,first]:page===2?[second,...comparison]:[]}});},
     requestWatchedItems:()=>obs({success:true,response:{items:hideWatch?[]:[...watched]}}),
-    target:item=>{actions.push(`target:${item.getAuctionData().tradeId}`);watched.push(item);return obs({success:true});},
+    target:item=>{actions.push(`target:${item.getAuctionData().tradeId}`);if(targetRejected&&watched.length)return obs({success:false,status:429});watched.push(item);return obs({success:true});},
     bid:(item,amount)=>{actions.push(`bid:${item.getAuctionData().tradeId}`);item.getAuctionData().currentBid=amount;return obs({success:true});},
     list:(item,_start,sell)=>{listed.push({id:item.getAuctionData().tradeId,sell});return obs({success:true});}
   }};
@@ -234,6 +234,8 @@ test('page hunt bids on multiple expiring auctions and retries delayed Transfer 
   assert.ok(hunt.bids.every(order=>order.researchBidCeiling===950));
   assert.equal(hunt.ok,true);
   assert.deepEqual(pages,[1,2]);
+  assert.equal(hunt.nextPage,3);
+  assert.ok(hunt.bids.every(order=>order.bidCeiling===950&&order.researchAt===evidence.checkedAt));
   assert.equal(hunt.bids.length,2);
   assert.equal(watched.length,2);
   assert.equal(actions.length,4);
@@ -251,6 +253,10 @@ test('page hunt bids on multiple expiring auctions and retries delayed Transfer 
   const count=actions.length;
   const capped=await eaOperation('tradeWatchBatch',{orders:hunt.bids.filter(order=>order.tradeId==='100')});
   assert.equal(capped.updates[0].phase,'outbid-cap');assert.equal(actions.length,count);
+  watched.length=0;targetRejected=true;
+  const interrupted=await eaOperation('tradeAuctionHunt',{cards:[evidence]});
+  assert.equal(interrupted.halt.status,429);
+  assert.equal(interrupted.bids.length,1,'earlier accepted bids survive a later targeting rejection');
 });
 
 test('market authentication failure is identified before any auction bid',async()=>{
@@ -339,4 +345,51 @@ for(const confirm of [true,false])test(`a rejected bid ${confirm?'is recovered o
     assert.equal(evaluateListing(buy,Array(5).fill(reference),200000).sell,expected);
   }
   assert.equal(evaluateListing(7000,Array(5).fill(12000),200000,10243).sell,10000);
+});
+
+
+test('auction monitoring refuses rebids after research expires or the original bid ceiling is reached',async()=>{
+  for(const extra of [{researchAt:Date.now()-301_000},{bidCeiling:900}]){
+    const market=setupMarket({auctionMode:true,comparablePrices:[1500,1550,1600,1650,1700]});
+    const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:10,name:'Player',lastBid:850,futbinPrice:1600,...extra}]});
+    assert.equal(result.updates[0].phase,'outbid-cap');
+    assert.equal(market.bids,0);
+    assert.equal(market.searches.length,0);
+  }
+});
+
+test('repeated EA auction rows cannot satisfy the five-comparable check',async()=>{
+  const market=setupMarket({auctionMode:true,duplicateComparables:true,comparablePrices:[1500,1550,1600,1650,1700]});
+  const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:10,name:'Player',lastBid:850,futbinPrice:1600}]});
+  assert.equal(result.updates[0].phase,'outbid-cap');
+  assert.equal(market.bids,0);
+});
+
+test('watching an auction validates the exact card version before any mutation',async()=>{
+  const market=setupMarket({auctionMode:true});
+  const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:11,name:'Player',lastBid:850,futbinPrice:1600}]});
+  assert.equal(result.updates[0].phase,'error');
+  assert.equal(market.bids,0);
+  assert.equal(market.lists,0);
+  assert.equal(market.searches.length,0);
+});
+
+test('auction hunts advance their per-card page cursor and wrap at the end',async()=>{
+  const market=setupMarket({auctionMode:true});
+  const card={assetId:10,name:'Player',consolePrice:1600,checkedAt:Date.now(),url:'https://www.futbin.com/27/player/10/player'};
+  const result=await eaOperation('tradeAuctionHunt',{cards:[card],startPage:3});
+  assert.equal(result.ok,true);
+  assert.equal(result.nextPage,1);
+  assert.equal(result.pages,1);
+  // EA exposes pages as the second service argument; a short page resets the cursor.
+  assert.equal(market.bids,0);
+});
+
+
+test('an auction rebid cannot accidentally become a buy-now purchase',async()=>{
+  const market=setupMarket({auctionMode:true,buyPrice:950,comparablePrices:[1500,1550,1600,1650,1700]});
+  const result=await eaOperation('tradeWatchBatch',{orders:[{tradeId:'99',definitionId:10,name:'Player',lastBid:850,futbinPrice:1600}]});
+  assert.equal(result.updates[0].phase,'outbid-cap');
+  assert.equal(market.bids,0);
+  assert.equal(market.searches.length,0);
 });

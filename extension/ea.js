@@ -244,7 +244,12 @@ export async function eaOperation(action, payload = {}) {
     const floorPrice=price=>Math.floor(price/tick(price))*tick(price);
     const previousPrice=price=>Math.max(150,floorPrice(price-1));
     const quote=(rows,definitionId,tradeId,futbinPrice,buy)=>{
-      const prices=rows.filter(row=>Number(row.definitionId)===definitionId&&String(auction(row)?.tradeId)!==String(tradeId)).map(row=>Number(auction(row)?.buyNowPrice)).filter(price=>Number.isSafeInteger(price)&&price>0).sort((a,b)=>a-b);
+      const unique=new Map();
+      for(const row of rows){
+        const data=auction(row),id=String(data?.tradeId||'');
+        if(Number(row.definitionId)===definitionId&&/^\d+$/.test(id)&&id!==String(tradeId)&&Number(data?.getSecondsRemaining?.())>0)unique.set(id,row);
+      }
+      const prices=[...unique.values()].map(row=>Number(auction(row)?.buyNowPrice)).filter(price=>Number.isSafeInteger(price)&&price>=150).sort((a,b)=>a-b);
       if(prices.length<5)return null;
       const reference=prices[0],sell=Math.min(previousPrice(reference),floorPrice(futbinPrice));
       const minimumProfit=Math.max(200,Math.ceil(buy*.08/50)*50);
@@ -565,8 +570,9 @@ export async function eaOperation(action, payload = {}) {
       if(!capacity)return {ok:true,balance,bids:[],checked:1,pages:0,auctions:0,candidates:0,full:true};
       let uncommitted=Math.max(0,balance-watchedRows.filter(item=>auction(item)?.isHighestBid?.()).reduce((sum,item)=>sum+(Number(auction(item)?.currentBid)||0),0));
       const criteria=marketCriteria(card.assetId),all=new Map();
-      let pages=0;
-      for(let page=1;page<=AUCTION_PAGES_PER_PASS;page++){
+      const startPage=Number.isSafeInteger(payload.startPage)&&payload.startPage>=1&&payload.startPage<=10?payload.startPage:1;
+      let pages=0,nextPage=startPage;
+      for(let page=startPage;page<startPage+AUCTION_PAGES_PER_PASS&&page<=10;page++){
         let result;
         try{result=await searchMarket(criteria,false,page);}
         catch(error){error.stage='market-search';error.page=page;throw error;}
@@ -577,7 +583,8 @@ export async function eaOperation(action, payload = {}) {
           if(/^\d+$/.test(id)&&!all.has(id)){all.set(id,item);added++;}
         }
         pages++;
-        if(result.data.items.length<20||!added)break;
+        nextPage=page>=10?1:page+1;
+        if(result.data.items.length<20||!added){nextPage=1;break;}
       }
       const rows=[...all.values()],candidates=[];
       for(const item of rows){
@@ -595,9 +602,9 @@ export async function eaOperation(action, payload = {}) {
         if(bids.length>=capacity)break;
         const {item,bid,seconds,offer}=candidate,data=auction(item),available=Math.min(coinBalance(),uncommitted);
         if(!Number.isSafeInteger(available)||bid>available||!data?.canBid?.(bid,available))continue;
-        const order={name:String(item.name||item.commonName||item.lastName||card.name||`Card ${item.definitionId}`),definitionId:Number(item.definitionId),tradeId:String(data.tradeId),sell:offer.sell,reference:offer.reference,futbinPrice:card.consolePrice,futbinURL:card.url,quoteAt:Date.now(),lastBid:bid,seconds,misses:0,researchBidCeiling:card.researchBidCeiling};
+        const order={name:String(item.name||item.commonName||item.lastName||card.name||`Card ${item.definitionId}`),definitionId:Number(item.definitionId),tradeId:String(data.tradeId),sell:offer.sell,reference:offer.reference,futbinPrice:card.consolePrice,futbinURL:card.url,quoteAt:Date.now(),lastBid:bid,seconds,misses:0,researchAt:card.checkedAt,researchBidCeiling:card.researchBidCeiling,bidCeiling:Math.min(Number.isSafeInteger(card.researchBidCeiling)?card.researchBidCeiling:Infinity,Math.floor(offer.sell*.95)-offer.minimumProfit)};
         try{await observe(services.Item.target(item));known.add(order.tradeId);}
-        catch(error){continue;}
+        catch(error){if([401,429].includes(Number(error.status)))return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,nextPage,halt:{status:Number(error.status),error:error.message}};continue;}
         const balanceBeforeBid=coinBalance();
         try{await observe(services.Item.bid(item,bid));bids.push(order);uncommitted-=bid;}
         catch(error){
@@ -618,7 +625,7 @@ export async function eaOperation(action, payload = {}) {
           break;
         }
       }
-      return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,uncertain};
+      return {ok:true,balance:coinBalance(),bids,checked:1,pages,auctions:rows.length,candidates:candidates.length,nextPage,uncertain};
     }
     if(action==='tradeWatchBatch') {
       const orders=Array.isArray(payload.orders)?payload.orders.slice(0,50):[];
@@ -638,6 +645,7 @@ export async function eaOperation(action, payload = {}) {
           updates.push({tradeId:order.tradeId,phase:misses>=3?'missing-watch':'pending',misses});
           continue;
         }
+        if(Number(item.definitionId)!==order.definitionId){updates.push({tradeId:order.tradeId,phase:'error',warning:`The exact card for ${order.name} changed. No bid or listing was attempted.`});continue;}
         const data=auction(item),seconds=Number(data?.getSecondsRemaining?.()),paid=Number(data?.currentBid)||Number(order.lastBid);
         if(data?.isWon?.()){
           if(!Number.isSafeInteger(paid)||paid<150){updates.push({tradeId:order.tradeId,phase:'won-unlisted',warning:`Won ${order.name}, but the paid price could not be verified. Check New Items.`});continue;}
@@ -656,13 +664,18 @@ export async function eaOperation(action, payload = {}) {
         if(data?.isHighestBid?.()){updates.push({tradeId:order.tradeId,phase:'highest',bid:paid,seconds,misses:0});continue;}
         if(!Number.isFinite(seconds)||seconds<=0){updates.push({tradeId:order.tradeId,phase:'pending',misses:0});continue;}
         if(Number(data?.currentBid)<=Number(order.lastBid)){updates.push({tradeId:order.tradeId,phase:'pending',misses:0});continue;}
+        if(Number.isSafeInteger(order.researchAt)&&Date.now()-order.researchAt>5*60_000){updates.push({tradeId:order.tradeId,phase:'outbid-cap',reason:'Research expired; no further bids.'});continue;}
         const nextBid=Number(data?.currentBid)>0?UTCurrencyInputControl.getIncrementAboveVal(Number(data.currentBid)):Number(data?.startingBid);
+        const availableBeforeQuote=coinBalance();
+        if(!Number.isSafeInteger(nextBid)||nextBid<150||nextBid>availableBeforeQuote||data?.buyNowPrice>0&&nextBid>=data.buyNowPrice||Number.isSafeInteger(order.bidCeiling)&&nextBid>order.bidCeiling||Number.isSafeInteger(order.researchBidCeiling)&&nextBid>order.researchBidCeiling||!data?.canBid?.(nextBid,availableBeforeQuote)){
+          updates.push({tradeId:order.tradeId,phase:'outbid-cap'});continue;
+        }
         let result=fresh.get(order.definitionId);
         try{
           if(!result){result=await searchMarket(marketCriteria(order.definitionId));fresh.set(order.definitionId,result);}
           const offer=quote(result.data?.items||[],order.definitionId,order.tradeId,order.futbinPrice,nextBid);
           const available=coinBalance();
-          if(!offer||!Number.isSafeInteger(nextBid)||nextBid<150||nextBid>available||Number.isSafeInteger(order.researchBidCeiling)&&nextBid>order.researchBidCeiling||!data?.canBid?.(nextBid,available))updates.push({tradeId:order.tradeId,phase:'outbid-cap'});
+          if(!offer||!Number.isSafeInteger(nextBid)||nextBid<150||nextBid>available||Number.isSafeInteger(order.bidCeiling)&&nextBid>order.bidCeiling||Number.isSafeInteger(order.researchBidCeiling)&&nextBid>order.researchBidCeiling||!data?.canBid?.(nextBid,available))updates.push({tradeId:order.tradeId,phase:'outbid-cap'});
           else{await observe(services.Item.bid(item,nextBid));updates.push({tradeId:order.tradeId,phase:'bid',bid:nextBid,sell:offer.sell,reference:offer.reference,seconds,quoteAt:Date.now(),misses:0});}
         }catch(error){updates.push({tradeId:order.tradeId,phase:'error',warning:`Could not verify the next bid on ${order.name}: ${error.message}`});}
       }

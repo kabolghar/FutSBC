@@ -805,12 +805,17 @@ async function runAutoTrade(){
     }
     const card=evidence.cards[(session.huntIndex||0)%evidence.cards.length];
     await saveTrade({...session,inFlight:true,inFlightAt:Date.now(),candidate:{name:card.name},status:`Scanning expiring ${card.name} auctions…`});
-    const hunt=await ea(session.tabId,'tradeAuctionHunt',{cards:[card],existingTradeIds:activeBids.map(order=>order.tradeId)},TRADE_REQUEST_TIMEOUT);
+    const hunt=await ea(session.tabId,'tradeAuctionHunt',{cards:[card],startPage:session.huntPages?.[card.assetId]||1,existingTradeIds:activeBids.map(order=>order.tradeId)},TRADE_REQUEST_TIMEOUT);
     session=await tradeState();
     activeBids=[...activeBids,...hunt.bids];
     const selected=hunt.bids[0];
     evidence={...evidence,selected:selected?{name:selected.name,tradeId:selected.tradeId,futbinPrice:selected.futbinPrice,eaReference:selected.reference,bid:selected.lastBid,sell:selected.sell,estimatedProfit:Math.floor(selected.sell*.95)-selected.lastBid,url:selected.futbinURL}:evidence.selected};
-    session={...session,activeBids,activeBid:null,marketEvidence:evidence,lastBalance:hunt.balance,lastHuntAt:Date.now(),huntIndex:(session.huntIndex||0)+1,inFlight:false,inFlightAt:null,candidate:null};
+    session={...session,activeBids,activeBid:null,marketEvidence:evidence,lastBalance:hunt.balance,lastHuntAt:Date.now(),huntIndex:(session.huntIndex||0)+1,huntPages:{...session.huntPages,[card.assetId]:hunt.nextPage||1},inFlight:false,inFlightAt:null,candidate:null};
+    if(hunt.halt){
+      const rateLimited=hunt.halt.status===429;
+      await saveTrade({...session,enabled:false,recoveryRequired:activeBids.length>0,nextAt:null,rateLimitAt:rateLimited?Date.now():session.rateLimitAt,cooldownUntil:rateLimited?Date.now()+RATE_LIMIT_PAUSE_MS:session.cooldownUntil,status:`EA stopped auction targeting (${hunt.halt.status}). ${activeBids.length} saved bid(s) remain tracked. Check Transfer Targets before restarting.`});
+      await chrome.alarms.clear(TRADE_ALARM);return;
+    }
     if(hunt.uncertain){
       const delta=Number(hunt.uncertain.balanceBeforeBid)-Number(hunt.uncertain.balanceAfterBid);
       const balanceNote=Number.isSafeInteger(delta)&&delta>0?` Coin balance fell by ${delta.toLocaleString()} during the request; that does not prove whether the bid is active.`:'';

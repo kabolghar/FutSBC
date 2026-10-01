@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.43**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.44**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -235,3 +235,12 @@ Open an SBC, then choose **Options → Club + market** to build without FUTBIN. 
 Discovery now targets required leagues, nations, clubs, rating bands, rarities and special-card groups. Price bands share a budget of up to 48 paced queries, including a band up to your balance; the old 10,000-coin cap no longer excludes required cards. Required rare/high-rated candidates are retained alongside cheap filler. Hybrid building permits basic owned fodder above 82, protects the active squad, loans and evolutions, and considers owned specials only when their rarity/group is explicitly required. Club-only building retains its 82-rating protection.
 
 The solver measures progress toward individual requirements, including rating and exact/minimum/maximum counts, while EA remains the final authority for validity. Different lineup seeds share up to 12,000 checks and 15 seconds of computation. Discovery and solving remain subject to the two-minute deadline. This is a bounded search, not guaranteed coverage of every SBC or a global cheapest solution. Purchase cost excludes the value of club cards that would be consumed. Review the selected cards before manually submitting.
+
+
+### Auction trader reliability (v0.21.44)
+
+Each shortlisted card keeps its own auction-page cursor instead of repeatedly searching the first two pages. Short result pages and the ten-page boundary reset the cursor. Resale checks require five distinct, active auctions for the exact card version; repeated rows do not count as extra evidence.
+
+New orders keep their initial profit-based bid ceiling as well as the research ceiling. Rebids stop when research is more than five minutes old, the available balance is insufficient, or the next bid would reach buy-now. These checks run before another price search. Won cards still receive a fresh resale check. An exact-card mismatch pauses the trader for review; authentication and rate-limit errors during targeting stop the hunt rather than being silently skipped.
+
+Profit remains an estimate after the 5% market fee, not a guarantee of a completed sale. This update does not bypass EA request restrictions.
