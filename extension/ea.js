@@ -1068,6 +1068,16 @@ export async function eaOperation(action, payload = {}) {
       }catch(error){restore();throw Error(`${error.message} Reopen the SBC to verify its saved state. No submission was attempted.`);}
       return {ok:true,challenge:snapshot(),players:output,checks,clubComplete,total:best.total,budget};
     }
+    if(action==='sbcOwnership'){
+      if(snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed. Refresh it before checking missing cards.');
+      const players=payload.players;
+      if(!Array.isArray(players)||players.length!==slots.length||players.some(player=>!Number.isSafeInteger(player.definitionId)||player.definitionId<1))throw Error('The SBC card list is invalid.');
+      const placed=player=>slots.find(slot=>slot.item?.isValid?.()&&!slot.item.concept&&Number(slot.item.definitionId)===player.definitionId&&resolvedCardMatches(slot.item,player,false))?.item;
+      const unfilled=players.filter(player=>!placed(player));
+      const rows=unfilled.length?await clubRows(unfilled):[];
+      if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed while reading your club. Refresh it before buying.');
+      return {ok:true,balance:coinBalance(),owned:players.filter(player=>placed(player)||rows.some(item=>Number(item.id)>0&&Number(item.definitionId)===player.definitionId&&resolvedCardMatches(item,player,false))).map(player=>player.definitionId)};
+    }
     if(action==='sbcQuote'){
       const player=payload.player,balance=coinBalance();
       if(!Number.isSafeInteger(player?.definitionId)||player.definitionId<1||!Number.isSafeInteger(balance)||balance<0)throw Error('EA cannot check this card or the current coin balance.');

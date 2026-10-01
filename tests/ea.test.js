@@ -71,3 +71,14 @@ test('SBC ownership lookup failure reports that no purchase was attempted',async
  const result=await eaOperation('sbcBuyOne',{challengeId:59,player,maxPrice:450,remaining:450});
  assert.equal(result.ok,false);assert.match(result.error,/401/);assert.equal(result.purchaseAttempted,false);
 });
+
+test('SBC ownership reads missing versions in one club query and never searches prices',async()=>{
+ const env=setup();const user=services.User.getUser();user.getCurrency=()=>({amount:1000});services.User.getUser=()=>user;let clubCalls=0;services.Item.searchTransferMarket=()=>{throw Error('Must not price owned cards');};
+ const owned={id:51,assetId:10,definitionId:10,rating:83,rareflag:0,concept:false,isValid:()=>true};
+ services.Club.search=criteria=>{clubCalls++;assert.deepEqual(criteria.defId,[10]);return observed({success:true,response:{items:[{...owned,definitionId:11},owned],retrievedAll:true}});};
+ const result=await eaOperation('sbcOwnership',await payload());assert.equal(result.ok,true,result.error);assert.deepEqual(result.owned,[10]);assert.equal(clubCalls,1);assert.equal(env.slot.item,env.old);
+});
+test('placed owned SBC card needs neither club query nor a price check',async()=>{
+ const env=setup();const user=services.User.getUser();user.getCurrency=()=>({amount:1000});services.User.getUser=()=>user;env.slot.item={id:51,assetId:10,definitionId:10,rating:83,rareflag:0,concept:false,isValid:()=>true};
+ services.Club.search=()=>{throw Error('Unnecessary club query');};const result=await eaOperation('sbcOwnership',await payload());assert.equal(result.ok,true,result.error);assert.deepEqual(result.owned,[10]);
+});

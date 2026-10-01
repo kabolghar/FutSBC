@@ -1111,14 +1111,20 @@ async function dispatch(message) {
     const session=await state();
     if(!session.approved||!session.resolved)throw Error('Build and review the SBC squad first.');
     validateSavedPlan(session.plan);
-    await save({...session,checkout:null,progress:'Checking live EA prices…'});
-    const quotes=[];let total=0,balance=null;
-    for(const [index,player] of session.resolved.entries()){
-      await save({...await state(),progress:`Checking EA prices ${index+1}/${session.resolved.length}: ${player.name}…`});
-      if(index)await new Promise(resolve=>setTimeout(resolve,1000));
+    await save({...session,checkout:null,progress:'Checking which SBC cards you own…'});
+    const ownership=await ea(session.tabId,'sbcOwnership',{challengeId:session.plan.challengeId,fingerprint:session.challenge.fingerprint,players:session.resolved},SBC_REQUEST_TIMEOUT);
+    if(!Number.isSafeInteger(ownership.balance)||ownership.balance<0||!Array.isArray(ownership.owned)||ownership.owned.some(id=>!session.resolved.some(player=>player.definitionId===id)))throw Error('EA did not confirm the owned SBC cards.');
+    const owned=new Set(ownership.owned);
+    const resolved=session.resolved.map(player=>({...player,owned:owned.has(player.definitionId)}));
+    await save({...await state(),resolved});
+    const missing=resolved.map((player,index)=>({player,index})).filter(({player})=>!player.owned);
+    const quotes=[];let total=0,balance=ownership.balance;
+    for(const [number,{index,player}] of missing.entries()){
+      await save({...await state(),progress:`Checking missing card ${number+1}/${missing.length}: ${player.name}…`});
+      if(number)await new Promise(resolve=>setTimeout(resolve,1000));
       let quote;
       try{quote=await ea(session.tabId,'sbcQuote',{challengeId:session.plan.challengeId,player},SBC_REQUEST_TIMEOUT);}
-      catch(error){error.message=`Could not price ${player.name} (${index+1}/${session.resolved.length}): ${error.message}`;throw error;}
+      catch(error){error.message=`Could not price ${player.name} (${number+1}/${missing.length}): ${error.message}`;throw error;}
       balance=quote.balance;
       if(quote.phase==='unavailable')throw Error(`No available ${player.name} listing was found within your coin balance. Use its swap button or try again later.`);
       if(quote.phase==='quoted'){quotes.push({index,definitionId:player.definitionId,price:quote.price,tradeId:quote.tradeId});total+=quote.price;}

@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.41**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.42**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -223,3 +223,7 @@ Hybrid builds show club pages read, market searches completed, cards found, card
 ### Responsive SBC evaluation (v0.21.41)
 
 Club and hybrid builds now check isolated copies of EA squad slots instead of redrawing the displayed squad for every trial. Chemistry, rating and challenge rules are still evaluated by EA. The solver yields every 16 combinations or 40 ms, updates progress and checks Stop search and user edits. Only the selected, valid lineup is applied to the displayed squad and saved; SBC submission remains manual.
+
+### Missing-card checkout (v0.21.42)
+
+SBC checkout checks exact club ownership in a batch before looking up prices. Already owned cards do not enter the price queue or incur per-card waits. Missing-card progress counts only cards to buy, and each purchase still rechecks ownership to avoid buying duplicates.

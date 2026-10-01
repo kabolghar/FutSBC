@@ -5,9 +5,9 @@ const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
 const player={futbinSlot:1,slotPosition:'ST',baseId:101,rating:80,rarity:0,name:'Starter',position:'ST',definitionId:101,price:500};
 const alternate={...player,baseId:202,name:'Cheaper',definitionId:202,price:300};
 const plan=(card=player)=>({kind:'squad',year:27,market:'console',challengeId:46,url:'https://www.futbin.com/27/squad/100013678/sbc',name:'SBC',players:[card],total:card.price,checkedAt:Date.now(),mode:'quick'});
-let saved={},buySaved={enabled:false},tradeSaved={enabled:false},listener,alarmListener,actions=[],buyOutcome='in-club',quoteFailure=null;
+let saved={},buySaved={enabled:false},tradeSaved={enabled:false},listener,alarmListener,actions=[],buyOutcome='in-club',quoteFailure=null,ownedIds=[];
 const challenge=(fingerprint='fp')=>({id:46,name:'SBC',formation:'4-3-3',slots:[{index:0,position:'ST'}],fingerprint});
-const reset=()=>{saved={tabId:1,plan:plan(),resolved:[{...player}],challenge:challenge(),mapping:[0],approved:true,inserted:true,alternatives:[plan()],listedSolutions:[]};buySaved={enabled:false};tradeSaved={enabled:false};actions=[];buyOutcome='in-club';quoteFailure=null;};
+const reset=()=>{saved={tabId:1,plan:plan(),resolved:[{...player}],challenge:challenge(),mapping:[0],approved:true,inserted:true,alternatives:[plan()],listedSolutions:[]};buySaved={enabled:false};tradeSaved={enabled:false};actions=[];buyOutcome='in-club';quoteFailure=null;ownedIds=[];};
 reset();
 globalThis.chrome={
  runtime:{id:'test-extension',getURL:path=>`chrome-extension://test-extension/${path}`,onMessage:{addListener:fn=>{listener=fn;}},onInstalled:{addListener:()=>{}},onStartup:{addListener:()=>{}}},
@@ -19,6 +19,7 @@ globalThis.chrome={
   const [action,payload]=args;actions.push(action);
   if(action==='sbcQuote'&&quoteFailure===payload.player.definitionId)return [{result:{ok:false,status:521,error:'EA rejected the request (521).'}}];
   const result=action==='status'?{ok:true,challenge:challenge()}
+   :action==='sbcOwnership'?{ok:true,owned:ownedIds,balance:1000}
    :action==='sbcQuote'?{ok:true,phase:'quoted',definitionId:payload.player.definitionId,price:payload.player.definitionId===202?300:500,tradeId:'999',balance:1000}
    :action==='sbcBuyOne'?buyOutcome==='pre-bid'?{ok:false,error:'EA search failed (401).',purchaseAttempted:false}:buyOutcome==='uncertain'?{ok:true,phase:'uncertain',definitionId:payload.player.definitionId,price:500,warning:'EA did not confirm the purchase. Check New Items.'}:{ok:true,phase:'in-club',definitionId:payload.player.definitionId,price:500,balance:500}
    :action==='concepts'?{ok:true,players:payload.players.map(card=>({...card,owned:true})),challenge:challenge('final')}
@@ -153,4 +154,17 @@ test('clearing a reviewed buying session unlocks building and invalidates old pu
  assert.equal(buySaved.reviewedPurchase.tradeId,'999');assert.equal(saved.checkout,null);
  assert.equal(saved.resolved[0].name,'Starter');
  await tick();assert.equal((await send('sbcPrepare')).ok,true);
+});
+
+test('checkout checks ownership once and never quotes cards already owned',async()=>{
+ reset();saved.resolved=[{...player,owned:false},{...alternate,owned:true}];saved.plan.players=[player,alternate];saved.plan.total=800;saved.mapping=[0,1];ownedIds=[101];
+ const result=await send('sbcPrepare');assert.equal(result.ok,true,result.error);
+ assert.equal(actions.filter(action=>action==='sbcOwnership').length,1);
+ assert.equal(actions.filter(action=>action==='sbcQuote').length,1);
+ assert.deepEqual(result.data.checkout.quotes.map(quote=>quote.index),[1]);
+ assert.equal(result.data.checkout.total,300);assert.equal(result.data.resolved[0].owned,true);assert.equal(result.data.resolved[1].owned,false);
+});
+test('all-owned checkout performs no price queries and costs zero',async()=>{
+ reset();ownedIds=[101];const result=await send('sbcPrepare');assert.equal(result.ok,true,result.error);
+ assert.equal(result.data.checkout.total,0);assert.deepEqual(result.data.checkout.quotes,[]);assert.equal(actions.includes('sbcQuote'),false);
 });
