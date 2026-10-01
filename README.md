@@ -12,11 +12,13 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.47**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.48**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
 - **SBC:** Open an SBC in EA and click **Build this SBC**. FutSBC compares readable FUTBIN completed squads, matches exact EA cards, uses matching club cards, and adds concepts for missing players. Swap checks test cheaper candidates against EA's SBC requirements.
+- **Finish an existing SBC:** Open your partly filled SBC and click **Finish my SBC**. It first tries filling gaps with eligible club cards, then checked cheap market concepts if needed. If keeping the placed cards cannot pass, it searches replacements in increasing numbers and ranks valid checked lineups by cards replaced, then purchase cost. One to three open slots use direct combination checks; larger repairs use the existing bounded solver. This is the fewest changes found in the checked pool, not a proof of a global minimum. EA checks the entire lineup before saving; submission remains yours.
+- **Completion controls:** **Finish settings** caps the rating of newly added cards (existing retained cards may be higher) and excludes specific placed cards. The swap icon on club/hybrid result cards excludes that exact card and reruns completion, keeping the other cards when a valid fit exists. Excluded cards remain in your club. Active-squad cards, loans, evolutions and unneeded club specials stay protected. A rating cap or exclusions can make a completion unavailable.
 - **Buy missing cards:** Click **Check prices**, review the total, and choose **Buy** to approve that ceiling. The extension stops on an uncertain purchase. Final SBC submission always stays with you.
 - **Team:** Select positions, choose a total budget, and build a proposed XI. A complete recommendation requires at least 30 chemistry, two chemistry per new player, and no chemistry loss for retained players. The search is bounded to checked candidates; source rank is not proof of the best possible team. This feature does not buy cards. **Add concept players to squad** inserts the reviewed suggestions as concepts and saves the squad after a fresh chemistry check; unchanged positions stay in place.
 - **Team swaps:** Use **Swap** beside a selected position in a completed plan. Alternatives show the full team cost and chemistry, hold your other suggestions fixed, and are rechecked when selected. Swaps update the recommendation only. Refresh after ten minutes or if your actual squad changes.
@@ -255,7 +257,7 @@ For bids up to 1,500 coins the minimum estimated net margin is the greater of 10
 The trader retains a local ledger of up to 500 listed wins across session resets. Once per minute while running, it checks the Transfer List by exact item identity. Only EA's explicit sold state and sale price establish realized profit, including negative outcomes. Missing or removed items remain unverified. Repeated losses, expired inventory and slower confirmed sales reduce a card's priority; three recorded sales with nonpositive aggregate profit exclude it until those outcomes age out of the seven-day window. The ledger does not automatically relist, collect, quick-sell or treat disappeared cards as sold.
 
 
-### Trading priorities and outcomes (v0.21.47)
+### Trading priorities and outcomes (v0.21.48)
 
 The trader ranks observed auction opportunities by estimated profit per coin and learned sale time. Shortlists use realized return per coin and observed turnover after at least three confirmed sales; unknown turnover uses a one-hour ranking baseline, not a prediction. The hunt scheduler favours cards without existing bids or pending inventory to spread exposure, while keeping the user's balance as the purchase ceiling.
 

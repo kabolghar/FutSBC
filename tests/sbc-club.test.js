@@ -175,3 +175,69 @@ test('from-rules hybrid rebuild replaces stale concepts instead of requiring the
  const env=hybridSetup(t);env.slots[0].item={...env.good[0],id:0,assetId:99999,definitionId:99999,concept:true,rating:90};
  const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,200);assert(!result.players.some(player=>player.definitionId===99999));assert.equal(env.saves,1);
 });
+
+async function repairBuild(extra={}){
+ const before=await eaOperation('status');
+ return eaOperation('sbcRepairBuild',{challengeId:49,fingerprint:before.challenge.fingerprint,...extra});
+}
+function repairBalance(amount=1000){
+ globalThis.GameCurrency={COINS:0};services.User.getUser=()=>({getSelectedPersona:()=>({getCurrentClub:()=>({isXbox:true})}),getCurrency:()=>({amount})});
+}
+test('finish SBC fills only missing slots from club without market calls',async()=>{
+ const env=setup();repairBalance();
+ env.slots[0].item=env.good[0];env.slots[1].item=env.good[1];
+ const result=await repairBuild({maxRating:60});
+ assert.equal(result.ok,true,result.error);assert.equal(result.total,0);assert.equal(result.kept,2);assert.equal(result.changes,0);
+ assert.equal(env.slots[0].item,env.good[0]);assert.equal(env.slots[1].item,env.good[1]);assert.equal(env.slots[2].item,env.good[2]);
+ assert.equal(env.saves,1);
+});
+test('finish SBC replaces one invalid placed card while keeping the other cards',async()=>{
+ const env=setup();repairBalance();env.slots[0].item=env.good[0];env.slots[1].item=env.good[1];
+ const wrong={...env.good[2],id:7,assetId:7,definitionId:7};env.slots[2].item=wrong;
+ const result=await repairBuild({maxRating:60});
+ assert.equal(result.ok,true,result.error);assert.equal(result.changes,1);assert.equal(result.kept,2);assert.equal(result.total,0);
+ assert.equal(env.slots[2].item,env.good[2]);assert.equal(env.slots[0].item,env.good[0]);
+});
+test('finish SBC honours exclusions and caps added cards, while retaining existing high ratings',async()=>{
+ const env=setup();repairBalance();
+ const high={...env.good[0],rating:88};env.slots[0].item=high;
+ env.slots[1].item=env.good[1];env.pool.push({...env.good[2],id:14,assetId:14,definitionId:14});
+ const result=await repairBuild({maxRating:60,excludedDefinitionIds:[13]});
+ assert.equal(result.ok,true,result.error);assert.equal(env.slots[0].item,high);assert.equal(result.players[2].definitionId,14);
+ assert(result.players.filter(card=>!card.kept).every(card=>card.rating<=60));
+});
+test('finish SBC searches checked market cards only when club filling fails',async t=>{
+ const env=hybridSetup(t);env.slots[0].item=env.good[0];env.slots[1].item=env.good[1];
+ const result=await repairBuild({maxRating:60});
+ assert.equal(result.ok,true,result.error);assert.equal(result.changes,0);assert.equal(result.kept,2);assert.equal(result.total,200);
+ assert.equal(result.players[2].definitionId,22);assert.equal(result.players[2].owned,false);
+});
+test('finish SBC prefers a no-replacement market fill over a cheaper club rebuild',async t=>{
+ const env=hybridSetup(t);env.slots[0].item=env.good[0];env.slots[1].item=env.good[1];
+ env.pool.push({...env.good[2],id:14,assetId:14,definitionId:14});
+ env.challenge.meetsRequirements=function(){const ids=this.squad.getNonBrickSlots().map(slot=>slot.item.definitionId);return ids.includes(11)&&ids.includes(12)&&ids.includes(22)||ids.includes(11)&&ids.includes(14)&&ids.includes(21);};
+ env.challenge.isRequirementMet=env.challenge.meetsRequirements;
+ const result=await repairBuild({maxRating:60});
+ assert.equal(result.ok,true,result.error);assert.equal(result.changes,0);assert.equal(result.total,200);assert.equal(result.players[1].definitionId,12);
+});
+test('finish SBC rejects impossible rating limits and exclusions without changing the squad',async t=>{
+ const env=hybridSetup(t),original=env.slots.map(slot=>slot.item);
+ const result=await repairBuild({maxRating:55,excludedDefinitionIds:[11,12]});
+ assert.equal(result.ok,false);assert.deepEqual(env.slots.map(slot=>slot.item),original);assert.equal(env.saves,0);
+ assert.match((await repairBuild({maxRating:100})).error,/maximum rating/);
+});
+
+test('finish SBC can replace two existing blockers when one change cannot pass',async t=>{
+ const env=hybridSetup(t);env.slots[0].item=env.good[0];
+ env.slots[1].item={...env.good[1],id:7,assetId:7,definitionId:7};
+ env.slots[2].item={...env.good[2],id:8,assetId:8,definitionId:8};
+ const result=await repairBuild({maxRating:60});
+ assert.equal(result.ok,true,result.error);assert.equal(result.changes,2);assert.equal(result.kept,1);assert.equal(result.total,200);
+ assert.equal(env.slots[0].item,env.good[0]);assert(env.slots.every(slot=>slot.item.definitionId>=10));
+});
+test('finish SBC preserves an exact concept when its owned club copy exists',async()=>{
+ const env=setup();repairBalance();env.slots[0].item={...env.good[0],concept:true,id:0};env.slots[1].item=env.good[1];
+ const result=await repairBuild({maxRating:60});
+ assert.equal(result.ok,true,result.error);assert.equal(result.kept,2);assert.equal(result.changes,0);assert.equal(result.total,0);
+ assert.equal(env.slots[0].item,env.good[0]);assert(result.players.every(card=>card.owned));
+});

@@ -29,6 +29,16 @@
     <div id="sbc-visual" class="sbc-visual" aria-hidden="true"><svg viewBox="0 0 420 170" fill="none"><path d="M18 136h384M80 30v110M340 30v110" stroke="currentColor" opacity=".15"/><g stroke="currentColor" stroke-width="2"><path d="m92 30 66 8v91l-33 18-33-25Z" transform="rotate(-12 125 85)"/><path d="m262 38 66-8v92l-33 25-33-18Z" transform="rotate(12 295 85)"/><path d="M169 14h82v119l-41 25-41-25Z" fill="var(--surface-raised)"/><circle cx="210" cy="67" r="20"/><path d="m199 67 8 8 15-18M111 70h28m-14-14v28M281 70h28m-14-14v28M191 113h38"/></g><circle cx="54" cy="76" r="3" fill="currentColor"/><circle cx="366" cy="76" r="3" fill="currentColor"/></svg></div>
     <section class="action-block" aria-label="Find solution">
       <button id="compare" class="primary" type="button"><span>Build this SBC</span><span aria-hidden="true">→</span></button>
+      <button id="repair-build" class="secondary sbc-finish" type="button"><span>Finish my SBC</span><span aria-hidden="true">＋</span></button>
+      <details class="settings sbc-repair-settings">
+        <summary>Finish settings</summary>
+        <div class="settings-body">
+          <label for="repair-rating">Max rating for added cards</label>
+          <input id="repair-rating" type="number" min="1" max="99" step="1" value="99">
+          <p class="field-note">Keep your cards. Fill gaps first; change as few cards as needed. Club cards first, then cheap market concepts.</p>
+          <fieldset class="sbc-exclusions"><legend>Cards to leave out</legend><div id="repair-exclusions"></div><p id="repair-exclusions-empty" class="field-note">Placed cards appear here. You can also exclude a card with its swap icon after building.</p></fieldset>
+        </div>
+      </details>
       <div class="action-links">
         <details class="settings">
           <summary>Options</summary>

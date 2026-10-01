@@ -267,3 +267,19 @@ footer p{margin:8px 0;line-height:1.5}
 .team-picker-card{display:grid;grid-template-columns:48px 1fr;gap:4px 12px;text-align:left;padding:10px;background:var(--surface);color:var(--text);border:1px solid var(--line);cursor:pointer}
 .team-picker-card:hover,.team-picker-card:focus-visible{border-color:var(--accent)}
 .team-picker-card .team-mini-art{grid-row:span 2}.team-picker-card strong{font-size:16px}.team-picker-card span{font-size:13px;color:var(--muted)}
+
+/* Completing an existing SBC keeps filters close to the action. */
+.sbc-finish {display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:12px;min-height:52px;text-align:left}
+.sbc-repair-settings {margin-top:16px}
+.sbc-repair-settings input[type="number"] {width:112px;min-height:44px}
+.sbc-exclusions {border:0;padding:0;margin:20px 0 0;min-width:0}
+.sbc-exclusions legend {font-weight:600;margin-bottom:10px}
+.sbc-exclude-card {display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.sbc-exclude-card input[type="checkbox"] {width:20px;height:20px;min-width:20px;margin:0;accent-color:var(--accent)}
+.sbc-exclude-card span {flex:1;min-width:0;overflow-wrap:anywhere}
+.sbc-exclude-card small {white-space:nowrap;color:var(--muted)}
+.has-result .action-block {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px}
+.has-result .action-block>.primary {order:0;width:100%;min-height:52px}
+.has-result .sbc-finish {margin-top:0}
+.has-result .sbc-repair-settings,.has-result .action-block>.action-links {grid-column:1/-1;order:0;margin-top:0}
+@media(max-width:420px){.has-result .action-block{grid-template-columns:minmax(0,1fr)}}

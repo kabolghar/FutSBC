@@ -1103,7 +1103,7 @@ async function dispatch(message) {
   }
   const buySession=await rawSbcBuy();
   if(buySession.enabled||sbcBuying)throw Error('Stop SBC buying before changing the squad or starting another action.');
-  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','complete','reset'].includes(message.type))throw Error('A previous purchase needs review. Check EA New Items and your club, then use Clear buying session on the SBC screen.');
+  if((buySession.review||buySession.pending)&&['swapOptions','swapApply','sbcPrepare','sbcBuyStart','compare','build','clubBuild','hybridBuild','repairBuild','complete','reset'].includes(message.type))throw Error('A previous purchase needs review. Check EA New Items and your club, then use Clear buying session on the SBC screen.');
   if(message.type==='swapOptions'){
     if((await tradeState()).enabled||tradingBusy)throw Error('Stop the trader before checking SBC swaps.');
     const session=await state();
@@ -1165,12 +1165,16 @@ async function dispatch(message) {
   if(message.type==='swapDismiss'){
     const session=await state();const next={...session,swapOptions:null};await save(next);return next;
   }
-  if(message.type==='clubBuild'||message.type==='hybridBuild'){
-    const hybrid=message.type==='hybridBuild';
+  if(message.type==='clubBuild'||message.type==='hybridBuild'||message.type==='repairBuild'){
+    const repair=message.type==='repairBuild',hybrid=repair||message.type==='hybridBuild';
     if(tradingBusy||(await rawTradeState()).enabled)throw Error('Stop trading before building an SBC from your club.');
     await dispatch({type:'connect'});
     const current=await state();
-    await save({...current,progress:hybrid?'Checking club cards and low-price EA listings…':'Building from your club · checking EA requirements…'});
+    const previousSettings=current.repairSettings?.challengeId===current.challenge.id?current.repairSettings:{};
+    const settings={challengeId:current.challenge.id,maxRating:message.maxRating??previousSettings.maxRating??99,excludedDefinitionIds:message.excludedDefinitionIds??previousSettings.excludedDefinitionIds??[]};
+    if(repair&&(!Number.isInteger(settings.maxRating)||settings.maxRating<1||settings.maxRating>99||!Array.isArray(settings.excludedDefinitionIds)||settings.excludedDefinitionIds.length>528||settings.excludedDefinitionIds.some(id=>!Number.isSafeInteger(id)||id<1)))throw Error('Choose a maximum rating from 1 to 99 and valid card exclusions.');
+    settings.excludedCards=settings.excludedDefinitionIds.map(definitionId=>({definitionId,name:current.challenge.slots.find(card=>card.definitionId===definitionId)?.name||previousSettings.excludedCards?.find(card=>card.definitionId===definitionId)?.name||`Card ${definitionId}`}));
+    await save({...current,...(repair?{repairSettings:settings}:{}),progress:repair?'Filling gaps · checking club cards first…':hybrid?'Checking club cards and low-price EA listings…':'Building from your club · checking EA requirements…'});
     const run={id:crypto.randomUUID(),tabId:current.tabId};activeSbcBuild=run;
     await save({...await state(),sbcBuildRunning:true});
     let polling=false;
@@ -1182,10 +1186,10 @@ async function dispatch(message) {
       }catch{}finally{polling=false;}
     },1000);
     try{
-      const result=await ea(current.tabId,hybrid?'sbcHybridBuild':'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint,sbcBuildToken:run.id});
-      const plan={source:hybrid?'hybrid':'club',year:27,market:'console',challengeId:result.challenge.id,name:result.challenge.name,players:result.players,total:result.players.reduce((sum,p)=>sum+p.price,0),checkedAt:Date.now(),checks:result.checks,budget:result.budget};
+      const result=await ea(current.tabId,repair?'sbcRepairBuild':hybrid?'sbcHybridBuild':'sbcClubBuild',{challengeId:current.challenge.id,fingerprint:current.challenge.fingerprint,sbcBuildToken:run.id,...(repair?settings:{})});
+      const plan={source:hybrid?'hybrid':'club',year:27,market:'console',challengeId:result.challenge.id,name:result.challenge.name,players:result.players,total:result.players.reduce((sum,p)=>sum+p.price,0),checkedAt:Date.now(),checks:result.checks,budget:result.budget,...(repair?{repair:true,changes:result.changes,kept:result.kept,filled:result.filled}: {})};
       validateSavedPlan(plan);
-      const next={...current,challenge:result.challenge,plan,resolved:result.players,mapping:result.players.map(player=>player.slotIndex),alternatives:[],listedSolutions:[],swapOptions:null,checkout:null,inserted:true,approved:true,progress:null};
+      const next={...current,...(repair?{repairSettings:settings}:{}),challenge:result.challenge,plan,resolved:result.players,mapping:result.players.map(player=>player.slotIndex),alternatives:[],listedSolutions:[],swapOptions:null,checkout:null,inserted:true,approved:true,progress:null};
       await save(next);return next;
     }catch(clubError){await save({...await state(),progress:null});throw clubError;}
     finally{activeSbcBuild=null;clearInterval(progressTimer);await save({...await state(),sbcBuildRunning:false});}

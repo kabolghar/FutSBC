@@ -21,7 +21,7 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
         if(func.name==='stopSbcBuild'){pendingBuild?.([{result:{ok:false,error:'SBC build stopped. Nothing was added.'}}]);return [{result:null}];}
         if(func.name==='sbcBuildProgress')return [{result:null}];
         const action=args[0];actions.push(action);
-        if(action==='sbcClubBuild'||action==='sbcHybridBuild'){if(hangClub)return new Promise(resolve=>{pendingBuild=resolve;});inserted=true;return [{result:{ok:true,challenge:challenge(),checks:12,players:players().map((p,index)=>({...p,owned:action!=='sbcHybridBuild'||index!==0,ownedId:index+1,definitionId:p.baseId,price:action==='sbcHybridBuild'&&index===0?200:0,slotIndex:index}))}}];}
+        if(action==='sbcClubBuild'||action==='sbcHybridBuild'||action==='sbcRepairBuild'){if(hangClub)return new Promise(resolve=>{pendingBuild=resolve;});inserted=true;return [{result:{ok:true,challenge:challenge(),checks:12,changes:1,kept:9,players:players().map((p,index)=>({...p,owned:action!=='sbcHybridBuild'||index!==0,ownedId:index+1,definitionId:p.baseId,price:action==='sbcHybridBuild'&&index===0?200:0,slotIndex:index}))}}];}
         if(action==='concepts')inserted=true;
         const result=action==='resolve'&&unmatchable&&args[1].players[0].price===100?{ok:false,error:'Could not uniquely match Player 1 (64): 0 distinct EA cards found. No squad changes were made.',unmatchedPlayer:args[1].players[0]}:action==='resolve'?{ok:true,players:args[1].players.map((player,index)=>({...player,definitionId:2000+index})),challenge:challenge()}:action==='concepts'?{ok:true,players:args[1].players.map(player=>({...player,owned:false})),challenge:challenge()}:{ok:true,challenge:challenge()};
         return [{result}];
@@ -86,6 +86,12 @@ test('SBC build checks all listed squads in reused inactive tabs and closes them
   assert.equal(hybrid.data.plan.source,'hybrid');assert.equal(hybrid.data.plan.total,200);
   assert.equal(created.length,beforeDirect,'hybrid build skips FUTBIN');
   assert.equal(hybrid.data.resolved.filter(p=>!p.owned).length,1);
+
+  const repair=await send('repairBuild',{maxRating:78,excludedDefinitionIds:[1001]});
+  assert.equal(repair.ok,true,repair.error);assert.equal(repair.data.plan.repair,true);assert.equal(repair.data.plan.kept,9);assert.equal(repair.data.plan.changes,1);
+  assert.equal(repair.data.repairSettings.maxRating,78);assert.deepEqual(repair.data.repairSettings.excludedDefinitionIds,[1001]);
+  assert.equal(created.length,beforeDirect,'completion mode does not consult FUTBIN');
+  assert.equal((await send('repairBuild',{maxRating:100})).ok,false,'worker rejects invalid limits before EA build');
 
   hangClub=true;const stalled=send('clubBuild');
   for(let i=0;i<30&&!pendingBuild;i++)await new Promise(resolve=>setImmediate(resolve));
