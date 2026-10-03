@@ -123,3 +123,10 @@ main,.has-result main,.team-active main,.insights-active main,.trader-active mai
 #points-players .player-price{font:600 17px BarlowCondensed,sans-serif;white-space:nowrap;color:var(--accent)}
 #points-players button{width:36px;height:36px;padding:6px}
 @media(max-width:720px){#points-players{grid-template-columns:1fr}}
+.style-tools{display:flex;align-items:center;gap:12px;margin:16px 0}.style-tools>span{font-size:12px;color:var(--muted)}
+.team-style-panel{margin:16px 0;padding:16px;border:1px solid var(--accent);border-radius:12px;background:var(--surface-raised)}
+#team-style-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.style-player{min-width:0;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.style-player-head{display:flex;align-items:center;gap:12px}.style-player-head>div{min-width:0}.style-player-head strong{display:block;font-size:16px;overflow-wrap:anywhere}.style-player-head small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+.style-player select{width:100%;font-size:13px;min-height:44px}.style-note{color:var(--muted);font-size:12px;line-height:1.4}.style-player button{margin-top:auto;min-height:44px}
+@media(max-width:620px){#team-style-list{grid-template-columns:1fr}.style-tools{flex-wrap:wrap}}

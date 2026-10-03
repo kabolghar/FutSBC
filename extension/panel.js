@@ -338,6 +338,42 @@ function layoutPitch(container,players){
   [...groups].sort((a,b)=>a[0]-b[0]).forEach(([,group],row)=>{group.sort((a,b)=>(lateral[a.player.position]??1)-(lateral[b.player.position]??1)||a.index-b.index);const span=Math.floor(60/group.length);group.forEach(({index},column)=>{const item=container.children[index];if(!item)return;item.style.setProperty('--pitch-row',row+1);item.style.setProperty('--pitch-column',column*span+1);item.style.setProperty('--pitch-span',span);});});
 }
 function layoutSwitch(){const group=document.createElement('div');group.className='layout-switch';group.setAttribute('aria-label','Squad view');for(const [view,label] of [['pitch','Pitch'],['list','List']]){const button=document.createElement('button');button.type='button';button.append(uiIcon(view),document.createTextNode(label));button.setAttribute('aria-pressed',String(teamLayout===view));button.onclick=()=>{const selector=button.closest('.lineup-toolbar')?'.lineup-toolbar':'#team-layout';teamLayout=view;renderTeam();document.querySelector(selector+' button[aria-pressed=true]')?.focus({preventScroll:true});};group.append(button);}return group;}
+let teamStyles=null,stylePending=false;
+async function loadTeamStyles(){
+  if(teamPending||stylePending)return;
+  const slots=[...teamSelected].filter(index=>team.players?.some(player=>player.index===index&&player.definitionId));
+  if(!slots.length){teamUiError='Select one or more occupied players first.';renderTeam();return;}
+  stylePending=true;teamPending=true;teamStyles=null;$('team-style-panel').hidden=false;$('team-style-status').textContent='Finding styles · checking club stock…';renderStyleList();renderTeam();
+  try{teamStyles=await call('teamStyles',{slots,fingerprint:team.fingerprint});$('team-style-status').textContent='Choose a style. Apply uses one owned consumable.';}
+  catch(error){$('team-style-status').textContent=error.message;}
+  finally{stylePending=false;teamPending=false;renderStyleList();renderTeam();}
+}
+function renderStyleList(){
+  $('team-style-list').replaceChildren();
+  for(const player of teamStyles?.players||[]){
+    const row=document.createElement('div');row.className='style-player';
+    const header=document.createElement('div');header.className='style-player-head';
+    const art=cardArtElement('team-mini-art',player.rating,player.position,player.assetId,player.definitionId,player.name);
+    const copy=document.createElement('div');const name=document.createElement('strong');name.textContent=player.name;const detail=document.createElement('small');detail.textContent=`${player.position} · ${player.currentName} · ${player.chemistry}/3 chem`;copy.append(name,detail);header.append(art,copy);row.append(header);
+    const select=document.createElement('select');select.setAttribute('aria-label',`Chemistry style for ${player.name}`);
+    for(const option of player.options){const element=document.createElement('option');element.value=option.styleId;element.textContent=`${option.name} · ${option.focus.join(' / ')}${option.current?' · Current':option.owned?` · ${option.owned} owned`:' · Not owned'}`;select.append(element);}
+    select.disabled=stylePending;row.append(select);
+    const note=document.createElement('small');note.className='style-note';note.textContent=player.review?'Previous application needs review in EA.':player.chemistry===0?'No attribute boost at zero chemistry.':player.concept?'Concept card · apply after buying.':'Ranked by position and attribute headroom.';row.append(note);
+    const apply=document.createElement('button');apply.type='button';apply.className='secondary';
+    const update=()=>{const option=player.options.find(option=>option.styleId===Number(select.value));apply.textContent=option?.current?'Already applied':option?.owned?`Apply ${option.name}`:'Open EA consumables';apply.disabled=stylePending||player.review||player.concept||!option||option.current||player.chemistry===0;};
+    select.onchange=update;update();row.append(apply);
+    apply.onclick=async()=>{
+      const option=player.options.find(option=>option.styleId===Number(select.value));if(!option||stylePending)return;
+      stylePending=true;teamPending=true;renderTeam();select.disabled=true;apply.disabled=true;$('team-style-status').textContent=option.owned?`Applying ${option.name} to ${player.name}…`:'Opening EA consumables…';
+      try{await call(option.owned?'teamStyleApply':'teamStyleOpen',{slots:teamStyles.players.map(player=>player.slotIndex),fingerprint:teamStyles.fingerprint,slotIndex:player.slotIndex,itemId:player.itemId,currentStyle:player.currentStyle,styleId:option.styleId});if(option.owned){teamStyles=await call('teamStyles',{slots:teamStyles.players.map(player=>player.slotIndex),fingerprint:teamStyles.fingerprint});$('team-style-status').textContent=`${option.name} applied to ${player.name}.`;}else $('team-style-status').textContent='EA consumables opened. Add the style there, then refresh.';}
+      catch(error){$('team-style-status').textContent=error.message;teamStyles=null;}
+      finally{stylePending=false;teamPending=false;renderStyleList();renderTeam();}
+    };
+    $('team-style-list').append(row);
+  }
+}
+$('team-styles').onclick=loadTeamStyles;
+$('team-style-close').onclick=()=>{if(!stylePending)$('team-style-panel').hidden=true;};
 function renderTeam(){
   $('team-refresh').disabled=teamPending;$('team-find').disabled=(teamPending&&!teamRunActive)||(!teamSelected.size&&!teamPicks.size);
   $('team-find').firstElementChild.textContent=teamRunActive?'Stop team check':teamPending?'Reading squad…':teamResult?.pricingIncomplete?'Continue team search':'Find my XI';
@@ -346,6 +382,9 @@ function renderTeam(){
   $('team-balance').textContent=Number.isFinite(team.balance)?`${fmt(team.balance)} coins`:'— coins';
   $('team-error').hidden=!teamUiError;$('team-error').textContent=teamUiError;
   const selectedCount=teamSelected.size,budget=teamBudget();
+  $('team-styles').disabled=teamPending||stylePending||!(team.players||[]).some(player=>teamSelected.has(player.index)&&player.definitionId);
+  $('team-style-close').disabled=stylePending;
+  if(teamStyles&&(teamStyles.fingerprint!==team.fingerprint||teamStyles.players.map(player=>player.slotIndex).sort().join(',')!==[...teamSelected].filter(index=>team.players?.some(player=>player.index===index&&player.definitionId)).sort().join(','))){teamStyles=null;$('team-style-panel').hidden=true;}
   $('team-select-empty').disabled=teamPending||!(team.players||[]).some(player=>!player.definitionId);
   $('team-select-clear').disabled=teamPending||!selectedCount;
   $('team-allowance').textContent=teamRunActive?teamProgressText:selectedCount?`${fmt(budget)} coins for the full lineup · ${selectedCount} positions chosen`:teamPicks.size?`${fmt(budget)} coins · ${teamPicks.size} chosen player(s)`:'Choose one or more positions.';

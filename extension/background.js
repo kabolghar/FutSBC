@@ -892,6 +892,13 @@ void (async()=>{
 })();
 async function dispatch(message) {
   if(message.type==='cardArt')return cardArt(Number(message.assetId),Number(message.definitionId));
+  if(['teamStyles','teamStyleApply','teamStyleOpen'].includes(message.type)){
+    if(message.type==='teamStyleApply'&&(sbcBuying||(await rawSbcBuy()).enabled))throw Error('Stop SBC buying before applying chemistry styles.');
+    if(message.type==='teamStyleApply'&&(tradingBusy||(await rawTradeState()).enabled))throw Error('Stop trading before applying chemistry styles.');
+    const {tabId,team}=await connectedTeam();
+    if(team.fingerprint!==message.fingerprint)throw Error('Your squad changed. Refresh My XI before choosing styles.');
+    return ea(tabId,message.type,{fingerprint:message.fingerprint,slots:message.slots,slotIndex:message.slotIndex,itemId:message.itemId,currentStyle:message.currentStyle,styleId:message.styleId},SBC_REQUEST_TIMEOUT);
+  }
   if(message.type==='teamSnapshot')return (await connectedTeam()).team;
   if(message.type==='teamRunState')return teamRun;
   if(message.type==='teamCancel'){teamRun={...teamRun,cancelled:true,status:'Stopping after the current EA request…'};await cancelTeamRead();return teamRun;}

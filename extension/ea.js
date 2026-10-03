@@ -139,6 +139,60 @@ export async function eaOperation(action, payload = {}) {
       return {ok:true,challenge:snapshot(),score,target,excess:Math.max(0,score-target),shortfall:Math.max(0,target-score),checked:rows.length,players:selection.rows.map(({item,score})=>({itemId:String(item.id),definitionId:Number(item.definitionId),name:teamPlayerName(item),rating:Number(item.rating),score,owned:true}))};
     }
     const teamFingerprint=players=>players.map(slot=>`${slot.index}:${slot.item?.definitionId||0}:${slot.item?.id||0}:${!!slot.item?.concept}:${slot.generalPositionName||''}`).join('|');
+    if(['teamStyles','teamStyleApply','teamStyleOpen'].includes(action)){
+      const {team,players}=activeTeam(),fingerprint=teamFingerprint(players);
+      if(payload.fingerprint!==fingerprint)throw Error('Your squad changed. Refresh My XI before choosing styles.');
+      const slots=payload.slots;
+      if(!Array.isArray(slots)||!slots.length||slots.length>11||new Set(slots).size!==slots.length||slots.some(index=>!Number.isInteger(index)||!players.some(slot=>slot.index===index&&hasTeamCard(slot.item))))throw Error('Select occupied squad positions for chemistry styles.');
+      const definitions=repositories.PlayStyle?.getPlayStyles?.();
+      if(!Array.isArray(definitions)||!definitions.length)throw Error('EA chemistry-style data is not ready. Refresh the Web App.');
+      const styleName=id=>String(UTLocalizationUtil.playStyleIdToName(id,services.Localization));
+      if(action==='teamStyleOpen'){
+        const slot=players.find(slot=>slot.index===payload.slotIndex);
+        if(!slots.includes(slot?.index)||slot.item.concept)throw Error('Chemistry styles can only be applied to owned cards.');
+        const controller=new UTConsumableCategoriesViewController();controller.initWithSquad(team,slot.index);nav.pushViewController(controller);return {ok:true};
+      }
+      const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.CONSUMABLES_DEVELOPMENT;criteria.category=SearchCategory.ANY;
+      const inventory=await observe(services.Club.search(criteria));
+      const consumables=inventory.response?.items;
+      if(!Array.isArray(consumables))throw Error('EA did not return your chemistry-style inventory.');
+      if(teamFingerprint(activeTeam().players)!==fingerprint)throw Error('Your squad changed while styles were loading. Refresh My XI.');
+      if(action==='teamStyleApply'){
+        const slot=players.find(slot=>slot.index===payload.slotIndex),item=slot?.item;
+        if(!slots.includes(slot?.index)||item.concept||String(item.id)!==String(payload.itemId)||Number(item.playStyle)!==payload.currentStyle)throw Error('This player or current style changed. Check the squad and refresh styles.');
+        const pending=window.__futsbcStyleReview;
+        if(pending&&String(pending.itemId)===String(item.id)){if(Number(item.playStyle)===pending.styleId)delete window.__futsbcStyleReview;else throw Error('The previous style application needs review. Refresh EA and check this player before applying again.');}
+        const style=definitions.find(style=>Number(style.styleId)===payload.styleId);
+        if(!style||!Number.isSafeInteger(payload.styleId))throw Error('Choose an EA chemistry style.');
+        if(Number(item.playStyle)===payload.styleId)return {ok:true,applied:false,styleName:styleName(payload.styleId)};
+        const consumable=consumables.find(card=>card.isStyleModifier?.()&&Number(card.subtype)===payload.styleId&&Number(card.stackCount)>0&&card.canApplyTo?.(item));
+        if(!consumable)throw Error('You do not own an applicable copy of this style. Use EA consumables to add one.');
+        // One explicit click spends one owned consumable. Never buy or retry an uncertain application.
+        window.__futsbcStyleReview={itemId:String(item.id),styleId:payload.styleId};
+        try{await observe(services.Item.applyTo(consumable,item));}
+        catch(error){throw Error(`Style application was not confirmed. Check this player in EA before trying again. ${error.message}`);}
+        if(Number(item.playStyle)!==payload.styleId)throw Error('EA accepted the request but has not confirmed the new style. Check the player in EA before trying again.');
+        delete window.__futsbcStyleReview;
+        if(typeof team.save==='function'){const saved=team.save();if(saved?.observe)try{await observe(saved);}catch(error){throw Error(`The style was applied but squad refresh was not confirmed. Refresh EA before continuing. ${error.message}`);}}
+        return {ok:true,applied:true,styleName:styleName(payload.styleId)};
+      }
+      const weights={GK:[1.3,1.1,.2,1.5,.2,1.3],CB:[1.3,.05,.2,.3,1.6,1],LB:[1.4,.1,.6,.5,1.2,.7],RB:[1.4,.1,.6,.5,1.2,.7],LWB:[1.5,.2,.8,.6,1,.6],RWB:[1.5,.2,.8,.6,1,.6],CDM:[1,.2,.8,.5,1.4,1],CM:[1,.6,1.2,1.1,.7,.6],CAM:[1.2,1.1,1.2,1.4,.05,.3],LM:[1.5,.9,1,1.2,.1,.3],RM:[1.5,.9,1,1.2,.1,.3],LW:[1.5,1.2,.7,1.4,.05,.3],RW:[1.5,1.2,.7,1.4,.05,.3],ST:[1.4,1.6,.2,1,.05,.6],CF:[1.3,1.5,.7,1.2,.05,.4]};
+      const rows=slots.map(index=>{
+        const slot=players.find(slot=>slot.index===index),item=slot.item,isGK=item.isGK?.()===true,attributes=item.getAttributes?.();
+        if(!Array.isArray(attributes)||attributes.length<6||attributes.slice(0,6).some(value=>!Number.isFinite(value)||value<1||value>99))throw Error(`EA attributes are unavailable for ${teamPlayerName(item)}.`);
+        const priorities=weights[slot.generalPositionName]||weights.CM,labels=isGK?['DIV','HAN','KIC','REF','SPD','POS']:['PAC','SHO','PAS','DRI','DEF','PHY'];
+        const options=definitions.map(style=>{
+          const styleId=Number(style.styleId),bars=repositories.PlayStyle.getPlayStyleBonusById(styleId,isGK);
+          if(!Number.isSafeInteger(styleId)||!Array.isArray(bars)||bars.length!==6||bars.some(value=>!Number.isFinite(value)||value<0)||!bars.some(value=>value>0))return null;
+          const fit=bars.reduce((sum,value,i)=>sum+value*priorities[i]*Math.max(0,99-attributes[i]),0);
+          const count=consumables.filter(card=>card.isStyleModifier?.()&&Number(card.subtype)===styleId&&(item.concept||Number(item.playStyle)===styleId||card.canApplyTo?.(item))).reduce((sum,card)=>sum+Math.max(0,Number(card.stackCount)||0),0);
+          return {styleId,name:styleName(styleId),fit,owned:count,current:Number(item.playStyle)===styleId,focus:bars.map((value,i)=>value>0?labels[i]:null).filter(Boolean)};
+        }).filter(Boolean).sort((a,b)=>b.fit-a.fit||Number(b.current)-Number(a.current)||a.styleId-b.styleId);
+        const top=options.slice(0,3);if(!top.some(option=>option.current)){const current=options.find(option=>option.current);if(current)top.push(current);}
+        return {slotIndex:index,itemId:String(item.id),definitionId:Number(item.definitionId),assetId:Number(item.assetId)||Number(item.definitionId)%0x1000000,name:teamPlayerName(item),rating:Number(item.rating),position:slot.generalPositionName,concept:!!item.concept,review:window.__futsbcStyleReview?.itemId===String(item.id)&&Number(item.playStyle)!==window.__futsbcStyleReview.styleId,chemistry:Number(slot.chemistry)||0,currentStyle:Number(item.playStyle)||0,currentName:styleName(Number(item.playStyle)||0),options:top};
+      });
+      return {ok:true,fingerprint,players:rows,source:'EA attribute fit',checkedAt:Date.now()};
+    }
     if(action==='teamSnapshot'){
       const {team,players}=activeTeam();
       const balance=coinBalance();

@@ -270,3 +270,11 @@ Open the challenge’s **Work Area** and click **Select scoring cards**. FutSBC 
 The selector minimizes excess score within the checked pool, then prefers lower-rated cards. The default rating cap is 82; change it in Finish settings. Active-squad items, cards used in squads, favorites, loans, evolutions and special cards are protected. The swap icon excludes a card version and rebuilds the selection. EA’s per-submission item limit is respected. If the available batch falls short, the result explicitly shows remaining points; submit only after reviewing in EA, then refresh to select the next batch.
 
 This route selects owned cards only; it does not buy market cards or infer eligibility/Item Scores from ratings. A bounded search or insufficient eligible cards may require a narrower pool or a different rating cap. Club cards have no acquisition cost here, but can have resale or opportunity value.
+
+### Selected-player chemistry styles (v0.21.50)
+
+In **My XI**, select occupied squad positions and click **Chemistry styles**. Each player shows the current style, up to three ranked alternatives, attribute categories and owned stock. Ranking is a transparent position-weighted attribute-headroom heuristic using the current EA style categories and player attributes; it is not a FUTBIN community vote, GG Rating, exact boosted-stat calculation or a guaranteed optimal meta style. Goalkeeper and outfield styles stay separate.
+
+Choose an alternative and click **Apply [style]** to spend one owned consumable on that exact player. Concept players receive suggestions only. Zero-chemistry players show that styles currently add no attribute boost. If the style is absent, **Open EA consumables** opens the native flow; no coins are spent automatically. Already-applied styles are skipped. Changed cards and depleted stock are rechecked before applying. An uncertain response is not retried and asks you to check the player in EA.
+
+Application is one player at a time. No SBC submission or player purchase occurs.
