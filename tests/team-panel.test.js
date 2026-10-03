@@ -174,3 +174,28 @@ test('menu picker selects an exact version and sends a locked pick without editi
  await new Promise(resolve=>setImmediate(resolve));
  }finally{dom.window.close();}
  });
+
+test('squad review labels unknown evidence, selects measured declines and discloses supporting changes',async()=>{
+  const html=await readFile(new URL('../extension/panel.html',import.meta.url),'utf8');
+  const script=(await readFile(new URL('../extension/panel.js',import.meta.url),'utf8')).replace(/^import \{renderPortfolio\}.*\n/,'const renderPortfolio=()=>{};\n').replace(/^import .*\n/gm,'');
+  const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'}),{window}=dom,calls=[];
+  const players=[{index:0,position:'ST',name:'Current striker',definitionId:1,rating:85},{index:1,position:'CM',name:'Current midfielder',definitionId:2,rating:84}];
+  const team={name:'XI',fingerprint:'review',chemistry:30,balance:10000,players};
+  const choices=players.map(p=>({...p,slotIndex:p.index,name:'New '+p.position,price:1000,slotChemistry:3,source:'FUT.GG',metaRank:3}));
+  const result={team,checkedAt:Date.now(),supportChanges:[{slotIndex:1,before:players[1],after:choices[1]}],plan:{baselineChemistry:30,chemistry:33,cost:2000,remaining:8000,choices}};
+  const review={fingerprint:'review',checkedAt:Date.now(),suggestedSlots:[0],rows:players.map((p,i)=>({...p,price:i?null:8000,priceSource:'fodder.gg',rank:null,netSaleEstimate:null,signals:i?[]:[{kind:'price',label:'Price down 20%',since:Date.now()-86400000}]}))};
+  window.chrome={runtime:{id:'review-test',sendMessage:async m=>{calls.push(m);return {ok:true,data:m.type==='teamSnapshot'?team:m.type==='teamReview'?review:m.type==='teamRecommend'?result:{}};}},storage:{onChanged:{addListener(){}}}};
+  try{
+    window.eval(script+`\nteam=${JSON.stringify(team)};renderTeam();`);
+    window.document.getElementById('team-review').click();await new Promise(r=>setImmediate(r));
+    assert.match(window.document.getElementById('team-review-list').textContent,/Price down 20%/);
+    assert.match(window.document.getElementById('team-review-list').textContent,/Price unavailable/);
+    assert.equal(window.document.getElementById('team-review-upgrade').hidden,false);
+    window.document.getElementById('team-review-upgrade').click();await new Promise(r=>setImmediate(r));
+    const request=calls.find(m=>m.type==='teamRecommend');assert.deepEqual(Array.from(request.slots),[0]);assert.equal(request.allowSupport,true);
+    assert.match(window.document.querySelector('.team-support-note').textContent,/Current midfielder → New CM/);
+    assert.match(window.document.querySelector('.team-support-note').textContent,/30 → 33/);
+    assert.equal(window.document.querySelector('.team-plan-failure'),null,'a supporting slot cannot distort requested coverage');
+    assert(calls.every(m=>m.type!=='teamApply'),'review never automatically applies or sells cards');
+  }finally{dom.window.close();}
+});

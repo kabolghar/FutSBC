@@ -136,6 +136,7 @@
     <section id="team-view" class="team-view" aria-label="Team upgrades" hidden>
       <div class="insights-heading"><div><span class="section-label"><span class="signal"></span> YOUR SQUAD</span><h1>Build your XI</h1><p>Tap the positions you want to upgrade.</p></div><button id="team-refresh" class="secondary" type="button">Refresh</button></div>
       <div class="team-summary"><strong id="team-name">Open your active squad</strong><span id="team-chemistry">— chemistry</span><span id="team-balance">— coins</span></div>
+      <div class="squad-review-tools"><button id="team-review" class="secondary" type="button">Review my squad</button><span>Price & ranking changes</span></div><section id="team-review-panel" class="squad-review" hidden aria-label="Squad performance review"><p id="team-review-status" class="field-note" role="status"></p><div id="team-review-list"></div><button id="team-review-upgrade" class="secondary" type="button" hidden>Find upgrades for flagged cards →</button></section>
       <p id="team-error" class="trader-error" role="alert" hidden></p>
       <details id="team-editor" class="team-editor" open><summary>Players & budget <span>Edit your setup</span></summary>
       <div id="team-layout"></div><div class="insights-section-head team-select-head"><h2>Who’s changing?</h2><div><button id="team-select-empty" class="text-button" type="button">Select empty</button><button id="team-select-clear" class="text-button" type="button">Clear</button></div></div>
@@ -148,6 +149,7 @@
         <form id="team-picker-form" class="team-picker-search"><input id="team-picker-query" type="search" minlength="2" maxlength="50" placeholder="Player name, e.g. Messi" aria-label="Player name" required><button id="team-picker-search" class="secondary" type="submit">Search</button></form>
         <p id="team-picker-status" class="field-note" role="status">Find a player for this position.</p><div id="team-picker-results" class="team-picker-results"></div>
       </section><div class="team-controls"><label for="team-budget">Total budget</label><div class="team-budget-line"><select id="team-budget"><option value="all">All available coins</option><option value="half">Half my coins</option><option value="custom">Future team budget</option></select><input id="team-custom-budget" type="number" min="500" step="50" placeholder="Coins" aria-label="Future team budget in coins" hidden></div><small id="team-allowance">Choose one or more players.</small></div>
+      <label class="support-toggle"><input id="team-support" type="checkbox" checked> Allow up to 2 supporting changes if needed</label>
       <button id="team-find" class="primary" type="button"><span>Find my XI</span><span aria-hidden="true">→</span></button>
       </details>
       <div id="team-results" class="team-results" aria-live="polite"></div>

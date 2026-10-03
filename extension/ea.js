@@ -197,7 +197,7 @@ export async function eaOperation(action, payload = {}) {
       const {team,players}=activeTeam();
       const balance=coinBalance();
       if(!Number.isSafeInteger(balance)||balance<0)throw Error('EA did not provide your coin balance.');
-      return {ok:true,id:team.getId?.(),name:String(team.getName?.()||'Current squad'),formation:team.getFormation()?.displayName||'',chemistry:Number(team.getChemistry?.())||0,balance,fingerprint:teamFingerprint(players),players:players.map(slot=>({index:slot.index,position:String(slot.generalPositionName||''),name:teamPlayerName(slot.item),rating:hasTeamCard(slot.item)?Number(slot.item.rating)||0:0,assetId:hasTeamCard(slot.item)?Number(slot.item.assetId)||Number(slot.item.definitionId)%0x1000000:0,definitionId:hasTeamCard(slot.item)?Number(slot.item.definitionId)||0:0,itemId:hasTeamCard(slot.item)?Number(slot.item.id)||0:0,concept:!!slot.item?.concept,leagueId:Number(slot.item?.leagueId)||0,nationId:Number(slot.item?.nationId??slot.item?.nationalityId)||0,clubId:Number(slot.item?.teamId)||0,chemistry:Number(slot.chemistry)||0}))};
+      return {ok:true,id:team.getId?.(),name:String(team.getName?.()||'Current squad'),formation:team.getFormation()?.displayName||'',chemistry:Number(team.getChemistry?.())||0,balance,fingerprint:teamFingerprint(players),players:players.map(slot=>({index:slot.index,position:String(slot.generalPositionName||''),name:teamPlayerName(slot.item),rating:hasTeamCard(slot.item)?Number(slot.item.rating)||0:0,assetId:hasTeamCard(slot.item)?Number(slot.item.assetId)||Number(slot.item.definitionId)%0x1000000:0,definitionId:hasTeamCard(slot.item)?Number(slot.item.definitionId)||0:0,itemId:hasTeamCard(slot.item)?Number(slot.item.id)||0:0,concept:!!slot.item?.concept,tradable:slot.item?.tradable===true&&!slot.item?.concept,leagueId:Number(slot.item?.leagueId)||0,nationId:Number(slot.item?.nationId??slot.item?.nationalityId)||0,clubId:Number(slot.item?.teamId)||0,chemistry:Number(slot.chemistry)||0}))};
     }
     if(action==='teamPlayerSearch'){
       const {players}=activeTeam();
@@ -514,7 +514,9 @@ export async function eaOperation(action, payload = {}) {
       const anchorScore=(chem,cap=2)=>anchors.reduce((sum,anchor)=>sum+Math.min(cap,Number(chem.getSlotChemistry?.(anchor.index)?.points)||0),0);
       const linkSupport=chosen=>[...chosen.values()].reduce((sum,choice)=>sum+anchors.reduce((links,anchor)=>links+['leagueId','teamId','nationId'].filter(key=>Number(anchor.item[key])>0&&Number(anchor.item[key])===Number(choice.item[key])).length,0),0);
       const rankValue=option=>option.retained?0:.8*(option.source==='FUT.GG'?100/(1+(Number(option.metaRank)-1)/40):Number(option.futbinRating)||75)+.2*(Number(option.rating)||75);
-      const compare=(a,b)=>(b.coverage||0)-(a.coverage||0)||(b.anchorChemistry||0)-(a.anchorChemistry||0)||b.chemistry-a.chemistry||(b.anchorTotal||0)-(a.anchorTotal||0)||b.meta-a.meta||(b.fallbackMeta||0)-(a.fallbackMeta||0)||a.cost-b.cost;
+      const required=new Set(payload.requiredUpgradeSlots||[]),support=new Set(payload.supportSlots||[]);
+      if([...required,...support].some(index=>!bySlot.some(g=>g.slot.index===index))||[...required].some(index=>support.has(index)))throw Error('Invalid supporting-position plan.');
+      const compare=(a,b)=>(a.supportChanges||0)-(b.supportChanges||0)||(b.coverage||0)-(a.coverage||0)||(b.anchorChemistry||0)-(a.anchorChemistry||0)||b.chemistry-a.chemistry||(b.anchorTotal||0)-(a.anchorTotal||0)||b.meta-a.meta||(b.fallbackMeta||0)-(a.fallbackMeta||0)||a.cost-b.cost;
       // Bounded beam search preserves whole-team alternatives instead of reducing
       // each position to the cheapest two plus one highly ranked card.
       const reserveByStep=Array(bySlot.length+1).fill(0);
@@ -537,15 +539,17 @@ export async function eaOperation(action, payload = {}) {
           const coverage=[...chosen.values()].filter(value=>!value.option.retained).length;
           const reserve=reserveByStep[step+1];
           const canComplete=coverage===chosen.size&&cost+reserve<=limit;
-          const candidate={chosen,used,cost,meta,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),linkSupport:linkSupport(chosen),fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
+          const supportChanges=[...chosen].filter(([index,value])=>support.has(index)&&!value.option.retained).length;
+          const candidate={supportChanges,chosen,used,cost,meta,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),linkSupport:linkSupport(chosen),fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
+            if([...required].some(index=>!chosen.has(index)||chosen.get(index).option.retained))continue;
             // An explicit build-around choice may require chemistry trade-offs.
             // Keep the best complete alternative, without relaxing identity or cost.
             if(action==='teamPlan'&&payload.allowChemistryFallback===true&&completeXI&&coverage===bySlot.length){
               const slotChemistry=Object.fromEntries(players.map(row=>[row.index,Number(chem.getSlotChemistry?.(row.index)?.points)]));
               if(Object.values(slotChemistry).every(points=>Number.isFinite(points)&&points>=0&&points<=3)){
-                const fallback={anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:[],chemistry:candidate.chemistry,slotChemistry,chemistryTradeoff:true,targetChemistry:minimumChemistry,baselineChemistry:Number(baseline.chemistry),choices:[...chosen].map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:slotChemistry[slotIndex]})).sort((a,b)=>a.slotIndex-b.slotIndex)};
+                const fallback={supportChanges,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:[],chemistry:candidate.chemistry,slotChemistry,chemistryTradeoff:true,targetChemistry:minimumChemistry,baselineChemistry:Number(baseline.chemistry),choices:[...chosen].map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:slotChemistry[slotIndex]})).sort((a,b)=>a.slotIndex-b.slotIndex)};
                 if(!chemistryFallback||compare(fallback,chemistryFallback)<0)chemistryFallback=fallback;
               }
             }
@@ -558,7 +562,7 @@ export async function eaOperation(action, payload = {}) {
             if(!meetsTarget)rejections.belowTarget++;
             const prior=meetsTarget?best:progress;
             if(meetsTarget||candidate.chemistry>Number(baseline.chemistry)){
-              const found={anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)})).sort((a,b)=>a.slotIndex-b.slotIndex)};
+              const found={supportChanges,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry:Object.fromEntries(players.map(row=>[row.index,points(row.index)||0])),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:points(slotIndex)})).sort((a,b)=>a.slotIndex-b.slotIndex)};
               if(!prior||compare(candidate,prior)<0){if(meetsTarget)best=found;else progress=found;}
               if(meetsTarget&&Number.isInteger(payload.alternativesForSlot)){
                 const id=chosen.get(payload.alternativesForSlot)?.option.definitionId;

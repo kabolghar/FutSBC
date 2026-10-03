@@ -12,6 +12,7 @@ const $=id=>document.getElementById(id);
 const preview=!globalThis.chrome?.runtime?.id;
 let state={},busy=false,mapping=[],activeView='sbc',trader={enabled:false},traderPending=false,buy={enabled:false},buyPending=false;
 let insights={},insightsPending=false,insightsUiError='';
+let squadReviewResult=null,reviewPending=false;
 let teamSwapView=null;
 let teamPicks=new Map(),teamPickerSlot=null,teamPickerEpoch=0;
 let team={},teamResult=null,teamSelected=new Set(),teamPending=false,teamUiError='',teamRunActive=false,teamProgressText='';
@@ -374,7 +375,42 @@ function renderStyleList(){
 }
 $('team-styles').onclick=loadTeamStyles;
 $('team-style-close').onclick=()=>{if(!stylePending)$('team-style-panel').hidden=true;};
+function renderSquadReview(){
+  const panel=$('team-review-panel');
+  if(squadReviewResult&&squadReviewResult.fingerprint!==team.fingerprint)squadReviewResult=null;
+  $('team-review').disabled=teamPending||reviewPending;
+  $('team-review').textContent=reviewPending?'Reviewing…':'Review my squad';
+  panel.hidden=!reviewPending&&!squadReviewResult;
+  const list=$('team-review-list');list.replaceChildren();
+  $('team-review-upgrade').hidden=reviewPending||!squadReviewResult?.suggestedSlots?.length;
+  if(reviewPending){$('team-review-status').textContent='Checking price estimates and position rankings…';return;}
+  if(!squadReviewResult)return;
+  const flagged=squadReviewResult.rows.filter(row=>row.signals.length);
+  const hasEvidence=squadReviewResult.rows.some(row=>row.price!==null||row.rank!==null);
+  $('team-review-status').textContent=flagged.length?`${flagged.length} cards to review · ${new Date(squadReviewResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`:hasEvidence?'No measured decline found. Today’s available evidence is saved for future reviews.':'Price and ranking evidence unavailable. Try again later.';
+  for(const player of [...squadReviewResult.rows].sort((a,b)=>b.signals.length-a.signals.length)){
+    const row=document.createElement('article');row.className='squad-review-card';
+    const art=cardArtElement('team-mini-art',player.rating,player.position,player.assetId,player.definitionId,player.name);
+    const copy=document.createElement('div'),name=document.createElement('strong'),signal=document.createElement('span'),details=document.createElement('small');name.textContent=player.name;
+    signal.className=player.signals.length?'review-signal':'field-note';signal.textContent=player.signals.map(s=>s.label).join(' · ')||'No measured decline';
+    details.textContent=`${player.position} · ${player.price===null?'Price unavailable':`${fmt(player.price)} coins · ${player.priceSource} estimate`} · ${player.rank===null?'Ranking unavailable':`FUT.GG budget #${player.rank}`}`;
+    const evidence=document.createElement('details'),summary=document.createElement('summary'),note=document.createElement('small');summary.textContent='Evidence';
+    note.textContent=`${player.priceUpdatedAt?'Price updated '+new Date(player.priceUpdatedAt).toLocaleString()+'. ':''}${player.rankCheckedAt?'Ranking checked '+new Date(player.rankCheckedAt).toLocaleString()+'. ':''}${player.signals.map(s=>'Compared with '+new Date(s.since).toLocaleDateString()+'. ').join('')}A price drop does not mean worse gameplay. Budget ranking drift is a relative signal, not a nerf. ${player.netSaleEstimate!==null?'Estimated sale proceeds after fee: '+fmt(player.netSaleEstimate)+' coins.':'No sale proceeds included in your budget.'}`;evidence.append(summary,note);copy.append(name,signal,details,evidence);row.append(art,copy);list.append(row);
+  }
+  if(squadReviewResult.pricesUnavailable||squadReviewResult.rankingsUnavailable){const note=document.createElement('p');note.className='field-note';note.textContent='Some evidence is unavailable. Missing data is not treated as a decline.';list.append(note);}
+}
+$('team-review').onclick=async()=>{
+  if(teamPending||reviewPending)return;
+  await stopTeamPrefetch();reviewPending=true;teamPending=true;teamUiError='';renderTeam();
+  try{squadReviewResult=await call('teamReview');if(squadReviewResult.team&&squadReviewResult.fingerprint!==team.fingerprint){team=squadReviewResult.team;teamResult=null;teamPicks.clear();teamSelected=new Set([...teamSelected].filter(index=>team.players.some(p=>p.index===index)));}}catch(error){teamUiError=error.message;}finally{reviewPending=false;teamPending=false;renderTeam();}
+};
+$('team-review-upgrade').onclick=()=>{
+  if(teamPending||squadReviewResult?.fingerprint!==team.fingerprint)return;
+  teamSelected=new Set(squadReviewResult.suggestedSlots.filter(index=>!teamPicks.has(index)));$('team-editor').open=true;renderTeam();void findTeam();
+};
 function renderTeam(){
+  renderSquadReview();
+  $('team-support').disabled=teamPending;
   $('team-refresh').disabled=teamPending;$('team-find').disabled=(teamPending&&!teamRunActive)||(!teamSelected.size&&!teamPicks.size);
   $('team-find').firstElementChild.textContent=teamRunActive?'Stop team check':teamPending?'Reading squad…':teamResult?.pricingIncomplete?'Continue team search':'Find my XI';
   $('team-name').textContent=team.name||'Open your active squad';
@@ -409,12 +445,14 @@ function renderTeam(){
   const results=$('team-results');results.replaceChildren();
   if(teamResult){
     const audit=document.createElement('details');audit.className='plan-evidence';const auditLabel=document.createElement('summary');auditLabel.textContent='Prices & checks';audit.append(auditLabel);const top=document.createElement('p');top.className='team-result-note';top.textContent=`${teamResult.source==='FUT.GG'?'FUT.GG budget ranking':teamResult.source==='FUTBIN + FUT.GG'?'FUTBIN + FUT.GG rankings':'FUTBIN player ratings'} · ${teamResult.priceMode==='estimate'?'Third-party price estimates':`${teamResult.cardsPriced} targeted EA price checks`} · ${new Date(teamResult.checkedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;audit.append(top);results.append(audit);
+    if(teamResult.supportReason){const notice=document.createElement('p');notice.className='team-result-note';notice.textContent=teamResult.supportReason;results.append(notice);}
     if(teamResult.linkSearchError){const notice=document.createElement('p');notice.className='team-result-note';notice.textContent='Some targeted FUTBIN link searches were unavailable. League and nation coverage may be limited.';results.append(notice);}
     if(teamResult.plan||teamResult.progressPlan){
       const plan=teamResult.plan||teamResult.progressPlan;
       if(!teamResult.plan){const notice=document.createElement('p');notice.className='team-plan-failure';notice.textContent=`Full target not reached (${plan.targetChemistry}/33). Optional partial step: ${plan.baselineChemistry} → ${plan.chemistry} chemistry. This is not a finished meta XI.`;results.append(notice);}
-      if(plan.choices.filter(card=>!card.locked).length<teamSelected.size){const coverage=document.createElement('p');coverage.className='team-plan-failure';coverage.textContent=`Partial result: ${plan.choices.filter(card=>!card.locked).length}/${teamSelected.size} selected positions covered. Still unchanged: ${team.players.filter(player=>teamSelected.has(player.index)&&!plan.choices.some(choice=>choice.slotIndex===player.index)).map(player=>`${player.position} (${player.name})`).join(', ')}. The displayed cost covers only the proposed changes.`;results.append(coverage);}
+      if(plan.choices.filter(card=>!card.locked&&teamSelected.has(card.slotIndex)).length<teamSelected.size){const coverage=document.createElement('p');coverage.className='team-plan-failure';coverage.textContent=`Partial result: ${plan.choices.filter(card=>!card.locked&&teamSelected.has(card.slotIndex)).length}/${teamSelected.size} selected positions covered. Still unchanged: ${team.players.filter(player=>teamSelected.has(player.index)&&!plan.choices.some(choice=>choice.slotIndex===player.index)).map(player=>`${player.position} (${player.name})`).join(', ')}. The displayed cost covers only the proposed changes.`;results.append(coverage);}
       if(plan.chemistryTradeoff){const tradeoff=document.createElement('p');tradeoff.className='team-plan-failure';const low=plan.choices.filter(card=>card.slotChemistry<2).map(card=>`${card.name}: ${card.slotChemistry}/3`).join(' · ');tradeoff.textContent=`Chemistry trade-off: ${plan.baselineChemistry} → ${plan.chemistry}/33. Best complete lineup checked around your chosen players; the ${plan.targetChemistry}/33 target or individual chemistry requirements were not met.${low?' '+low+'.':''} Review before adding concepts.`;results.append(tradeoff);}
+      if(teamResult.supportChanges?.length){const support=document.createElement('p');support.className='team-support-note';support.textContent=`Supporting changes: ${teamResult.supportChanges.map(change=>`${change.before.position}: ${change.before.name} → ${change.after.name} (${change.after.owned?'in club':fmt(change.after.price)+' coins'})`).join(' · ')}. Included in total cost. Chemistry ${plan.baselineChemistry} → ${plan.chemistry}/33. Review before adding.`;results.append(support);}
       const summary=document.createElement('div');summary.className='team-plan-summary';
       for(const [label,value] of [['SQUAD CHEMISTRY',`${plan.chemistry}/33`],[teamResult.priceMode==='estimate'?'EST. COST · COINS':'COST · COINS',fmt(plan.cost)],['LEFT · COINS',fmt(plan.remaining)]]){
         const metric=document.createElement('div');const caption=document.createElement('small');caption.textContent=label;const amount=document.createElement('strong');amount.textContent=value;metric.append(caption,amount);summary.append(metric);
@@ -429,7 +467,7 @@ function renderTeam(){
         const option=planned.get(player.index),card=option||player;
         const row=document.createElement('article');row.className=`team-lineup-card${option?' is-planned':''}`;
         const art=cardArtElement('team-lineup-art',card.rating,player.position,card.assetId,card.definitionId,card.name,!!card.definitionId);
-        const content=document.createElement('div');content.className='team-lineup-description';const position=document.createElement('small');position.textContent=`${player.position} · ${option?.locked?'BUILD AROUND':option?'NEW CARD':player.concept?'CONCEPT':'CURRENT'}`;
+        const content=document.createElement('div');content.className='team-lineup-description';const position=document.createElement('small');position.textContent=`${player.position} · ${option?.locked?'BUILD AROUND':option?teamResult.supportChanges?.some(c=>c.slotIndex===player.index)?'SUPPORTING CHANGE':'NEW CARD':player.concept?'CONCEPT':'CURRENT'}`;
         const name=document.createElement(option?'a':'strong');name.textContent=card.name;
         if(option){if(option.url)name.href=option.url;name.target='_blank';name.rel='noreferrer';}
         const detail=document.createElement('span');detail.className='player-evidence';detail.textContent=option?`${option.locked?'Your chosen player':option.source==='FUT.GG'?`FUT.GG cheap #${option.metaRank}`:Number.isFinite(option.futbinRating)?`FUTBIN ${Number(option.futbinRating).toFixed(1)}`:'FUTBIN ranked card'} · ${option.slotChemistry} chem`:`${plan.slotChemistry?.[player.index]??'—'} chem`;
@@ -615,7 +653,7 @@ async function findTeam(){
     catch{}finally{polling=false;}
   },1000);
   try{
-    teamResult=await Promise.race([interrupted,call('teamRecommend',{slots:[...teamSelected],budget:teamBudget(),picks:[...teamPicks].map(([slotIndex,card])=>({slotIndex,definitionId:card.definitionId}))}),new Promise((_,reject)=>{timer=setTimeout(()=>{void call('teamCancel').catch(()=>{});reject(Error('Team check took too long. Reopen the menu and retry; no team was applied.'));},9*60_000);})]);
+    teamResult=await Promise.race([interrupted,call('teamRecommend',{slots:[...teamSelected],budget:teamBudget(),picks:[...teamPicks].map(([slotIndex,card])=>({slotIndex,definitionId:card.definitionId})),allowSupport:$('team-support').checked}),new Promise((_,reject)=>{timer=setTimeout(()=>{void call('teamCancel').catch(()=>{});reject(Error('Team check took too long. Reopen the menu and retry; no team was applied.'));},9*60_000);})]);
     team=teamResult.team;if(teamResult.plan)$('team-editor').open=false;startTeamPrefetch();
   }catch(error){teamUiError=error.message;}
   finally{clearInterval(poll);clearTimeout(timer);teamPending=false;teamRunActive=false;renderTeam();drainTeamPrefetch();}

@@ -257,6 +257,12 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(balanced.plan.chemistry,31);
   assert.equal(balanced.plan.selectedCount,5);
   assert.deepEqual(balanced.plan.unfilledSlots,[]);
+  const rescued=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:fiveGroups,requiredUpgradeSlots:[0],supportSlots:[1,2,3,4]});
+  assert.equal(rescued.plan.choices.length,1,'support search minimizes extra changes rather than upgrading unrelated slots');
+  assert.equal(rescued.plan.choices[0].slotIndex,0);
+  const noRequested=fiveGroups.map(g=>g.slotIndex===0?{...g,options:[]}:g);
+  const unrelated=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:noRequested,requiredUpgradeSlots:[0],supportSlots:[1,2,3,4]});
+  assert.equal(unrelated.plan,null,'supporting upgrades cannot substitute for the requested upgrade');
   // Swapping locks the other four suggestions and cannot retain the old card silently.
   const swapGroups=fiveGroups.map(group=>({...group,allowRetained:false}));
   const alternatives=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:18000,groups:swapGroups,alternativesForSlot:0});
