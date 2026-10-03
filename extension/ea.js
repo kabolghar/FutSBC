@@ -540,17 +540,18 @@ export async function eaOperation(action, payload = {}) {
           const reserve=reserveByStep[step+1];
           const canComplete=coverage===chosen.size&&cost+reserve<=limit;
           const supportChanges=[...chosen].filter(([index,value])=>support.has(index)&&!value.option.retained).length;
+          if(Number.isInteger(payload.maxSupportChanges)&&supportChanges>payload.maxSupportChanges)continue;
           const candidate={supportChanges,chosen,used,cost,meta,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),linkSupport:linkSupport(chosen),fallbackMeta,metaEvidence,coverage,canComplete,chemistry:Number(chem.chemistry)};
           if(step===bySlot.length-1){
             checked++;
             if([...required].some(index=>!chosen.has(index)||chosen.get(index).option.retained))continue;
             // An explicit build-around choice may require chemistry trade-offs.
             // Keep the best complete alternative, without relaxing identity or cost.
-            if(action==='teamPlan'&&payload.allowChemistryFallback===true&&completeXI&&coverage===bySlot.length){
+            if(action==='teamPlan'&&payload.allowChemistryFallback===true&&completeXI&&(required.size?coverage>0:coverage===bySlot.length)){
               const slotChemistry=Object.fromEntries(players.map(row=>[row.index,Number(chem.getSlotChemistry?.(row.index)?.points)]));
               if(Object.values(slotChemistry).every(points=>Number.isFinite(points)&&points>=0&&points<=3)){
-                const fallback={supportChanges,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:[],chemistry:candidate.chemistry,slotChemistry,chemistryTradeoff:true,targetChemistry:minimumChemistry,baselineChemistry:Number(baseline.chemistry),choices:[...chosen].map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:slotChemistry[slotIndex]})).sort((a,b)=>a.slotIndex-b.slotIndex)};
-                if(!chemistryFallback||compare(fallback,chemistryFallback)<0)chemistryFallback=fallback;
+                const fallback={supportChanges,anchorChemistry:anchorScore(chem),anchorTotal:anchorScore(chem,3),meta,fallbackMeta,metaEvidence,score:meta,cost,coverage,selectedCount:bySlot.length,unfilledSlots:bySlot.filter(group=>chosen.get(group.slot.index)?.option.retained).map(group=>group.slot.index),chemistry:candidate.chemistry,slotChemistry,chemistryTradeoff:true,targetChemistry:minimumChemistry,baselineChemistry:Number(baseline.chemistry),choices:[...chosen].filter(([,value])=>!value.option.retained).map(([slotIndex,value])=>({...value.option,slotIndex,slotChemistry:slotChemistry[slotIndex]})).sort((a,b)=>a.slotIndex-b.slotIndex)};
+                if(!chemistryFallback||((chemistryFallback.anchorChemistry-fallback.anchorChemistry)||(chemistryFallback.chemistry-fallback.chemistry)||compare(fallback,chemistryFallback))<0)chemistryFallback=fallback;
               }
             }
             if(!allowChemistryTradeoff&&candidate.chemistry<Number(baseline.chemistry)){rejections.totalChemistry++;continue;}
@@ -584,7 +585,7 @@ export async function eaOperation(action, payload = {}) {
         beam=[...new Set([...expanded.slice(0,192),...affordable.slice(0,192),...[...expanded].sort((a,b)=>b.linkSupport-a.linkSupport||compare(a,b)).slice(0,128),...[...families.values()].flat().slice(0,128)])];
         if(step<bySlot.length-1&&!beam.length)break;
       }
-      if(chemistryFallback&&(!best||best.choices.length<bySlot.length))best=chemistryFallback;
+      if(chemistryFallback&&(!best||(!required.size&&best.choices.length<bySlot.length)))best=chemistryFallback;
       if(action==='teamApply'){
         if(!best||best.choices.length!==groups.length||best.chemistry<Number(payload.minimumChemistry))throw Error('The recommended team no longer passes the chemistry checks. No squad changes were made.');
         if(typeof team.addItemToSlot!=='function'||typeof team.save!=='function')throw Error('EA squad editing is unavailable.');

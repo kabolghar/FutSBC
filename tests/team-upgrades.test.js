@@ -219,6 +219,11 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   assert.equal(buildAroundTradeoff.plan.choices.length,2);assert.equal(buildAroundTradeoff.plan.choices[0].definitionId,20);
   assert.equal(buildAroundTradeoff.plan.choices[0].locked,true);assert.equal(buildAroundTradeoff.plan.choices[0].slotChemistry,1);
   assert.equal((await eaOperation('teamPlan',{...targetPlan,allowChemistryFallback:false})).plan,null,'strict callers retain chemistry requirements');
+  const positionTradeoff=await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:150000,groups:groups.map(g=>({...g,allowRetained:true})),requiredUpgradeSlots:[0,2],supportSlots:[],allowChemistryFallback:true});
+  assert.equal(positionTradeoff.plan.chemistry,28,'ordinary requested positions can show a checked chemistry trade-off');
+  assert.equal(positionTradeoff.plan.chemistryTradeoff,true);assert.equal(positionTradeoff.plan.targetChemistry,33);
+  assert.deepEqual(positionTradeoff.plan.choices.map(c=>c.slotIndex),[0,2]);
+  assert.equal((await eaOperation('teamPlan',{fingerprint:snapshot.fingerprint,budget:1500,groups,requiredUpgradeSlots:[0,2],allowChemistryFallback:true})).plan,null,'trade-off cannot spend more than budget');
   assert.equal((await eaOperation('teamPlan',{...targetPlan,budget:1500})).plan,null,'fallback still respects the whole-team budget');
   const unpriced=lockedGroups.map(group=>({...group,options:group.options.map(card=>({...card,priceVerified:false}))}));
   assert.equal((await eaOperation('teamPlan',{...targetPlan,groups:unpriced})).plan,null,'fallback cannot invent missing prices');
@@ -260,6 +265,8 @@ test('EA evaluates exact concept chemistry without changing the active squad',as
   const rescued=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:fiveGroups,requiredUpgradeSlots:[0],supportSlots:[1,2,3,4]});
   assert.equal(rescued.plan.choices.length,1,'support search minimizes extra changes rather than upgrading unrelated slots');
   assert.equal(rescued.plan.choices[0].slotIndex,0);
+  const bounded=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:fiveGroups.map(g=>({...g,allowRetained:false})),requiredUpgradeSlots:[0],supportSlots:[1,2,3,4],maxSupportChanges:2,allowChemistryFallback:true});
+  assert.equal(bounded.plan,null,'chemistry trade-off cannot change more than two supporting positions');
   const noRequested=fiveGroups.map(g=>g.slotIndex===0?{...g,options:[]}:g);
   const unrelated=await eaOperation('teamPlan',{fingerprint:fiveSnapshot.fingerprint,budget:10000,groups:noRequested,requiredUpgradeSlots:[0],supportSlots:[1,2,3,4]});
   assert.equal(unrelated.plan,null,'supporting upgrades cannot substitute for the requested upgrade');

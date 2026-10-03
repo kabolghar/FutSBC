@@ -462,10 +462,11 @@ async function runTeamRecommendation(slots,budget,picks=[],allowSupport=false){
   try{
     let result=await recommendTeam(slots,budget,false,picks);
     const requested=result.results.filter(g=>!g.locked).map(g=>g.slotIndex);
+    const seed={...result,results:result.results.slice()};let candidates=[];
     if(allowSupport&&requested.length&&!requestedCovered(result.plan,requested)&&!result.pricingIncomplete){
-      const candidates=supportCandidates(result.team,requested,picks,result.results);
+      candidates=supportCandidates(result.team,requested,picks,result.results);
       const attempts=[...candidates.map(index=>[index]),...(candidates.length>1?[candidates.slice(0,2)]:[])];
-      let supportChecked=0;const seed={...result,results:result.results.slice()};
+      let supportChecked=0;
       for(const supportSlots of attempts){
         teamProgress(`Finding chemistry support · ${supportSlots.length} extra position${supportSlots.length>1?'s':''}`);
         let expanded;
@@ -478,6 +479,17 @@ async function runTeamRecommendation(slots,budget,picks=[],allowSupport=false){
         }
       }
       if(!result.supportChanges)result={...result,supportChecked,supportReason:result.supportReason||'No chemistry-safe supporting change found in this checked pool. Your squad stays unchanged.'};
+    }
+    if(requested.length&&!requestedCovered(result.plan,requested)&&!result.pricingIncomplete){
+      teamProgress('Comparing affordable chemistry trade-offs…');
+      // Reuse checked cards. Retaining support slots is allowed, but the original
+      // request must be fulfilled and no more than two extra changes can be shown.
+      const supports=allowSupport?candidates.filter(index=>seed.results.some(g=>g.slotIndex===index)):[];
+      try{
+        const alternative=await recommendTeam([...requested,...supports],budget,true,picks,{seed,requested,supportSlots:supports,allowFallback:true});
+        if(requestedCovered(alternative.plan,requested))result={...alternative,requestedSlots:requested,supportChecked:result.supportChecked||0,supportChanges:alternative.plan.choices.filter(c=>supports.includes(c.slotIndex)).map(c=>({slotIndex:c.slotIndex,before:result.team.players.find(p=>p.index===c.slotIndex),after:c})),supportReason:null};
+        else result={...result,planReason:'No fully priced combination in the checked pool covers your requested positions within this budget. Chemistry trade-offs were also checked; this is not an exhaustive search of every card.'};
+      }catch(error){if(teamRun.cancelled)throw error;result={...result,planReason:`Could not finish the alternative check: ${error.message}`};}
     }
     result={...result,planId:crypto.randomUUID()};
     await chrome.storage.session.set({'futsbc-team-plan':result});return result;
@@ -595,7 +607,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[],context=null){
     const canPlanKnown=knownGroups.every(group=>group.options.length||team.players.find(player=>player.index===group.slotIndex)?.definitionId);
     let known=null;
     if(canPlanKnown){
-      known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups,requiredUpgradeSlots:context?.requested,supportSlots:context?.supportSlots,allowChemistryFallback:results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
+      known=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups:knownGroups,requiredUpgradeSlots:context?.requested,supportSlots:context?.supportSlots,maxSupportChanges:context?2:undefined,allowChemistryFallback:context?.allowFallback===true||results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
       if(!groups.some(group=>group.options.some(card=>card.pricePending))){planned=known;break;}
     }
     if(round===maxPriceChecks||cardsPriced>=maxPriceChecks){
@@ -603,7 +615,7 @@ async function recommendTeam(slots,budget,broaden=false,picks=[],context=null){
       planned={...planned,reason:'Price coverage is incomplete; this does not mean your budget is too low. Run the team search again to continue with recent prices saved.'};
       break;
     }
-    planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups,requiredUpgradeSlots:context?.requested,supportSlots:context?.supportSlots,allowChemistryFallback:results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
+    planned=await ea(tabId,'teamPlan',{fingerprint:team.fingerprint,budget:total,groups,requiredUpgradeSlots:context?.requested,supportSlots:context?.supportSlots,maxSupportChanges:context?2:undefined,allowChemistryFallback:context?.allowFallback===true||results.some(group=>group.locked)},SBC_REQUEST_TIMEOUT);
     const pending=[...new Set(((planned.plan||planned.progressPlan)?.choices||[]).filter(option=>option.pricePending).map(option=>option.definitionId))];
     if(!pending.length){if(!planned.plan&&known?.plan)planned=known;break;}
     const paused=Number((await chrome.storage.session.get(TEAM_PRICE_PAUSE_KEY))[TEAM_PRICE_PAUSE_KEY])||0;
