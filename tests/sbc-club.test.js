@@ -241,3 +241,70 @@ test('finish SBC preserves an exact concept when its owned club copy exists',asy
  assert.equal(result.ok,true,result.error);assert.equal(result.kept,2);assert.equal(result.changes,0);assert.equal(result.total,0);
  assert.equal(env.slots[0].item,env.good[0]);assert(result.players.every(card=>card.owned));
 });
+
+test('hybrid escapes the position assignment trap by swapping two existing trial players',async t=>{
+ const env=hybridSetup(t,{balance:2000});
+ env.slots.push({index:3,generalPositionName:'ST',item:{id:0,definitionId:0,isValid:()=>false}});
+ env.slots[2].generalPositionName='ST';
+ env.pool.splice(0,env.pool.length,...Array.from({length:4},(_,i)=>({...env.good[0],id:100+i,assetId:100+i,definitionId:100+i,teamId:1,rating:75,preferredPosition:i===3?25:14,possiblePositions:i<2?[14,25]:i===2?[14]:[25]})));
+ globalThis.SBCEligibilityKey={CHEMISTRY_POINTS:1};globalThis.SBCEligibilityScope={GREATER:1};
+ t.after(()=>{delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;});
+ env.challenge.eligibilityRequirements=[{getFirstKey:()=>1,getValue:()=>[12],scope:1}];
+ env.challenge.squad.getChemistry=function(){return this.getNonBrickSlots().reduce((sum,s)=>sum+(s.item.possiblePositions?.includes(s.generalPositionName==='CM'?14:25)?3:0),0);};
+ env.challenge.isRequirementMet=function(){return this.squad.getChemistry()===12;};env.challenge.meetsRequirements=env.challenge.isRequirementMet;
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,0);assert.equal(env.challenge.squad.getChemistry(),12);assert.equal(env.saves,1);
+ assert(result.checks<100,'paired move must solve a four-card trap without thousands of repeated checks');
+});
+
+test('hybrid constructs 3 leagues and 2 nations despite a large cheap single-league distraction',async t=>{
+ const env=hybridSetup(t,{balance:5000});for(let index=3;index<11;index++)env.slots.push({index,generalPositionName:'CM',item:{id:0,definitionId:0,isValid:()=>false}});
+ globalThis.SBCEligibilityKey={PLAYER_QUALITY:1,LEAGUE_COUNT:2,NATION_COUNT:3,SAME_LEAGUE_COUNT:4,SAME_NATION_COUNT:5,CHEMISTRY_POINTS:6};globalThis.SBCEligibilityScope={GREATER:1,LOWER:2,EXACT:3};globalThis.ItemRatingTier={BRONZE:1,SILVER:2,GOLD:3};
+ t.after(()=>{delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;delete globalThis.ItemRatingTier;});
+ const rule=(key,value,scope)=>({getFirstKey:()=>key,getValue:()=>[value],scope});
+ env.challenge.eligibilityRequirements=[rule(1,3,3),rule(2,3,3),rule(3,2,3),rule(4,6,2),rule(5,6,2),rule(6,26,1)];
+ env.pool.splice(0,env.pool.length,...Array.from({length:98},(_,i)=>({...env.good[0],id:100+i,assetId:100+i,definitionId:100+i,rating:75,leagueId:i<90?1:i<94?2:3,nationId:i<90?1:2,teamId:10+i%8})));
+ const counts=items=>{const rows=new Map();for(const id of items)rows.set(id,(rows.get(id)||0)+1);return rows;};
+ env.challenge.squad.getChemistry=function(){const items=this.getNonBrickSlots().map(s=>s.item),leagues=counts(items.map(i=>i.leagueId)),nations=counts(items.map(i=>i.nationId));return items.reduce((sum,item)=>sum+Math.min(3,(leagues.get(item.leagueId)>=8?3:leagues.get(item.leagueId)>=5?2:leagues.get(item.leagueId)>=3?1:0)+(nations.get(item.nationId)>=8?3:nations.get(item.nationId)>=5?2:nations.get(item.nationId)>=2?1:0)),0);};
+ env.challenge.isRequirementMet=function(r){const items=this.squad.getNonBrickSlots().map(s=>s.item),key=r.getFirstKey(),target=r.getValue()[0];if(key===1)return items.every(i=>i.rating>=75);if(key===6)return this.squad.getChemistry()>=target;const rows=counts(items.map(i=>key===2||key===4?i.leagueId:i.nationId));return key===2||key===3?rows.size===target:Math.max(...rows.values())<=target;};
+ env.challenge.meetsRequirements=function(){return this.squad.getNonBrickSlots().every(s=>s.item.isValid?.())&&this.eligibilityRequirements.every(r=>this.isRequirementMet(r));};
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,0);assert.equal(result.players.length,11);assert.equal(env.challenge.meetsRequirements(),true);assert(result.checks<2000);assert.equal(env.saves,1);
+});
+
+test('hybrid market searches translate positions and discover coherent league-nation links',async t=>{
+ const env=hybridSetup(t,{balance:5000});env.pool.length=0;
+ globalThis.SBCEligibilityKey={LEAGUE_COUNT:1};globalThis.SBCEligibilityScope={EXACT:3};t.after(()=>{delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;});
+ env.challenge.eligibilityRequirements=[{getFirstKey:()=>1,getValue:()=>[1],scope:3}];
+ const searches=[],cards=Array.from({length:3},(_,i)=>({...env.good[0],id:100+i,assetId:100+i,definitionId:100+i,leagueId:7,nationId:9,teamId:3,rating:80,isPlayer:()=>true,getAuctionData:()=>({buyNowPrice:200,getSecondsRemaining:()=>100,canBuy:()=>true})}));
+ services.Item.searchTransferMarket=criteria=>{searches.push({...criteria});return observed({data:{items:cards}});};services.Item.searchConceptItems=criteria=>observed({response:{items:cards.filter(c=>criteria.defId.includes(c.definitionId)).map(c=>({...c,id:0,concept:true})),endOfList:true}});
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);
+ assert(searches.some(q=>q.position===14),'EA receives numeric CM search position');assert(searches.every(q=>q.position===undefined||typeof q.position==='number'));
+ assert(searches.some(q=>q.league===7&&q.nation===9),'use discovered market links even with an empty club');
+});
+
+test('hybrid skips market discovery when a checked club-only squad already passes',async t=>{
+ const env=hybridSetup(t);env.pool.push(env.good[2]);let searches=0;
+ services.Item.searchTransferMarket=()=>{searches++;throw Error('Market should not be requested');};
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,0);assert.equal(searches,0);assert(result.players.every(p=>p.owned));assert.equal(env.saves,1);
+});
+
+test('hybrid solves 3 leagues and 2 nations using owned cards plus the cheapest market filler',async t=>{
+ const env=hybridSetup(t,{balance:5000});for(let index=3;index<11;index++)env.slots.push({index,generalPositionName:'CM',item:{id:0,definitionId:0,isValid:()=>false}});
+ globalThis.SBCEligibilityKey={LEAGUE_COUNT:1,NATION_COUNT:2,SAME_LEAGUE_COUNT:3,SAME_NATION_COUNT:4,CHEMISTRY_POINTS:5};globalThis.SBCEligibilityScope={GREATER:1,LOWER:2,EXACT:3};
+ t.after(()=>{delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;});
+ const rule=(key,value,scope)=>({getFirstKey:()=>key,getValue:()=>[value],scope});env.challenge.eligibilityRequirements=[rule(1,3,3),rule(2,2,3),rule(3,6,2),rule(4,6,2),rule(5,26,1)];
+ env.pool.splice(0,env.pool.length,...Array.from({length:7},(_,i)=>({...env.good[0],id:100+i,assetId:100+i,definitionId:100+i,rating:75,leagueId:1,nationId:1,teamId:10+i})));
+ const market=Array.from({length:8},(_,i)=>({...env.good[0],id:200+i,assetId:200+i,definitionId:200+i,rating:75,leagueId:i<4?2:3,nationId:2,teamId:20+i,isPlayer:()=>true,getAuctionData:()=>({buyNowPrice:200,getSecondsRemaining:()=>100,canBuy:()=>true})}));
+ services.Item.searchTransferMarket=q=>observed({data:{items:market.filter(item=>(!q.league||item.leagueId===q.league)&&(!q.nation||item.nationId===q.nation)&&(!q.position||q.position===14))}});
+ services.Item.searchConceptItems=q=>observed({response:{items:market.filter(item=>q.defId.includes(item.definitionId)).map(item=>({...item,id:0,concept:true})),endOfList:true}});
+ const counts=items=>{const rows=new Map();for(const id of items)rows.set(id,(rows.get(id)||0)+1);return rows;};
+ env.challenge.squad.getChemistry=function(){const items=this.getNonBrickSlots().map(s=>s.item),leagues=counts(items.map(i=>i.leagueId)),nations=counts(items.map(i=>i.nationId));return items.reduce((sum,item)=>sum+Math.min(3,(leagues.get(item.leagueId)>=5?2:leagues.get(item.leagueId)>=3?1:0)+(nations.get(item.nationId)>=5?2:nations.get(item.nationId)>=2?1:0)),0);};
+ env.challenge.isRequirementMet=function(r){const items=this.squad.getNonBrickSlots().map(s=>s.item),key=r.getFirstKey(),target=r.getValue()[0];if(key===5)return this.squad.getChemistry()>=target;const rows=counts(items.map(i=>key===1||key===3?i.leagueId:i.nationId));return key===1||key===2?rows.size===target:Math.max(...rows.values())<=target;};env.challenge.meetsRequirements=function(){return this.squad.getNonBrickSlots().every(s=>s.item.isValid?.())&&this.eligibilityRequirements.every(r=>this.isRequirementMet(r));};
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);assert.equal(result.total,1000);assert.equal(result.players.filter(p=>p.owned).length,6);assert.equal(env.challenge.meetsRequirements(),true);assert.equal(env.saves,1);
+});
+
+test('hybrid explains when fixed cards already exceed a nation limit without wasting market searches',async t=>{
+ const env=hybridSetup(t);env.slots[0].item={...env.good[0],nationId:1};env.slots[1].item={...env.good[1],nationId:2};let searches=0;
+ globalThis.SBCEligibilityKey={NATION_COUNT:1};globalThis.SBCEligibilityScope={LOWER:2,EXACT:3};t.after(()=>{delete globalThis.SBCEligibilityKey;delete globalThis.SBCEligibilityScope;});
+ env.challenge.eligibilityRequirements=[{getFirstKey:()=>1,getValue:()=>[1],scope:2}];services.Item.searchTransferMarket=()=>{searches++;throw Error('Not needed');};
+ const original=env.slots.map(s=>s.item),result=await hybridBuild();assert.equal(result.ok,false);assert.match(result.error,/Placed cards already exceed.*nation count.*Finish my SBC/);assert.equal(searches,0);assert.equal(env.saves,0);assert.deepEqual(env.slots.map(s=>s.item),original);
+});
