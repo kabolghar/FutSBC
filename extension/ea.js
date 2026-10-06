@@ -84,18 +84,45 @@ export async function eaOperation(action, payload = {}) {
       if(!Number.isSafeInteger(target)||target<1||target>100000||!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(maxRating)||maxRating<1||maxRating>99)throw Error('EA did not provide a supported score target or selection limit.');
       if(!Array.isArray(payload.excludedDefinitionIds||[])||(payload.excludedDefinitionIds||[]).length>528||(payload.excludedDefinitionIds||[]).some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Invalid card exclusions.');
       payload.sbcBuildDeadline=Date.now()+90000;
+      const deadline=payload.sbcBuildDeadline;
+      const check=()=>{
+        if(readCancelled())throw Error('SBC build stopped. Nothing was selected.');
+        if(Date.now()>=deadline)throw Error('Points search timed out. Nothing was selected.');
+        const displayed=getAppMain().getRootViewController()?.getPresentedViewController?.()?.getCurrentViewController?.()?.getCurrentController?.();
+        const displayedWorkArea=[displayed,displayed?.workAreaController,...(displayed?.childViewControllers||[])].find(controller=>controller?.getViewModel?.()?.getChallenge?.()?.isOneClickChallenge?.());
+        if(displayed!==current||displayedWorkArea!==workArea||workArea.getViewModel()!==model||model.getChallenge()!==challenge||services.User.getUser()?.getSelectedPersona()?.getCurrentClub()!==club)throw Error('The points SBC screen or club changed. Nothing was selected.');
+        if(JSON.stringify([...model.getSelectedItemIds()])!==selectionBefore)throw Error('Your Work Area selection changed during the search. Nothing selected.');
+        if(snapshot().fingerprint!==before.fingerprint)throw Error('The challenge progress changed. Nothing selected.');
+      };
+      let retries=0;
+      // Only these read factories may retry. Never replay selection, buying or submission.
+      const read=async(request,stage,label)=>{
+        for(;;){
+          check();
+          try{const result=await observe(request(),false,stage);check();return result;}
+          catch(error){
+            if(Number(error.status)!==503)throw error;
+            check();
+            if(retries>=2){error.message=`EA is temporarily unavailable (503) while ${label}. Retry later. Your selection was not changed.`;throw error;}
+            retries++;
+            window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status:`EA unavailable · retry ${retries}/2 · ${label}…`};
+            // Wait in short slices so Stop, navigation and manual edits take effect promptly.
+            for(let remaining=retries===1?1500:3000;remaining>0;remaining-=100){check();await new Promise(resolve=>setTimeout(resolve,100));}
+          }
+        }
+      };
       const excluded=new Set(payload.excludedDefinitionIds||[]),protectedIds=new Set();
-      const active=await observe(services.Squad.requestSquadByType('active'));
+      const active=await read(()=>services.Squad.requestSquadByType('active'),'pointsActiveSquad','checking your active squad');
       const activeSquad=active.data?.squad||active.response?.squad||active.response;
       if(!activeSquad?.getPlayers)throw Error('Could not check your active squad. Nothing selected.');
       for(const slot of activeSquad.getPlayers())if(slot.item?.id)protectedIds.add(String(slot.item.id));
-      const candidates=new Map(),deadline=Date.now()+90000;
-      const check=()=>{if(readCancelled())throw Error('SBC build stopped. Nothing was selected.');if(Date.now()>deadline)throw Error('Points search timed out. Nothing was selected.');};
+      const candidates=new Map();
       for(const pile of [PileSearchType.CLUB,PileSearchType.STORAGE].filter(value=>value!=null)){
         for(let offset=0;offset<5000;offset+=100){
           check();window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status:`Reading eligible cards · ${candidates.size} checked…`};
           const criteria=new UTSearchCriteriaDTO();criteria.sbcChallengeId=challenge.id;criteria.pileSearchType=pile;criteria.isFavorite=false;criteria.count=100;criteria.offset=offset;
-          const result=await observe(services.Club.search(criteria));
+          const storage=pile===PileSearchType.STORAGE;
+          const result=await read(()=>services.Club.search(criteria),storage?'pointsStorageCards':'pointsClubCards',storage?'reading SBC Storage cards':'reading eligible club cards');
           const items=result.response?.items;if(!Array.isArray(items))throw Error('EA did not return eligible cards. Nothing selected.');
           for(const item of items){
             const score=Number(item.sbsScore),rating=Number(item.rating);

@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.48**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.54**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -270,6 +270,8 @@ Open the challenge’s **Work Area** and click **Select scoring cards**. FutSBC 
 The selector minimizes excess score within the checked pool, then prefers lower-rated cards. The default rating cap is 82; change it in Finish settings. Active-squad items, cards used in squads, favorites, loans, evolutions and special cards are protected. The swap icon excludes a card version and rebuilds the selection. EA’s per-submission item limit is respected. If the available batch falls short, the result explicitly shows remaining points; submit only after reviewing in EA, then refresh to select the next batch.
 
 This route selects owned cards only; it does not buy market cards or infer eligibility/Item Scores from ratings. A bounded search or insufficient eligible cards may require a narrower pool or a different rating cap. Club cards have no acquisition cost here, but can have resale or opportunity value.
+
+Since v0.21.54, Select scoring cards can recover from an EA 503 during the active-squad check or an eligible club/Storage page read. It retries only the failed read, with up to two retries total, waiting 1.5 seconds and then 3 seconds within the original 90-second deadline. Progress identifies the retry; Stop, navigation, club changes, challenge progress or manual selection edits cancel it. Persistent 503 errors identify the failed stage and preserve your selection. Authentication, rate-limit and other errors are not retried. Selection, purchases and submission are never replayed by this recovery. Automated tests simulate these responses; live EA service availability remains outside the extension's control.
 
 ### Selected-player chemistry styles (v0.21.50)
 
