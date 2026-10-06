@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.54**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.55**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -272,6 +272,10 @@ The selector minimizes excess score within the checked pool, then prefers lower-
 This route selects owned cards only; it does not buy market cards or infer eligibility/Item Scores from ratings. A bounded search or insufficient eligible cards may require a narrower pool or a different rating cap. Club cards have no acquisition cost here, but can have resale or opportunity value.
 
 Since v0.21.54, Select scoring cards can recover from an EA 503 during the active-squad check or an eligible club/Storage page read. It retries only the failed read, with up to two retries total, waiting 1.5 seconds and then 3 seconds within the original 90-second deadline. Progress identifies the retry; Stop, navigation, club changes, challenge progress or manual selection edits cancel it. Persistent 503 errors identify the failed stage and preserve your selection. Authentication, rate-limit and other errors are not retried. Selection, purchases and submission are never replayed by this recovery. Automated tests simulate these responses; live EA service availability remains outside the extension's control.
+
+Since v0.21.55, eligible reads match the native Work Area's sort, trade-status and configured first/subsequent page sizes. The favorite filter is sent only when EA enables that feature; otherwise the native DTO default is preserved. Pagination advances by returned row count and requires EA's completion flag, so a short non-final page does not skip cards or end coverage early. Changing Work Area filters cancels the search. In the failing Arc session on client build 11389, a native-format club request returned 58 scored cards with status 200; the prior extension request was failing. This confirms a request-format mismatch rather than establishing that every 503 is a service outage.
+
+The updated extension was also tested end to end in Arc on 5x 80+ Upgrade: it staged 30 cards for 5,125 of 6,750 points, and EA's Work Area displayed the same score. The partial batch correctly reported 1,625 points remaining. No cards were purchased, submitted or consumed during the test.
 
 ### Selected-player chemistry styles (v0.21.50)
 

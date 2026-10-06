@@ -1,4 +1,4 @@
-// Inspected against EA FC 27 public client build 11321. No raw EA endpoints or credentials.
+// Points adapter checked against EA FC 27 client builds 11321 and 11389. No raw EA endpoints or credentials.
 // Called only by chrome.scripting from our trusted extension service worker.
 export async function eaOperation(action, payload = {}) {
   let sbcPurchaseAttempted=false;
@@ -83,6 +83,10 @@ export async function eaOperation(action, payload = {}) {
       const target=before.target-before.submitted,limit=before.selectionLimit,maxRating=payload.maxRating??82;
       if(!Number.isSafeInteger(target)||target<1||target>100000||!Number.isInteger(limit)||limit<1||limit>100||!Number.isInteger(maxRating)||maxRating<1||maxRating>99)throw Error('EA did not provide a supported score target or selection limit.');
       if(!Array.isArray(payload.excludedDefinitionIds||[])||(payload.excludedDefinitionIds||[]).length>528||(payload.excludedDefinitionIds||[]).some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Invalid card exclusions.');
+      if(typeof model.getSortDirection!=='function'||typeof model.getTradeStatus!=='function'||typeof services.Item?.isFavoritePlayersEnabled!=='function')throw Error('EA Work Area search settings are not ready. Reopen this challenge and retry.');
+      const sort=model.getSortDirection(),tradeStatus=model.getTradeStatus(),favoritesEnabled=services.Item.isFavoritePlayersEnabled();
+      const initialBatch=model._initialFetchBatch??2*limit+1,subsequentBatch=model._subsequentFetchBatch??limit+1;
+      if(typeof favoritesEnabled!=='boolean'||!Number.isInteger(initialBatch)||initialBatch<1||initialBatch>201||!Number.isInteger(subsequentBatch)||subsequentBatch<1||subsequentBatch>101)throw Error('EA did not provide supported Work Area pagination settings.');
       payload.sbcBuildDeadline=Date.now()+90000;
       const deadline=payload.sbcBuildDeadline;
       const check=()=>{
@@ -91,6 +95,7 @@ export async function eaOperation(action, payload = {}) {
         const displayed=getAppMain().getRootViewController()?.getPresentedViewController?.()?.getCurrentViewController?.()?.getCurrentController?.();
         const displayedWorkArea=[displayed,displayed?.workAreaController,...(displayed?.childViewControllers||[])].find(controller=>controller?.getViewModel?.()?.getChallenge?.()?.isOneClickChallenge?.());
         if(displayed!==current||displayedWorkArea!==workArea||workArea.getViewModel()!==model||model.getChallenge()!==challenge||services.User.getUser()?.getSelectedPersona()?.getCurrentClub()!==club)throw Error('The points SBC screen or club changed. Nothing was selected.');
+        if(model.getSortDirection()!==sort||model.getTradeStatus()!==tradeStatus||services.Item.isFavoritePlayersEnabled()!==favoritesEnabled)throw Error('Your Work Area filters changed during the search. Nothing selected.');
         if(JSON.stringify([...model.getSelectedItemIds()])!==selectionBefore)throw Error('Your Work Area selection changed during the search. Nothing selected.');
         if(snapshot().fingerprint!==before.fingerprint)throw Error('The challenge progress changed. Nothing selected.');
       };
@@ -118,19 +123,26 @@ export async function eaOperation(action, payload = {}) {
       for(const slot of activeSquad.getPlayers())if(slot.item?.id)protectedIds.add(String(slot.item.id));
       const candidates=new Map();
       for(const pile of [PileSearchType.CLUB,PileSearchType.STORAGE].filter(value=>value!=null)){
-        for(let offset=0;offset<5000;offset+=100){
+        for(let offset=0;offset<5000;){
           check();window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status:`Reading eligible cards · ${candidates.size} checked…`};
-          const criteria=new UTSearchCriteriaDTO();criteria.sbcChallengeId=challenge.id;criteria.pileSearchType=pile;criteria.isFavorite=false;criteria.count=100;criteria.offset=offset;
           const storage=pile===PileSearchType.STORAGE;
-          const result=await read(()=>services.Club.search(criteria),storage?'pointsStorageCards':'pointsClubCards',storage?'reading SBC Storage cards':'reading eligible club cards');
-          const items=result.response?.items;if(!Array.isArray(items))throw Error('EA did not return eligible cards. Nothing selected.');
+          // Match native _buildCriteria: feature-gated favorite flag, sort/trade status,
+          // and server offsets advanced by returned rows, not an assumed 100-card page.
+          const result=await read(()=>{
+            const criteria=new UTSearchCriteriaDTO();criteria.sort=sort;criteria.untradeables=tradeStatus;criteria.sbcChallengeId=challenge.id;criteria.pileSearchType=pile;
+            if(favoritesEnabled)criteria.isFavorite=false;
+            criteria.count=offset===0?initialBatch:subsequentBatch;criteria.offset=offset;
+            return services.Club.search(criteria);
+          },storage?'pointsStorageCards':'pointsClubCards',storage?'reading SBC Storage cards':'reading eligible club cards');
+          const items=result.response?.items;if(!Array.isArray(items)||typeof result.response.retrievedAll!=='boolean')throw Error('EA did not confirm eligible card coverage. Nothing selected.');
           for(const item of items){
             const score=Number(item.sbsScore),rating=Number(item.rating);
             if(!item.isValid?.()||!Number.isSafeInteger(Number(item.id))||Number(item.id)<1||!Number.isSafeInteger(Number(item.definitionId))||Number(item.definitionId)<1||item.concept||!Number.isSafeInteger(score)||score<1||score>100000||!Number.isInteger(rating)||rating>maxRating||protectedIds.has(String(item.id))||services.SBC.isItemInSquad(Number(item.id))||excluded.has(Number(item.definitionId))||Number(item.loans)>=0||item.isLimitedUse?.()||item.isEnrolledInAcademy?.()||Number(item.endTime)>0||item.loan?.remaining>0||item.isFavorite===true||typeof item.isFavorite==='function'&&item.isFavorite()||item.isEvolution?.()||Number(item.rareflag)>1)continue;
             candidates.set(String(item.id),{item,score,rating,pile});
           }
-          if(result.response.retrievedAll===true||items.length<100)break;
-          if(offset===4900)throw Error('Eligible card coverage is incomplete. Narrow the rating limit and retry.');
+          if(result.response.retrievedAll)break;
+          offset+=items.length;
+          if(!items.length||offset>=5000)throw Error('Eligible card coverage is incomplete. Narrow the rating limit and retry.');
         }
       }
       check();

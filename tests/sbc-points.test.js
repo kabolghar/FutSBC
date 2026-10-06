@@ -2,17 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {eaOperation} from '../extension/ea.js';
 const observed=response=>({observe(owner,fn){queueMicrotask(()=>fn(this,{success:true,...response}));},unobserve(){}});
-function setup({target=2500,submitted=0,limit=30,pool,fail=false}={}){
+function setup({target=2500,submitted=0,limit=30,pool,fail=false,favoritesEnabled=false}={}){
  const card=(id,score,rating=80,extra={})=>({id,definitionId:id,name:`Card ${id}`,sbsScore:score,rating,rareflag:0,loans:-1,isValid:()=>true,...extra});
  const rows=pool||[card(1,180),card(2,180),card(3,180),card(4,180),card(5,280),card(6,280),card(7,340),card(8,340),card(9,410),card(10,830,84)];
  const challenge={id:7,name:'Points challenge',scoreRequirement:target,submittedScore:submitted,isOneClickChallenge:()=>true};
  const ids=new Set(),items=new Map(),scores=new Map();let refreshes=0,submits=0;
- const model={getChallenge:()=>challenge,getSelectedScore:()=>[...ids].reduce((sum,id)=>sum+scores.get(id),0),getSelectionLimit:()=>limit,getSelectedItemIds:()=>[...ids],clearSelection:()=>ids.clear(),selectItem:item=>{if(fail||ids.size>=limit)return false;ids.add(item.id);return true;},_itemEntityMap:items,_itemScoreMap:scores,_itemTabMap:new Map()};
+ const model={getChallenge:()=>challenge,getSortDirection:()=> 'asc',getTradeStatus:()=> '',_initialFetchBatch:2*limit+1,_subsequentFetchBatch:limit+1,getSelectedScore:()=>[...ids].reduce((sum,id)=>sum+scores.get(id),0),getSelectionLimit:()=>limit,getSelectedItemIds:()=>[...ids],clearSelection:()=>ids.clear(),selectItem:item=>{if(fail||ids.size>=limit)return false;ids.add(item.id);return true;},_itemEntityMap:items,_itemScoreMap:scores,_itemTabMap:new Map()};
  const controller={getViewModel:()=>model,_refreshCurrentPage:()=>refreshes++};
  const current={workAreaController:controller},club={isXbox:true};let displayed=current;
  globalThis.window={fut_year:'2027'};globalThis.getAppMain=()=>({getRootViewController:()=>({getPresentedViewController:()=>({getCurrentViewController:()=>({getCurrentController:()=>displayed})})})});
  globalThis.UTSearchCriteriaDTO=class{};globalThis.PileSearchType={CLUB:1,STORAGE:2};globalThis.OneClickSBCWorkAreaTab={CLUB:1,STORAGE:2};
- globalThis.services={User:{getUser:()=>({getSelectedPersona:()=>({getCurrentClub:()=>club})})},Squad:{requestSquadByType:()=>observed({data:{squad:{getPlayers:()=>[{item:{id:999}}]}}})},Club:{search:criteria=>{assert.equal(criteria.sbcChallengeId,7);assert.equal(criteria.isFavorite,false);return observed({response:{items:criteria.pileSearchType===1?rows:[],retrievedAll:true}});}},SBC:{isItemInSquad:id=>id===999,submit:()=>submits++}};
+ globalThis.services={User:{getUser:()=>({getSelectedPersona:()=>({getCurrentClub:()=>club})})},Item:{isFavoritePlayersEnabled:()=>favoritesEnabled},Squad:{requestSquadByType:()=>observed({data:{squad:{getPlayers:()=>[{item:{id:999}}]}}})},Club:{search:criteria=>{assert.equal(criteria.sbcChallengeId,7);assert.equal(criteria.sort,'asc');assert.equal(criteria.untradeables,'');assert.equal(criteria.isFavorite,favoritesEnabled?false:undefined);return observed({response:{items:criteria.pileSearchType===1?rows:[],retrievedAll:true}});}},SBC:{isItemInSquad:id=>id===999,submit:()=>submits++}};
  return {card,challenge,model,rows,ids,current,navigate:()=>{displayed={};},get refreshes(){return refreshes;},get submits(){return submits;}};
 }
 async function build(maxRating=82,excludedDefinitionIds=[],extra={}){const status=await eaOperation('status');assert.equal(status.challenge.kind,'points');return eaOperation('sbcPointsBuild',{fingerprint:status.challenge.fingerprint,maxRating,excludedDefinitionIds,...extra});}
@@ -61,7 +61,7 @@ test('503 reads recover with a fresh active squad request and retry only the fai
   return observed({response:{items:[env.card(101,100)],retrievedAll:true}});
  };
  const result=await build();assert.equal(result.ok,true,result.error);assert.equal(activeCalls,2);
- assert.deepEqual(calls,[[1,0,7,100],[1,100,7,100],[1,100,7,100],[2,0,7,100]]);
+ assert.deepEqual(calls,[[1,0,7,201],[1,100,7,101],[1,100,7,101],[2,0,7,201]]);
  assert.equal(result.checked,101);assert.equal(result.score,10000);assert.equal(result.players.length,100);assert.equal(env.refreshes,1);assert.equal(env.submits,0);
 });
 for(const stage of ['pointsActiveSquad','pointsClubCards','pointsStorageCards'])test(`persistent 503 in ${stage} is bounded and preserves an existing selection`,async t=>{
@@ -111,4 +111,44 @@ test('staging errors with status 503 do not replay selection or EA reads',async 
  services.Club.search=criteria=>{reads++;return search(criteria);};
  env.model.selectItem=item=>{selections++;if(item.id!==50){const error=Error('Selection failed');error.status=503;throw error;}env.ids.add(item.id);return true;};
  const result=await build();assert.equal(result.ok,false);assert.equal(result.status,503);assert.equal(reads,2);assert.equal(selections,2);assert.deepEqual([...env.ids],[50]);assert.equal(env.submits,0);
+});
+test('disabled favorites use native null default rather than an unsupported false filter',async()=>{
+ const env=setup();globalThis.UTSearchCriteriaDTO=class{constructor(){this.isFavorite=null;}};
+ const calls=[];services.Club.search=criteria=>{
+  calls.push(criteria);
+  // Reproduce the client that rejects non-native criteria with a mapped 503.
+  if(criteria.isFavorite!==null||criteria.sort!=='asc'||criteria.untradeables!==''||criteria.count!==61)return observed({success:false,status:503});
+  return observed({response:{items:criteria.pileSearchType===1?env.rows:[],retrievedAll:true}});
+ };
+ const result=await build();assert.equal(result.ok,true,result.error);assert.equal(calls.length,2);assert.equal(env.refreshes,1);assert.equal(env.submits,0);
+});
+test('enabled favorites exclude favorite rows and respect Work Area page sizes',async()=>{
+ const env=setup({favoritesEnabled:true});env.model._initialFetchBatch=41;env.model._subsequentFetchBatch=21;const calls=[];const search=services.Club.search;
+ services.Club.search=criteria=>{calls.push(criteria);return search(criteria);};
+ const result=await build();assert.equal(result.ok,true,result.error);assert.ok(calls.every(criteria=>criteria.isFavorite===false&&criteria.count===41));
+});
+test('short non-final pages continue at actual server offset, including Storage',async()=>{
+ const env=setup({target:500});const calls=[];
+ services.Club.search=criteria=>{
+  calls.push([criteria.pileSearchType,criteria.offset,criteria.count]);
+  const id=criteria.pileSearchType*100+criteria.offset;
+  return observed({response:{items:criteria.offset===0?[env.card(id+1,100),env.card(id+2,100)]:[env.card(id+1,100)],retrievedAll:criteria.offset>0}});
+ };
+ const result=await build();assert.equal(result.ok,true,result.error);assert.deepEqual(calls,[[1,0,61],[1,2,31],[2,0,61],[2,2,31]]);assert.equal(result.checked,6);assert.equal(result.score,500);
+});
+test('native trade and sort settings are carried into each fresh page request',async()=>{
+ const env=setup();env.model.getSortDirection=()=> 'desc';env.model.getTradeStatus=()=> 'true';const calls=[];
+ services.Club.search=criteria=>{calls.push(criteria);return observed({response:{items:env.rows,retrievedAll:true}});};
+ const result=await build();assert.equal(result.ok,true,result.error);assert.ok(calls.every(criteria=>criteria.sort==='desc'&&criteria.untradeables==='true'));
+});
+test('changing native filters during retry cancels without replacing the selection',async t=>{
+ fastBackoff(t);const env=setup();retainSelection(env);let calls=0;
+ services.Club.search=()=>{calls++;setTimeout(()=>{env.model.getTradeStatus=()=> 'true';},5);return observed({success:false,status:503});};
+ const result=await build();assert.equal(result.ok,false);assert.match(result.error,/filters changed/);assert.equal(calls,1);assert.deepEqual([...env.ids],[50]);
+});
+test('an empty non-final page or missing completion flag fails without staging partial coverage',async()=>{
+ for(const response of [{items:[],retrievedAll:false},{items:[]}]){
+  const env=setup();retainSelection(env);let calls=0;services.Club.search=()=>{calls++;return observed({response});};
+  const result=await build();assert.equal(result.ok,false);assert.match(result.error,/coverage/);assert.equal(calls,1);assert.deepEqual([...env.ids],[50]);assert.equal(env.refreshes,0);
+ }
 });
