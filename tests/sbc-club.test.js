@@ -67,6 +67,42 @@ function hybridSetup(t,{balance=1000,rejected=false,requiresOwned=false}={}){
  return env;
 }
 async function hybridBuild(){const before=await eaOperation('status');return eaOperation('sbcHybridBuild',{challengeId:49,fingerprint:before.challenge.fingerprint});}
+test('hybrid sends native search position names, including GK, rather than chemistry IDs',async t=>{
+ const env=hybridSetup(t),search=services.Item.searchTransferMarket,positions=[];
+ env.slots.forEach((slot,index)=>slot.generalPositionName=['GK','CB','ST'][index]);
+ services.Item.searchTransferMarket=criteria=>{
+  if(criteria.position!==undefined){
+   positions.push(criteria.position);
+   if(!['GK','CB','ST'].includes(criteria.position))return observed({success:false,status:400});
+  }
+  return search(criteria);
+ };
+ const result=await hybridBuild();assert.equal(result.ok,true,result.error);
+ assert.deepEqual(new Set(positions),new Set(['GK','CB','ST']));
+ assert.equal(env.saves,1);assert.equal(result.total,200);
+});
+test('a rejected hybrid market read identifies its stage and stops without retrying or saving',async t=>{
+ const env=hybridSetup(t),original=env.slots.map(slot=>slot.item);let calls=0;
+ services.Item.searchTransferMarket=()=>{calls++;return observed({success:false,status:400});};
+ const result=await hybridBuild();assert.equal(result.ok,false);assert.equal(result.status,400);
+ assert.equal(result.stage,'sbc-build-market');assert.match(result.error,/While searching EA listings.*search 1/);
+ assert.equal(calls,1);assert.equal(env.saves,0);assert.deepEqual(env.slots.map(slot=>slot.item),original);
+});
+test('a rejected hybrid club read is distinct from a market failure',async t=>{
+ const env=hybridSetup(t);let marketCalls=0;
+ services.Club.search=()=>observed({success:false,status:400});
+ services.Item.searchTransferMarket=()=>{marketCalls++;throw Error('Market must not run');};
+ const result=await hybridBuild();assert.equal(result.ok,false);assert.equal(result.status,400);
+ assert.equal(result.stage,'sbc-build-club');assert.match(result.error,/While reading club cards \(page 1\)/);
+ assert.equal(marketCalls,0);assert.equal(env.saves,0);
+});
+test('hybrid save failures preserve the status and stage while restoring the original squad',async t=>{
+ const env=hybridSetup(t),original=env.slots.map(slot=>slot.item);
+ services.SBC.saveChallenge=()=>observed({success:false,status:400});
+ const result=await hybridBuild();assert.equal(result.ok,false);assert.equal(result.status,400);
+ assert.equal(result.stage,'sbc-club-save');assert.match(result.error,/Reopen the SBC/);
+ assert.deepEqual(env.slots.map(slot=>slot.item),original);
+});
 test('hybrid keeps owned cards and selects the cheaper checked market concept',async t=>{
  const env=hybridSetup(t);const result=await hybridBuild();assert.equal(result.ok,true,result.error);
  assert.equal(result.total,200);assert.equal(result.players.filter(p=>p.owned).length,2);
@@ -277,7 +313,7 @@ test('hybrid market searches translate positions and discover coherent league-na
  const searches=[],cards=Array.from({length:3},(_,i)=>({...env.good[0],id:100+i,assetId:100+i,definitionId:100+i,leagueId:7,nationId:9,teamId:3,rating:80,isPlayer:()=>true,getAuctionData:()=>({buyNowPrice:200,getSecondsRemaining:()=>100,canBuy:()=>true})}));
  services.Item.searchTransferMarket=criteria=>{searches.push({...criteria});return observed({data:{items:cards}});};services.Item.searchConceptItems=criteria=>observed({response:{items:cards.filter(c=>criteria.defId.includes(c.definitionId)).map(c=>({...c,id:0,concept:true})),endOfList:true}});
  const result=await hybridBuild();assert.equal(result.ok,true,result.error);
- assert(searches.some(q=>q.position===14),'EA receives numeric CM search position');assert(searches.every(q=>q.position===undefined||typeof q.position==='number'));
+ assert(searches.some(q=>q.position==='CM'),'EA receives the native CM search name');assert(searches.every(q=>q.position===undefined||typeof q.position==='string'));
  assert(searches.some(q=>q.league===7&&q.nation===9),'use discovered market links even with an empty club');
 });
 

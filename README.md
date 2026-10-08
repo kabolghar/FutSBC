@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.55**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.56**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -299,8 +299,12 @@ After checking strict chemistry fits and optional supporting changes, My XI now 
 
 ### Club + market search reliability (v0.21.53)
 
-Hybrid builds try eligible owned cards first and skip market discovery when EA confirms a club-only solution. Otherwise, live listing searches supplement the club pool, including league–nation filters derived from discovered cards. Position filters now use EA's numeric position identifiers.
+Hybrid builds try eligible owned cards first and skip market discovery when EA confirms a club-only solution. Otherwise, live listing searches supplement the club pool, including league–nation filters derived from discovered cards. As corrected in v0.21.56, market position filters use EA's position names; numeric position identifiers are used only to evaluate card eligibility and chemistry.
 
 The solver handles up to three open slots with direct combination checks. Larger squads receive constraint-guided league/nation/club count search, followed by theme-based improvement and paired replacements or slot swaps. Partial count pruning is used only for recognized independent AND rules; OR and combined rules are left to EA validation. Repeated trial lineups are cached by exact card version, owned item and concept identity, so duplicate trials do not consume the EA validation budget. Search phases remain bounded by node, unique-check and time limits, and candidate pools may not cover every market card.
 
 EA still validates the complete squad before saving. Balance checks, protected club cards, duplicate-player prevention, cancellation and user-edit detection remain active. Existing placed owned cards stay fixed in Club + market; **Finish my SBC** can search for minimal replacements. Recognized league/nation/club limits already exceeded by placed cards are reported before scanning the market. No cards are purchased or submitted by the build itself. Regression coverage includes a full 3 Leagues & 2 Nations fixture with chemistry, a mixed six-owned/five-market solution, a paired-position trap and club-only completion without market requests. These fixtures do not establish live success on every account or guarantee a globally cheapest solution.
+
+### Club + market request format (v0.21.56)
+
+Fixed a reproducible 400 during position discovery. EA's native search DTO serializes position names such as `GK`, `CB` and `ST`; passing a numeric chemistry ID sends an invalid market filter. In the failing Arc session on Destined for Glory Challenge 4, the eighth search sent position `0` and returned 400. The corrected `GK` search returned status 200 with 21 listings. Native card position IDs remain numeric when checking squad fit and chemistry. Failed reads now identify the active-squad, club, market or concept-matching stage, and failed saves preserve their status and stage. Malformed requests are not retried; no purchases or submissions are performed by this recovery.

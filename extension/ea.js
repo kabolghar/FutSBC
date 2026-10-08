@@ -388,12 +388,12 @@ export async function eaOperation(action, payload = {}) {
       nav.pushViewController(results,true);
       return {ok:true};
     }
-    const searchMarket=(criteria,allowRejection=false,page=1)=>{
+    const searchMarket=(criteria,allowRejection=false,page=1,stage=null)=>{
       if(typeof services.Item?.clearTransferMarketCache!=='function') throw Error('EA market search cache API changed. Trading stopped.');
       // EA's own search results controller selects the market module before searching.
       services.Module?.set?.(3355443200);
       if(page===1)services.Item.clearTransferMarketCache();
-      return observe(services.Item.searchTransferMarket(criteria,page),allowRejection);
+      return observe(services.Item.searchTransferMarket(criteria,page),allowRejection,stage);
     };
     const marketCriteria=(definitionId,maxBuy)=>{
       const criteria=new UTSearchCriteriaDTO();
@@ -1108,6 +1108,10 @@ export async function eaOperation(action, payload = {}) {
         if(Date.now()>=payload.sbcBuildDeadline)throw Error('SBC search reached its two-minute time limit. Nothing was added.');
         if(payload.sbcBuildToken)window.__futsbcSbcBuildProgress={id:payload.sbcBuildToken,status};
       };
+      const buildRead=async(request,label,stage)=>{
+        try{return await request();}
+        catch(error){error.message=`${error.message} While ${label}.`;error.stage=stage;throw error;}
+      };
       buildProgress('Reading your active squad…');
       const balance=hybrid?coinBalance():0;
       if(hybrid&&(!Number.isSafeInteger(balance)||balance<0))throw Error('EA could not read your coin balance. No squad changes were made.');
@@ -1116,7 +1120,7 @@ export async function eaOperation(action, payload = {}) {
       if(snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed. Refresh before building from your club.');
       if(!Array.isArray(challenge.eligibilityRequirements)||typeof challenge.isRequirementMet!=='function')throw Error('EA requirement checks are unavailable. No squad changes were made.');
       if(typeof services.Squad?.requestSquadByType!=='function'||typeof services.Club?.search!=='function')throw Error('EA club protection checks are unavailable. No squad changes were made.');
-      const active=await observe(services.Squad.requestSquadByType('active'));
+      const active=await buildRead(()=>observe(services.Squad.requestSquadByType('active')), 'reading your active squad','sbc-build-active');
       const protectedSlots=active.data?.squad?.getPlayers?.();
       if(!Array.isArray(protectedSlots)||!protectedSlots.length)throw Error('EA could not identify your active squad. No club cards were selected.');
       const asset=item=>Number(item?.assetId)||Number(item?.definitionId)%0x1000000;
@@ -1159,7 +1163,7 @@ export async function eaOperation(action, payload = {}) {
       for(let page=0;page<30;page++){
         buildProgress(`Reading club cards · page ${page+1}/30…`);
         const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.count=100;criteria.offset=page*100;
-        const response=await observe(services.Club.search(criteria));
+        const response=await buildRead(()=>observe(services.Club.search(criteria)),`reading club cards (page ${page+1})`,'sbc-build-club');
         const rows=response.response?.items;
         if(!Array.isArray(rows))throw Error('EA club results changed. No squad changes were made.');
         for(const item of rows)if(automatic(item)){
@@ -1223,9 +1227,12 @@ export async function eaOperation(action, payload = {}) {
             if(findChallenge()!==challenge||snapshot().fingerprint!==payload.fingerprint)throw Error('The SBC changed during market discovery. Nothing was added.');
             buildProgress(`Checking EA listings · search ${requests}/${queryLimit} · up to ${ceiling.toLocaleString()} coins · ${market.size} cards found…`);
             searchedFilters.push(filter);
+            // Native search DTOs use position names (e.g. "GK"), whereas
+            // preferredPosition and chemistry calculations use numeric IDs.
+            // Sending 0 instead of "GK" causes EA's market to reject the query.
+            if(filter.position&&!Object.hasOwn(positionIds,filter.position))throw Error('EA did not provide a supported search position. Nothing was added.');
             const criteria=Object.assign(marketCriteria(null,ceiling),filter);
-            if(filter.position)criteria.position=positionIds[filter.position];
-            const result=await searchMarket(criteria);
+            const result=await buildRead(()=>searchMarket(criteria,false,1,'sbc-build-market'),`searching EA listings${filter.position?` for ${filter.position}`:''} (search ${requests}, up to ${ceiling.toLocaleString()} coins)`,'sbc-build-market');
             for(const item of marketRows(result)){
               const price=Number(auction(item).buyNowPrice),id=Number(item.definitionId);
               if(!Number.isSafeInteger(price)||price<150||price>ceiling||!(Number(auction(item).getSecondsRemaining?.())>0)||!auction(item).canBuy?.(balance))continue;
@@ -1257,7 +1264,7 @@ export async function eaOperation(action, payload = {}) {
             const ids=selected.slice(offset,offset+48).map(({item})=>Number(item.definitionId));
             for(let page=0;page<3;page++){
               const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=ids;criteria.count=100;criteria.offset=page*100;
-              const result=await observe(services.Item.searchConceptItems(criteria));
+              const result=await buildRead(()=>observe(services.Item.searchConceptItems(criteria)),`matching market concepts (batch ${Math.floor(offset/48)+1}, page ${page+1})`,'sbc-build-concepts');
               if(!Array.isArray(result.response?.items))throw Error('EA concept results changed. Nothing was added.');
               rows.push(...result.response.items);
               if(result.response.endOfList===true||result.response.items.length<100)break;
@@ -1543,7 +1550,7 @@ export async function eaOperation(action, payload = {}) {
         apply(best.lineup);
         if(!challenge.meetsRequirements()||(!hybrid&&typeof squad.isSBCSquadEligible==='function'&&!squad.isSBCSquadEligible()))throw Error('EA did not confirm this squad.');
         await observe(services.SBC.saveChallenge(challenge),false,'sbc-club-save');
-      }catch(error){restore();throw Error(`${error.message} Reopen the SBC to verify its saved state. No submission was attempted.`);}
+      }catch(error){restore();error.message=`${error.message} Reopen the SBC to verify its saved state. No submission was attempted.`;throw error;}
       return {ok:true,challenge:snapshot(),players:output,checks,clubComplete,total:best.total,budget,changes:best.changes,kept:output.filter(player=>player.kept).length,filled:original.filter(item=>!(Number(item?.definitionId)>0)).length,maxRating,excludedDefinitionIds:[...excluded]};
     }
     if(action==='sbcOwnership'){
