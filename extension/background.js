@@ -958,6 +958,7 @@ async function dispatch(message) {
   if(message.type==='galleryState')return gallery.state();
   if(message.type==='galleryCatalogue')return gallery.catalogue();
   if(message.type==='galleryPrepare')return gallery.prepare(message.url,message.grade);
+  if(message.type==='galleryPaletools')return gallery.fromPaletools(message.grade);
   if(message.type==='galleryMark')return gallery.mark(message.definitionId,message.collected);
   if(message.type==='galleryStart')return gallery.start(message.budget,message.caps,message.planId);
   if(message.type==='galleryStop')return gallery.stop();

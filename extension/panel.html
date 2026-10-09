@@ -164,6 +164,7 @@
         <label for="gallery-set">Choose a set</label><div class="gallery-set-picker"><select id="gallery-set"><option value="">Load Gallery sets…</option></select><button id="gallery-catalogue" class="secondary" type="button" aria-label="Refresh Gallery sets">↻</button></div>
         <details><summary>Use a set link</summary><input id="gallery-url" type="url" placeholder="FUT.GG Gallery set link" aria-label="FUT.GG Gallery set link"></details>
         <fieldset class="gallery-grades"><legend>Target grade</legend><label><input type="radio" name="gallery-grade" value="D" checked><span>D</span></label><label><input type="radio" name="gallery-grade" value="C"><span>C</span></label><label><input type="radio" name="gallery-grade" value="B"><span>B</span></label><label><input type="radio" name="gallery-grade" value="A"><span>A</span></label><label><input type="radio" name="gallery-grade" value="S"><span>S</span></label></fieldset>
+        <button id="gallery-paletools" class="secondary" type="button">Use open Paletools set</button>
         <button id="gallery-prepare" class="primary" type="button"><span>Find missing cards</span><span aria-hidden="true">→</span></button>
       </div>
       <p id="gallery-status" class="field-note" role="status">Choose a set to start collecting.</p>
@@ -171,7 +172,7 @@
         <div class="gallery-plan-heading"><h2 id="gallery-name"></h2><span id="gallery-grade-badge" class="gallery-grade-badge"></span></div>
         <div class="gallery-progress"><progress id="gallery-progress" max="1" value="0" aria-label="Cards collected"></progress><span id="gallery-count"></span></div>
         <div class="gallery-summary"><div><small>EST. MISSING</small><strong id="gallery-cost"></strong></div><div><small>COIN BALANCE</small><strong id="gallery-balance"></strong></div></div>
-        <p class="field-note">Club cards and your collection record count first. Tick cards you collected previously; EA’s full Gallery history is unavailable here.</p>
+        <p class="field-note">Club cards and your collection record count first. Connect Paletools to use its collected cards, or tick cards you collected previously.</p>
         <div id="gallery-cards" class="gallery-cards"></div>
         <label for="gallery-budget">Total spending limit</label><input id="gallery-budget" type="number" min="0" max="15000000" step="50" aria-describedby="gallery-budget-note">
         <p id="gallery-budget-note" class="field-note">Each card has a price cap. Live listings are checked when buying. Cards are kept in your club.</p>

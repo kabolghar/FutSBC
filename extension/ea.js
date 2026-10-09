@@ -945,7 +945,7 @@ export async function eaOperation(action, payload = {}) {
       await observe(services.Item.bid(item,bid));
       return {ok:true,phase:'bid',bid,seconds,balance:coinBalance()};
     }
-    if(['galleryIdentity','galleryOwnership','galleryBuyOne'].includes(action)){
+    if(['galleryIdentity','galleryPaletools','galleryOwnership','galleryBuyOne'].includes(action)){
       const persona=services.User.getUser().getSelectedPersona();
       if(!Number.isSafeInteger(Number(persona.id))||Number(persona.id)<1||typeof persona.sku!=='string'||!persona.sku)throw Error('EA could not identify your Gallery club.');
       const accountKey=`2027:${persona.id}:${persona.sku}`;
@@ -956,6 +956,24 @@ export async function eaOperation(action, payload = {}) {
       };
       guard();
       if(action==='galleryIdentity')return {ok:true,accountKey,balance:coinBalance()};
+      if(action==='galleryPaletools'){
+        // Read Paletools' loaded Gallery controller. Do not invoke its mutations,
+        // refresh its catalogue, or copy account credentials or private storage.
+        const set=current?.selectedSet,entries=current?.albumEntries;
+        if(!set||!Array.isArray(entries)||!current.selectedCards?.has||!document.querySelector('.gallery-view'))throw Error('Open a set in Paletools Gallery, then use it here.');
+        if(current.isLoading||!entries.length)throw Error('Paletools is still loading this Gallery set. Try again when its cards appear.');
+        if(payload.setId!=null&&payload.setId!==set.id)throw Error('The open Paletools Gallery set changed. Reconnect it before collecting.');
+        if(!Number.isSafeInteger(set.id)||!Number.isSafeInteger(set.requiredItems)||set.requiredItems<1||set.requiredItems>200||typeof set.name!=='string'||!Array.isArray(set.grades))throw Error('This Paletools Gallery version has unsupported set data.');
+        const grades=set.grades.map(g=>({name:g.name,threshold:g.requiredScore}));
+        if(!grades.length||grades.some(g=>!['D','C','B','A','S'].includes(g.name)||!Number.isFinite(g.threshold)||g.threshold<0))throw Error('Paletools Gallery grade requirements are incomplete.');
+        const collected=[...new Set(entries.filter(e=>e.tracked===true&&e.status==='tracked').map(e=>Number(e.item?.definitionId)).filter(id=>Number.isSafeInteger(id)&&id>0))];
+        const ids=payload.definitionIds||[];
+        if(!Array.isArray(ids)||ids.length>200||ids.some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Invalid Gallery card metadata request.');
+        const positionNames={0:'GK',2:'RWB',3:'RB',5:'CB',7:'LB',8:'LWB',10:'CDM',12:'RM',14:'CM',16:'LM',18:'CAM',21:'CF',23:'RW',25:'ST',27:'LW'};
+        const wanted=new Set(ids),cards=entries.filter(e=>wanted.has(Number(e.item?.definitionId))).map(({item})=>({game:'27',eaId:Number(item.definitionId),playerEaId:Number(item.assetId)||Number(item.definitionId)%0x1000000,overall:Number(item.rating),rarityEaId:Number(item.rareflag),commonName:teamPlayerName(item),positionNames:[positionNames[item.preferredPosition]||String(item.preferredPosition??'')],loanDuration:Number(item.loans)>=0?Number(item.loans):null,isEvolutionPlayerItem:!!item.isEvolution?.()}));
+        guard();
+        return {ok:true,accountKey,balance:coinBalance(),setId:set.id,name:set.name,requiredCards:set.requiredItems,grades,collected,cards};
+      }
       const requested=action==='galleryOwnership'?payload.players:[payload.player];
       if(!Array.isArray(requested)||!requested.length||requested.length>100||requested.some(p=>!Number.isSafeInteger(p?.definitionId)||p.definitionId<1||!Number.isInteger(p.rating)||p.rating<1||p.rating>99||!Number.isInteger(p.rarity)||p.rarity<0))throw Error('Invalid Gallery card list.');
       const eligible=(item,player)=>Number(item?.definitionId)===player.definitionId&&Number(item.id)>0&&!item.concept&&Number(item.rating)===player.rating&&Number(item.rareflag)===player.rarity&&!(Number(item.loans)>=0)&&!item.isLimitedUse?.()&&!(Number(item.endTime)>0)&&!item.isEvolution?.();

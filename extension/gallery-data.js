@@ -42,13 +42,13 @@ export function galleryURL(value){
   return url.href;
 }
 
-export function galleryPlan(data,url,grade='D',now=Date.now()){
+export function galleryPlan(data,url,grade='D',now=Date.now(),extraDetails=[]){
   url=galleryURL(url);
   const set=data?.set,tier=data?.solution?.costTiers?.find(tier=>tier.grade===grade);
   if(!set||!Number.isSafeInteger(set.id)||!Number.isSafeInteger(set.requiredCards)||set.requiredCards<1||set.requiredCards>200||!Array.isArray(set.grades)||!set.grades.some(g=>g.name===grade))throw Error('The Gallery set requirements could not be read.');
   if(!tier||!['optimal','feasible'].includes(tier.status)||!Array.isArray(tier.items)||tier.items.length!==set.requiredCards)throw Error(`No complete ${grade} lineup is available for this set today.`);
   if(data.solution.setId!==set.id||!Number.isFinite(tier.totalScore)||!Number.isFinite(tier.threshold)||tier.threshold<0||tier.totalScore<tier.threshold||tier.threshold!==set.grades.find(g=>g.name===grade)?.threshold||!Number.isSafeInteger(tier.tokens)||tier.tokens<0)throw Error('The Gallery grade score does not match its requirements.');
-  const details=new Map((data.lineupCards||[]).filter(card=>card.game==='27').map(card=>[card.eaId,card]));
+  const details=new Map([...extraDetails,...(data.lineupCards||[])].filter(card=>card.game==='27').map(card=>[card.eaId,card]));
   const seen=new Set();
   const players=tier.items.map(item=>{
     const id=Number(item.eaId),info=details.get(id)||{},price=Number(item.price);
@@ -56,6 +56,7 @@ export function galleryPlan(data,url,grade='D',now=Date.now()){
     if(set.clubEaId&&item.clubEaId!==set.clubEaId)throw Error('A Gallery card does not match the set club.');
     seen.add(id);
     if(!Number.isSafeInteger(item.playerEaId)||item.playerEaId<1||!Number.isInteger(item.rarityEaId)||item.rarityEaId<0||!Number.isFinite(item.score)||item.score<=0||!info.commonName||info.overall!==item.overall||info.loanDuration!=null||info.isEvolutionPlayerItem)throw Error('The Gallery card details are incomplete or ineligible.');
+    if(info.playerEaId!=null&&info.playerEaId!==item.playerEaId||info.rarityEaId!=null&&info.rarityEaId!==item.rarityEaId)throw Error('EA and the Gallery provider disagree on this card version.');
     const picture=typeof info.cardImageUrl==='string'&&/^https:\/\/game-assets\.fut\.gg\/.+\/2027\//.test(info.cardImageUrl)?info.cardImageUrl:null;
     return {definitionId:id,assetId:item.playerEaId,rating:item.overall,rarity:item.rarityEaId,score:item.score,name:info.commonName,position:info.positionNames?.[0]||'',picture,price,phase:'missing'};
   });

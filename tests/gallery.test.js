@@ -19,6 +19,8 @@ test('Gallery uses the actual complete grade lineup, card pictures and console e
  const noPrice=data();noPrice.solution.costTiers[0].items[0].price=null;assert.throws(()=>galleryPlan(noPrice,url),/prices/);
  const stale=data();stale.solution.computedAt='2026-01-01';assert.throws(()=>galleryPlan(stale,url),/stale/);
  const loan=data();loan.lineupCards[0].loanDuration=7;assert.throws(()=>galleryPlan(loan,url,'S'),/ineligible/);
+ const lower=data(),details=lower.lineupCards;lower.lineupCards=[];assert.throws(()=>galleryPlan(lower,url),/incomplete/);assert.equal(galleryPlan(lower,url,'D',Date.now(),details).players.length,15);
+ const conflict=structuredClone(details);conflict.find(c=>c.eaId===lower.solution.costTiers[0].items[0].eaId).playerEaId=999;assert.throws(()=>galleryPlan(lower,url,'D',Date.now(),conflict),/disagree/);
  assert.throws(()=>galleryURL('https://evil.test/fut-gallery/laliga/rayo-vallecano/'));assert.throws(()=>galleryURL(url+'?token=x'));
  const sets=galleryDirectory({listing:{categories:[{name:'LALIGA',slug:'laliga',sets:[sample.set]}]}});assert.equal(sets[0].url,url);
 });
@@ -27,10 +29,26 @@ test('Gallery price caps never treat missing prices as free or exceed the approv
  const missing=galleryCaps(plan,8000);assert.equal(missing.length,14);assert.throws(()=>galleryCaps(plan,100),/exceed/);assert.throws(()=>galleryCaps(plan,8000,{[plan.players[1].definitionId]:0}),/valid maximum/);
 });
 function environment(){
- const store={},scheduled=[],calls=[];let owned=[],blocked=false,buyResult={phase:'in-club',price:650,balance:19350},connectHook;
- const collector=createGalleryCollector({storage:{get:async key=>({[key]:store[key]}),set:async next=>Object.assign(store,structuredClone(next))},alarms:{create:async(name,args)=>scheduled.push({name,args}),clear:async()=>{}},available:async()=>{if(blocked)throw Error('Trading is running.');},connect:async()=>{await connectHook?.();return {accountKey:'2027:1:console',tabId:1,balance:20000};},fetcher:async()=>({ok:true,text:async()=>html(data())}),ea:async(tab,action,payload)=>{calls.push({action,payload});if(action==='galleryOwnership')return {owned,balance:20000};return typeof buyResult==='function'?buyResult(payload):buyResult;}});
- return {collector,store,scheduled,calls,setOwned:ids=>owned=ids,block:()=>blocked=true,buy:value=>buyResult=value,onConnect:hook=>connectHook=hook};
+ const store={},scheduled=[],calls=[];let owned=[],blocked=false,buyResult={phase:'in-club',price:650,balance:19350},connectHook,snapshot,provider=data();
+ const collector=createGalleryCollector({storage:{get:async key=>({[key]:store[key]}),set:async next=>Object.assign(store,structuredClone(next))},alarms:{create:async(name,args)=>scheduled.push({name,args}),clear:async()=>{}},available:async()=>{if(blocked)throw Error('Trading is running.');},connect:async()=>{await connectHook?.();return {accountKey:'2027:1:console',tabId:1,balance:20000};},fetcher:async request=>({ok:true,text:async()=>html(request==='https://www.fut.gg/fut-gallery/'?{listing:{categories:[{name:'LALIGA',slug:'laliga',sets:[sample.set]}]}}:provider)}),ea:async(tab,action,payload)=>{calls.push({action,payload});if(action==='galleryPaletools')return snapshot;if(action==='galleryOwnership')return {owned,balance:20000};return typeof buyResult==='function'?buyResult(payload):buyResult;}});
+ return {collector,store,scheduled,calls,setOwned:ids=>owned=ids,block:()=>blocked=true,buy:value=>buyResult=value,onConnect:hook=>connectHook=hook,paletools:value=>snapshot=value,provider:value=>provider=value};
 }
+test('Paletools supplies omitted lower-grade card details without market searches or invented prices',async()=>{
+ const e=environment(),provider=data();e.paletools({accountKey:'2027:1:console',setId:sample.set.id,requiredCards:sample.set.requiredCards,name:sample.set.name,grades:sample.set.grades,collected:[],cards:provider.lineupCards});provider.lineupCards=[];e.provider(provider);
+ const plan=await e.collector.fromPaletools('D');assert.equal(plan.estimatedTotal,8450);assert.equal(plan.players.length,15);const requests=e.calls.filter(c=>c.action==='galleryPaletools');assert.equal(requests.length,2);assert.equal(requests[1].payload.setId,sample.set.id);assert.equal(requests[1].payload.definitionIds.length,15);assert.equal(e.calls.some(c=>/market|Buy/.test(c.action)),false);
+});
+test('Paletools imports the exact open set and account-scoped collection before preparing missing cards',async()=>{
+ const e=environment(),first=sample.solution.costTiers[0].items[0].eaId,second=sample.solution.costTiers[0].items[1].eaId;
+ e.paletools({accountKey:'2027:1:console',setId:sample.set.id,requiredCards:sample.set.requiredCards,name:sample.set.name,grades:sample.set.grades,collected:[first]});e.setOwned([second]);
+ const plan=await e.collector.fromPaletools('D');assert.equal(plan.setId,sample.set.id);assert.equal(plan.collectionSource,'Paletools');assert.equal(plan.players[0].phase,'collected');assert.equal(plan.players[1].phase,'owned');assert.equal(e.store['futsbc-gallery-collected:2027:1:console'][first].source,'paletools');assert.equal(e.calls.some(c=>c.action==='galleryBuyOne'),false);
+});
+test('Paletools rejects account, set and grade mismatches without saving or buying',async()=>{
+ const e=environment(),valid={accountKey:'2027:1:console',setId:sample.set.id,requiredCards:sample.set.requiredCards,name:sample.set.name,grades:sample.set.grades,collected:[10]};
+ e.paletools({...valid,accountKey:'2027:2:console'});await assert.rejects(()=>e.collector.fromPaletools('D'),/EA club/);
+ e.paletools({...valid,setId:999});await assert.rejects(()=>e.collector.fromPaletools('D'),/No priced Gallery plan/);
+ e.paletools({...valid,grades:[{name:'D',threshold:999}]});await assert.rejects(()=>e.collector.fromPaletools('D'),/disagree/);
+ assert.deepEqual(e.store,{});assert.equal(e.calls.some(c=>c.action==='galleryBuyOne'),false);
+});
 test('Gallery prepares without buying, skips owned and remembered cards, and scopes history to the account',async()=>{
  const e=environment();const first=sample.solution.costTiers[0].items[0].eaId;e.setOwned([first]);let plan=await e.collector.prepare(url,'D');assert.equal(plan.players[0].phase,'owned');assert.equal(e.calls.some(c=>c.action==='galleryBuyOne'),false);
  const second=plan.players[1].definitionId;await e.collector.mark(second,true);e.setOwned([]);plan=await e.collector.prepare(url,'D');assert.equal(plan.players[0].phase,'collected');assert.equal(plan.players[1].phase,'collected');assert.ok(e.store['futsbc-gallery-collected:2027:1:console']);assert.equal(e.store['futsbc-gallery-collected:2027:2:console'],undefined);

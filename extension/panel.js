@@ -665,18 +665,18 @@ function renderGallery(){
   const locked=galleryPending||gallery.enabled||!!gallery.pending;
   $('gallery-status').textContent=galleryError||(galleryPending?'Checking Gallery cards…':gallery.status)||'Choose a set to start collecting.';
   $('gallery-status').classList.toggle('error',!!galleryError);
-  for(const id of ['gallery-set','gallery-url','gallery-prepare','gallery-catalogue','gallery-budget'])$(id).disabled=locked;
+  for(const id of ['gallery-set','gallery-url','gallery-prepare','gallery-paletools','gallery-catalogue','gallery-budget'])$(id).disabled=locked;
   document.querySelectorAll('input[name=gallery-grade]').forEach(input=>{input.disabled=locked;});
   $('gallery-plan').hidden=!gallery.id;
   if(!gallery.id){reportSize();return;}
-  if(galleryDraftId!==gallery.id){galleryDraftId=gallery.id;galleryPriceCaps=Object.fromEntries(gallery.players.map(p=>[p.definitionId,p.maxPrice||p.price]));$('gallery-budget').value=String(missing.reduce((n,p)=>n+p.price,0));}
+  if(galleryDraftId!==gallery.id){galleryDraftId=gallery.id;galleryPriceCaps=Object.fromEntries(gallery.players.map(p=>[p.definitionId,p.maxPrice||p.price]));$('gallery-budget').value=String(missing.reduce((n,p)=>n+p.price,0));document.querySelectorAll('input[name=gallery-grade]').forEach(input=>{input.checked=input.value===gallery.grade;});}
   $('gallery-name').textContent=gallery.name;$('gallery-grade-badge').textContent=gallery.grade;
   const done=gallery.players.length-missing.length;$('gallery-progress').max=gallery.players.length;$('gallery-progress').value=done;$('gallery-count').textContent=`${done} / ${gallery.players.length} collected`;
   $('gallery-cost').textContent=`${fmt(missing.reduce((n,p)=>n+p.price,0))} coins`;$('gallery-balance').textContent=fmt(gallery.balance||0);
   $('gallery-cards').replaceChildren();
   for(const player of gallery.players){
     const row=document.createElement('article');row.className='gallery-card';row.classList.toggle('is-collected',collected(player));
-    let picture;if(player.picture){picture=document.createElement('img');picture.src=player.picture;picture.alt=`${player.name}, ${player.rating}, ${player.position}`;picture.loading='lazy';picture.onerror=()=>{const fallback=document.createElement('span');fallback.className='gallery-card-art';fallback.textContent=String(player.rating);picture.replaceWith(fallback);};}else{picture=document.createElement('span');picture.className='gallery-card-art';picture.textContent=String(player.rating);}
+    let picture;if(player.picture){picture=document.createElement('img');picture.src=player.picture;picture.alt=`${player.name}, ${player.rating}, ${player.position}`;picture.loading='lazy';picture.onerror=()=>{picture.replaceWith(cardArtElement('gallery-card-art',player.rating,player.position,player.assetId,player.definitionId,player.name));};}else{picture=cardArtElement('gallery-card-art',player.rating,player.position,player.assetId,player.definitionId,player.name);}
     const copy=document.createElement('div');copy.className='gallery-card-copy';const name=document.createElement('strong');name.textContent=player.name;
     const detail=document.createElement('small');detail.textContent=`${player.position} · ${player.phase==='owned'||player.phase==='in-club'?'In club':player.phase==='collected'?'Collected before':player.phase==='unavailable'?'No listing at cap':'Missing'}`;
     copy.append(name,detail);
@@ -685,7 +685,7 @@ function renderGallery(){
   }
   $('gallery-start').disabled=locked||!missing.length;$('gallery-start').textContent=missing.length?`Collect ${missing.length} missing ${missing.length===1?'card':'cards'}`:'Ready to grade in-game';
   $('gallery-stop').hidden=!gallery.enabled;$('gallery-recover').hidden=!gallery.pending||gallery.enabled;$('gallery-recover').disabled=galleryPending;
-  $('gallery-evidence').textContent=`${gallery.source} · ${gallery.grade} lineup · estimated ${fmt(gallery.estimatedScore)} points · ${gallery.tokens||0} tokens · prices updated ${new Date(gallery.computedAt).toLocaleString()}`;
+  $('gallery-evidence').textContent=`${gallery.source}${gallery.collectionSource?' · '+gallery.collectionSource+' collection':''} · ${gallery.grade} lineup · estimated ${fmt(gallery.estimatedScore)} points · ${gallery.tokens||0} tokens · prices updated ${new Date(gallery.computedAt).toLocaleString()}`;
   reportSize();
 }
 async function galleryAction(type,extra={}){
@@ -703,6 +703,7 @@ async function loadGalleryCatalogue(){
 $('gallery-catalogue').onclick=()=>void loadGalleryCatalogue();
 $('gallery-set').onchange=()=>{$('gallery-url').value='';};
 $('gallery-prepare').onclick=()=>void galleryAction('galleryPrepare',{url:$('gallery-url').value.trim()||$('gallery-set').value,grade:document.querySelector('input[name=gallery-grade]:checked').value});
+$('gallery-paletools').onclick=()=>void galleryAction('galleryPaletools',{grade:document.querySelector('input[name=gallery-grade]:checked').value});
 $('gallery-start').onclick=()=>void galleryAction('galleryStart',{planId:gallery.id,budget:Number($('gallery-budget').value),caps:galleryPriceCaps});
 $('gallery-stop').onclick=()=>void galleryAction('galleryStop');
 $('gallery-recover').onclick=()=>void galleryAction('galleryRecover');

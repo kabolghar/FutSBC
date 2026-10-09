@@ -20,9 +20,33 @@ export function createGalleryCollector({storage,alarms,connect,ea,available,fetc
   async function prepare(url,grade){
     await idle();await available();
     const plan=galleryPlan(await page(galleryURL(url)),url,grade);
-    const connection=await connect(),accountKey=connection.accountKey;
+    const connection=await connect();
+    return checkPlan(plan,connection);
+  }
+  async function fromPaletools(grade){
+    await idle();await available();
+    const connection=await connect();
+    const snapshot=await ea(connection.tabId,'galleryPaletools',{accountKey:connection.accountKey});
+    if(snapshot.accountKey!==connection.accountKey||!Number.isSafeInteger(snapshot.setId)||!Array.isArray(snapshot.collected)||snapshot.collected.length>50_000||snapshot.collected.some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Paletools collection data could not be verified for this EA club.');
+    const sets=galleryDirectory(await page('https://www.fut.gg/fut-gallery/'));
+    const matches=sets.filter(set=>set.id===snapshot.setId&&set.requiredCards===snapshot.requiredCards);
+    if(matches.length!==1)throw Error(`No priced Gallery plan is published for ${snapshot.name} yet. Your collection was not changed.`);
+    const data=await page(matches[0].url);
+    // Some sets publish details only for their S lineup. Reuse the already-loaded
+    // Paletools catalogue for lower-grade identities, without another EA search.
+    const tier=data.solution?.costTiers?.find(t=>t.grade===grade);
+    const missing=(tier?.items||[]).filter(item=>!(data.lineupCards||[]).some(card=>card.game==='27'&&card.eaId===item.eaId)).map(item=>item.eaId);
+    let details=[];
+    if(missing.length){const metadata=await ea(connection.tabId,'galleryPaletools',{accountKey:connection.accountKey,setId:snapshot.setId,definitionIds:missing});if(metadata.accountKey!==connection.accountKey||metadata.setId!==snapshot.setId)throw Error('The Paletools Gallery club or set changed.');details=metadata.cards||[];}
+    const plan=galleryPlan(data,matches[0].url,grade,Date.now(),details);
+    if(plan.setId!==snapshot.setId||plan.requiredCards!==snapshot.requiredCards||plan.grades.some(g=>!snapshot.grades?.some(p=>p.name===g.name&&p.threshold===g.threshold)))throw Error('Paletools and the price provider disagree on this set’s requirements. No cards were queued.');
+    return checkPlan({...plan,collectionSource:'Paletools'},connection,snapshot.collected);
+  }
+  async function checkPlan(plan,connection,collected=[]){
+    const accountKey=connection.accountKey;
     const owned=[];let balance=connection.balance;
     for(let offset=0;offset<plan.players.length;offset+=100){const response=await ea(connection.tabId,'galleryOwnership',{accountKey,players:plan.players.slice(offset,offset+100)});owned.push(...response.owned);balance=response.balance;}
+    if(collected.length)await remember(accountKey,collected,'paletools');
     const history=await remember(accountKey,owned);
     const players=plan.players.map(p=>({...p,phase:owned.includes(p.definitionId)?'owned':history[p.definitionId]?'collected':'missing'}));
     return save({...plan,players,accountKey,tabId:connection.tabId,balance,enabled:false,spent:0,pending:null,status:players.every(p=>p.phase!=='missing')?'Cards collected. Autocomplete and grade this set in-game.':'Ready to collect missing cards.'});
@@ -86,5 +110,5 @@ export function createGalleryCollector({storage,alarms,connect,ea,available,fetc
     return save({...current,enabled:false,pending:null,balance:result.balance,queue:current.queue?.filter(p=>p.definitionId!==current.pending.definitionId),players:current.players.map(p=>p.definitionId===current.pending.definitionId?{...p,phase:'owned'}:p),status:'Card confirmed in club. Review the remaining cards before restarting.'});
   }
   async function restore(){const current=await state();if(current.pending){await save({...current,enabled:false,status:'A Gallery purchase was interrupted. Check EA New Items, then check the card again.'});await alarms.clear(GALLERY_ALARM);}else if(current.enabled)await alarms.create(GALLERY_ALARM,{when:Date.now()+1000});}
-  return {state,prepare,mark,start,stop,run,recover,restore,catalogue:async()=>galleryDirectory(await page('https://www.fut.gg/fut-gallery/'))};
+  return {state,prepare,fromPaletools,mark,start,stop,run,recover,restore,catalogue:async()=>galleryDirectory(await page('https://www.fut.gg/fut-gallery/'))};
 }

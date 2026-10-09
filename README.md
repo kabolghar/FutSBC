@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.57**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.58**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -310,6 +310,10 @@ EA still validates the complete squad before saving. Balance checks, protected c
 Fixed a reproducible 400 during position discovery. EA's native search DTO serializes position names such as `GK`, `CB` and `ST`; passing a numeric chemistry ID sends an invalid market filter. In the failing Arc session on Destined for Glory Challenge 4, the eighth search sent position `0` and returned 400. The corrected `GK` search returned status 200 with 21 listings. Native card position IDs remain numeric when checking squad fit and chemistry. Failed reads now identify the active-squad, club, market or concept-matching stage, and failed saves preserve their status and stage. Malformed requests are not retried; no purchases or submissions are performed by this recovery.
 
 ### Gallery collector (v0.21.57)
+
+With Paletools Gallery open in the same signed-in EA tab, **Use open Paletools set** (v0.21.58) reads its selected set and positive collected-card records. FutSBC matches the exact set ID, card count and grade thresholds to FUT.GG's published priced lineup, then checks ownership and skips Paletools-collected cards. If the provider omits details for a lower grade, the loaded Paletools catalogue supplies exact card identities without more EA searches. The bridge does not refresh Paletools, change its selection, grade entries, or copy credentials. Its grading screen is a preview, not an in-game submission. Paletools remains optional; the standalone set picker still works.
+
+Live bridge verification: Paletools v27.1.5 on EA FC 27 client build 11414 exposed Starter Set (116), five cards and matching D–S thresholds. Both D and S plans loaded through the installed extension in Arc. The S plan skipped four previously collected cards and queued no purchases during testing. Tests also cover account/set/grade mismatches, omitted provider card metadata and read-only collection import. The bridge uses internal Paletools fields, so unsupported future versions fail with a reconnect message rather than guessing.
 
 Open **Gallery**, choose a set and a target grade, then click **Find missing cards**. FutSBC reads the public FC 27 FUT.GG Gallery catalogue and a complete published grade lineup, including card images, exact versions, estimated points, tokens and console prices. It checks eligible cards currently in your selected console club and remembers confirmed collection locally for that EA persona. Tick **Already collected** for cards acquired previously, including cards you have sold; this is a manual record, not an EA collection-history lookup.
 
