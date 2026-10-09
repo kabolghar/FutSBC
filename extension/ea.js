@@ -21,15 +21,47 @@ export async function eaOperation(action, payload = {}) {
     };
     const readCancelled=()=>!payload.sbcBuildSaving&&payload.sbcBuildToken&&window.__futsbcCancelledSbcBuild===payload.sbcBuildToken||payload.readToken&&window.__futsbcCancelledTeamRead===payload.readToken&&['teamSnapshot','teamEvaluate','teamQuote','teamPlan'].includes(action);
     if(readCancelled())throw Error(payload.sbcBuildToken?'SBC build stopped. Nothing was added.':'Background recommendations stopped.');
-    const observe=(observable,allowRejection=false,stage=null)=>new Promise((resolve,reject)=>{
+    const observe=(observable,allowRejection=false,stage=null,deadline=null)=>new Promise((resolve,reject)=>{
       const owner={};
-      const timeout=payload.sbcBuildDeadline&&!payload.sbcBuildSaving?Math.max(1,Math.min(20000,payload.sbcBuildDeadline-Date.now())):20000;
+      const timeout=Math.max(1,Math.min(20000,deadline?deadline-Date.now():20000,payload.sbcBuildDeadline&&!payload.sbcBuildSaving?payload.sbcBuildDeadline-Date.now():20000));
       let cancelTimer;
       const timer=setTimeout(()=>{clearInterval(cancelTimer);observable.unobserve(owner);reject(Error(payload.sbcBuildDeadline&&!payload.sbcBuildSaving&&Date.now()>=payload.sbcBuildDeadline?'SBC search reached its time limit. Nothing was added.':'EA did not respond. Check the Web App connection before retrying.'));},timeout);
       if(payload.sbcBuildToken&&!payload.sbcBuildSaving)cancelTimer=setInterval(()=>{if(readCancelled()){clearTimeout(timer);clearInterval(cancelTimer);observable.unobserve(owner);reject(Error('SBC build stopped. Nothing was added.'));}},250);
       observable.observe(owner,(sender,result)=>{clearTimeout(timer);clearInterval(cancelTimer);sender.unobserve(owner);if(readCancelled()){reject(Error(payload.sbcBuildToken?'SBC build stopped. Nothing was added.':'Background recommendations stopped.'));return;}if(result.success||allowRejection)resolve(result);else{const unauthorized=Number(result.status)===401;const error=Error(unauthorized?'EA could not authenticate this request (401). Reload the EA Web App and sign in again if prompted, then reopen your squad and retry.':`EA rejected the request (${result.status ?? 'unknown'}).`);error.status=result.status;error.stage=stage;reject(error);}});
     });
     const coinBalance=()=>Number(services.User.getUser()?.getCurrency(GameCurrency.COINS)?.amount);
+    const paletoolsPrices=()=>{
+      // Paletools' external prices are provider estimates, not EA listings. Read
+      // only loaded card views; never call its private providers or read storage.
+      const persona=services.User.getUser()?.getSelectedPersona?.();
+      if(!window.paletools||!Number.isSafeInteger(Number(persona?.id))||Number(persona.id)<1||typeof persona.sku!=='string'||!persona.sku)return {accountKey:null,quotes:[]};
+      const accountKey=`2027:${persona.id}:${persona.sku}`,now=Date.now();
+      let cache=window.__futsbcPaletoolsEstimateCache;
+      if(!cache||cache.client!==services||cache.accountKey!==accountKey)cache=window.__futsbcPaletoolsEstimateCache={client:services,accountKey,quotes:new Map()};
+      let initial;try{initial=current?.getView?.();}catch{}
+      const pending=[initial],seen=new Set();
+      while(pending.length&&seen.size<1000){
+        const view=pending.shift();if(!view||seen.has(view))continue;seen.add(view);
+        for(const key of ['_subviews','listRows','slotViews'])if(Array.isArray(view[key]))pending.push(...view[key]);
+        if(view._list)pending.push(view._list);
+        const item=view.data,control=view.__externalPrice,id=Number(item?.definitionId);
+        if(!control||!Number.isSafeInteger(id)||id<1)continue;
+        let price,element;try{price=control.getValue?.();element=control.getRootElement?.();}catch{cache.quotes.delete(id);continue;}
+        if(typeof price!=='number'||!Number.isSafeInteger(price)||price<150||price>15_000_000||element?.style?.display==='none'){cache.quotes.delete(id);continue;}
+        if(!Number.isInteger(Number(item.rating))||!Number.isInteger(Number(item.rareflag)))continue;
+        cache.quotes.set(id,{definitionId:id,rating:Number(item.rating),rarity:Number(item.rareflag),price,source:'Paletools display',estimated:true,updatedAt:null,observedAt:now});
+      }
+      for(const [id,quote] of cache.quotes)if(now-quote.observedAt>10*60_000)cache.quotes.delete(id);
+      while(cache.quotes.size>528)cache.quotes.delete(cache.quotes.keys().next().value);
+      return {accountKey,quotes:[...cache.quotes.values()]};
+    };
+    if(['status','teamSnapshot','galleryPaletools'].includes(action)){try{paletoolsPrices();}catch{}}
+    if(action==='paletoolsPrices'){
+      if(!Array.isArray(payload.definitionIds)||payload.definitionIds.length>528||payload.definitionIds.some(id=>!Number.isSafeInteger(id)||id<1))throw Error('Choose exact EA cards for Paletools estimates.');
+      const snapshot=paletoolsPrices();
+      if(payload.accountKey&&payload.accountKey!==snapshot.accountKey)throw Error('The Paletools price club changed.');
+      return {ok:true,...snapshot,quotes:snapshot.quotes.filter(quote=>payload.definitionIds.includes(quote.definitionId))};
+    }
     const activeTeam=()=>{
       const id=services.Squad?.getActiveSquadId?.();
       const user=services.User.getUser();
@@ -388,12 +420,15 @@ export async function eaOperation(action, payload = {}) {
       nav.pushViewController(results,true);
       return {ok:true};
     }
-    const searchMarket=(criteria,allowRejection=false,page=1,stage=null)=>{
+    const searchMarket=(criteria,allowRejection=false,page=1,stage=null,deadline=null)=>{
       if(typeof services.Item?.clearTransferMarketCache!=='function') throw Error('EA market search cache API changed. Trading stopped.');
       // EA's own search results controller selects the market module before searching.
       services.Module?.set?.(3355443200);
+      // Paletools uses this flag for its own lowest-price searches. Prevent its
+      // saved rating/rarity/style filters from modifying our explicit criteria.
+      criteria.disableOverrides=true;
       if(page===1)services.Item.clearTransferMarketCache();
-      return observe(services.Item.searchTransferMarket(criteria,page),allowRejection,stage);
+      return observe(services.Item.searchTransferMarket(criteria,page),allowRejection,stage,deadline);
     };
     const marketCriteria=(definitionId,maxBuy)=>{
       const criteria=new UTSearchCriteriaDTO();
@@ -426,6 +461,23 @@ export async function eaOperation(action, payload = {}) {
     const tick=price=>price<1000?50:price<10000?100:price<50000?250:price<100000?500:1000;
     const floorPrice=price=>Math.floor(price/tick(price))*tick(price);
     const previousPrice=price=>Math.max(150,floorPrice(price-1));
+    const lowestMarketListing=async(definitionId,maxBuy,matches,stage)=>{
+      let best=null,ceiling=maxBuy,searches=0,complete=false;
+      const deadline=Date.now()+25000;
+      for(;searches<6&&Date.now()<deadline;){
+        if(searches)await new Promise(resolve=>setTimeout(resolve,250));
+        const criteria=marketCriteria(definitionId,ceiling);criteria.count=20;
+        const result=await searchMarket(criteria,false,1,stage,deadline);searches++;
+        const rows=marketRows(result).filter(item=>Number(item.definitionId)===definitionId&&matches(item)&&Number(auction(item)?.getSecondsRemaining?.())>0);
+        const candidates=rows.filter(item=>Number.isSafeInteger(Number(auction(item)?.buyNowPrice))&&Number(auction(item).buyNowPrice)>=150&&Number(auction(item).buyNowPrice)<=ceiling).sort((a,b)=>Number(auction(a).buyNowPrice)-Number(auction(b).buyNowPrice));
+        if(candidates[0]&&(!best||Number(auction(candidates[0]).buyNowPrice)<Number(auction(best).buyNowPrice)))best=candidates[0];
+        if(result.data.items.length<criteria.count){complete=true;break;}
+        if(!best)break;
+        const price=Number(auction(best).buyNowPrice);if(price===150){complete=true;break;}
+        const lower=previousPrice(price);if(lower>=ceiling)break;ceiling=lower;
+      }
+      return {item:best,searches,complete};
+    };
     const quotePrices=(values,futbinPrice,buy,strategy=null)=>{
       const prices=values.filter(price=>Number.isSafeInteger(price)&&price>=150).sort((a,b)=>a-b);
       if(prices.length<5)return null;
@@ -456,10 +508,9 @@ export async function eaOperation(action, payload = {}) {
       for(const definitionId of definitionIds){
         if(quotes.length)await new Promise(resolve=>setTimeout(resolve,1000));
         let result;
-        try{result=await searchMarket(marketCriteria(definitionId,ceiling));}
+        try{result=await lowestMarketListing(definitionId,ceiling,()=>true,'team-price');}
         catch(error){error.message=`Price lookup for EA card ${definitionId}: ${error.message}`;error.stage='team-price';throw error;}
-        const prices=marketRows(result).filter(item=>Number(item.definitionId)===definitionId&&Number(auction(item)?.getSecondsRemaining?.())>0).map(item=>Number(auction(item).buyNowPrice)).filter(price=>Number.isSafeInteger(price)&&price>=150&&price<=ceiling).sort((a,b)=>a-b);
-        quotes.push({definitionId,price:prices[0]??null,listingCount:prices.length});
+        quotes.push({definitionId,price:result.item?Number(auction(result.item).buyNowPrice):null,searches:result.searches,lowestSearchComplete:result.complete});
       }
       return {ok:true,quotes,checkedAt:Date.now(),balance};
     }
@@ -996,16 +1047,10 @@ export async function eaOperation(action, payload = {}) {
       if(existing.some(item=>eligible(item,player)))return {ok:true,phase:'owned',accountKey,definitionId:player.definitionId,balance:coinBalance()};
       if(typeof services.Item.bid!=='function'||typeof services.Item.move!=='function'||typeof ItemPile==='undefined')throw Error('EA Gallery buying is unavailable.');
       const balance=coinBalance();if(!Number.isSafeInteger(balance)||balance<maxPrice)return {ok:true,phase:'unavailable',reason:'The coin balance is below this card limit.',balance};
-      const matches=[],criteria=marketCriteria(player.definitionId,Math.min(maxPrice,remaining,balance));
-      for(let page=1;page<=2;page++){
-        const result=await searchMarket(criteria,false,page,'gallery-market');guard();
-        matches.push(...marketRows(result).filter(item=>eligible(item,player)&&auction(item)?.getSecondsRemaining?.()>0&&auction(item)?.canBuy?.(coinBalance())&&Number(auction(item)?.buyNowPrice)<=maxPrice));
-        if(result.data.items.length<20)break;
-      }
-      matches.sort((a,b)=>Number(auction(a).buyNowPrice)-Number(auction(b).buyNowPrice));
-      const item=matches[0];if(!item)return {ok:true,phase:'unavailable',reason:'No checked exact-card listing is within its price limit.',balance};
+      const found=await lowestMarketListing(player.definitionId,Math.min(maxPrice,remaining,balance),item=>{guard();return eligible(item,player)&&auction(item)?.canBuy?.(coinBalance());},'gallery-market');
+      guard();const item=found.item;if(!item)return {ok:true,phase:'unavailable',reason:'No checked exact-card listing is within its price limit.',balance};
       const price=Number(auction(item).buyNowPrice),tradeId=String(auction(item).tradeId);
-      guard();if(!Number.isSafeInteger(price)||price<150||price>remaining||price>coinBalance()||!auction(item).canBuy?.(coinBalance()))throw Error('The Gallery listing or balance changed.');
+      guard();if(!Number.isSafeInteger(price)||price<150||price>maxPrice||price>remaining||price>coinBalance()||Number(auction(item).getSecondsRemaining?.())<=0||!auction(item).canBuy?.(coinBalance()))throw Error('The Gallery listing or balance changed.');
       let response;
       try{sbcPurchaseAttempted=true;response=await observe(services.Item.bid(item,price),false,'gallery-buy');}
       catch(error){return {ok:true,phase:'uncertain',price,tradeId,warning:`Purchase outcome unknown: ${error.message} Check EA New Items.`};}
@@ -1140,18 +1185,8 @@ export async function eaOperation(action, payload = {}) {
       return (await clubRows([player])).find(item=>Number(item.id)>0&&Number(item.definitionId)===player.definitionId&&resolvedCardMatches(item,player,false));
     };
     const cheapestListing=async(player,maxBuy)=>{
-      const criteria=marketCriteria(player.definitionId,maxBuy);
-      const matches=[];
-      for(let page=1;page<=2;page++){
-        if(page>1)await new Promise(resolve=>setTimeout(resolve,1000));
-        let result;
-        try{result=await searchMarket(criteria,false,page);}
-        catch(error){error.message=`Market page ${page} for ${player.name}: ${error.message}`;error.stage='sbc-price';error.page=page;throw error;}
-        matches.push(...marketRows(result).filter(item=>Number(item.definitionId)===player.definitionId&&resolvedCardMatches(item,player,false)&&Number(auction(item)?.buyNowPrice)<=maxBuy&&Number(auction(item)?.getSecondsRemaining?.())>0&&auction(item)?.canBuy?.(coinBalance())));
-        if(result.data.items.length<20)break;
-      }
-      matches.sort((a,b)=>Number(auction(a).buyNowPrice)-Number(auction(b).buyNowPrice)||Number(auction(b).getSecondsRemaining())-Number(auction(a).getSecondsRemaining()));
-      return matches[0]||null;
+      try{return (await lowestMarketListing(player.definitionId,maxBuy,item=>resolvedCardMatches(item,player,false)&&auction(item)?.canBuy?.(coinBalance()),'sbc-price')).item;}
+      catch(error){error.message=`Market page 1 for ${player.name}: ${error.message}`;error.stage='sbc-price';error.page=1;throw error;}
     };
     const resolveCard=async player=>{
       const rows=await conceptRows([player],'baseId');
@@ -1654,7 +1689,7 @@ export async function eaOperation(action, payload = {}) {
       const item=await cheapestListing(player,Math.min(maxPrice,remaining,balance));
       if(!item)return {ok:true,phase:'unavailable',definitionId:player.definitionId,balance};
       const price=Number(auction(item).buyNowPrice),tradeId=String(auction(item).tradeId);
-      if(!Number.isSafeInteger(price)||price<150||price>maxPrice||price>remaining||price>balance||!auction(item).canBuy?.(balance))return {ok:true,phase:'unavailable',definitionId:player.definitionId,balance};
+      if(!Number.isSafeInteger(price)||price<150||price>maxPrice||price>remaining||price>coinBalance()||Number(auction(item).getSecondsRemaining?.())<=0||!auction(item).canBuy?.(coinBalance()))return {ok:true,phase:'unavailable',definitionId:player.definitionId,balance:coinBalance()};
       let response;
       try{sbcPurchaseAttempted=true;response=await observe(services.Item.bid(item,price));}
       catch(error){return {ok:true,phase:'uncertain',definitionId:player.definitionId,price,tradeId,warning:`EA did not confirm the purchase of ${player.name}: ${error.message} Check New Items before restarting.`};}

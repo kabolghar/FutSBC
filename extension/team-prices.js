@@ -1,5 +1,15 @@
 const MAX_AGE=6*60*60_000;
 const CACHE_AGE=10*60_000;
+// A displayed price has an observation time, not a verified provider update
+// time. Keep it ephemeral and out of the daily market-history cache.
+export function paletoolsEstimates(snapshot,cards,now=Date.now()){
+  if(!/^2027:[1-9]\d*:.+$/.test(snapshot?.accountKey||'')||!Array.isArray(snapshot.quotes))return [];
+  const wanted=new Map(cards.filter(card=>!card.owned).map(card=>[card.definitionId,card]));
+  return snapshot.quotes.filter(quote=>{
+    const card=wanted.get(quote?.definitionId);
+    return card&&quote.source==='Paletools display'&&quote.estimated===true&&quote.updatedAt===null&&quote.rating===card.rating&&quote.rarity===card.rarity&&Number.isSafeInteger(quote.price)&&quote.price>=150&&quote.price<=15_000_000&&Number.isSafeInteger(quote.observedAt)&&quote.observedAt<=now&&now-quote.observedAt<=CACHE_AGE;
+  });
+}
 export function validEstimate(quote,id,now=Date.now()){
   return quote?.definitionId===id&&quote.source==='fodder.gg'&&Number.isSafeInteger(quote.price)&&quote.price>=150&&quote.price<=15_000_000&&Number.isSafeInteger(quote.updatedAt)&&quote.updatedAt<=now+60_000&&now-quote.updatedAt<=MAX_AGE;
 }

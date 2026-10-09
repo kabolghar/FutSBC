@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.58**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.59**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -317,7 +317,7 @@ Live bridge verification: Paletools v27.1.5 on EA FC 27 client build 11414 expos
 
 Open **Gallery**, choose a set and a target grade, then click **Find missing cards**. FutSBC reads the public FC 27 FUT.GG Gallery catalogue and a complete published grade lineup, including card images, exact versions, estimated points, tokens and console prices. It checks eligible cards currently in your selected console club and remembers confirmed collection locally for that EA persona. Tick **Already collected** for cards acquired previously, including cards you have sold; this is a manual record, not an EA collection-history lookup.
 
-Review the missing cards, their individual maximum prices and the total spending limit, then click **Collect missing cards**. Each purchase rechecks club ownership, searches up to two pages of exact-version EA listings, buys the cheapest checked eligible buy-now listing within its limit, moves the card to your club, and verifies the move before continuing. No missing price is treated as zero. The approved card limits must fit within the total budget and current coin balance. Owned cards do not trigger market searches. The queue continues with the menu closed while the browser and signed-in EA tab remain available; **Stop collecting** stops further cards after the current request.
+Review the missing cards, their individual maximum prices and the total spending limit, then click **Collect missing cards**. Each purchase rechecks club ownership, narrows the Buy Now ceiling over up to six exact-version EA searches within 25 seconds, buys the cheapest checked eligible buy-now listing within its limit, moves the card to your club, and verifies the move before continuing. No missing price is treated as zero. The approved card limits must fit within the total budget and current coin balance. Owned cards do not trigger market searches. The queue continues with the menu closed while the browser and signed-in EA tab remain available; **Stop collecting** stops further cards after the current request.
 
 An uncertain purchase or club move pauses the queue and preserves its intent across extension restarts. Check EA New Items, resolve the card, then click **Check purchased card**. FutSBC requires confirmation in the club before restarting, rather than repeating a purchase. Trading and squad-building operations cannot run alongside Gallery collecting. Account changes stop the collection; collection records are scoped to the EA persona and are not shared between installations.
 
@@ -326,3 +326,9 @@ Gallery grading stays in-game: open the set, use **Autocomplete**, and confirm *
 Verification: the public FUT.GG catalogue and Rayo Vallecano grade lineups were parsed from real current pages, and the card layout was viewed in Arc using an isolated local preview. The installed v0.21.57 extension also loaded the live Gallery catalogue in Arc without opening or logging into EA. Automated tests cover exact-card eligibility, ownership skipping, spending caps, account changes, stop behavior, interrupted purchases, recovery and queue completion. Purchase and move tests use a simulated EA client; no live cards were bought for this feature's validation.
 
 Sources: [EA Gallery guide](https://help.ea.com/en/articles/ea-sports-fc/gallery-hub/), [FUT.GG Gallery catalogue](https://www.fut.gg/fut-gallery/), [Rayo Vallecano Gallery set](https://www.fut.gg/fut-gallery/laliga/rayo-vallecano/).
+
+### Paletools price compatibility (v0.21.59)
+
+FutSBC can reuse numeric prices already displayed by Paletools for Team planning and swaps. These remain labelled estimates with an unknown provider update time; they do not enter daily price history. Only matching exact card versions are accepted, and owned cards still have no additional purchase cost. Paletools is optional; cards without displayed estimates use the existing price providers and EA fallback.
+
+Team live quotes and SBC/Gallery purchases now narrow searches below the lowest Buy Now price found, rather than stopping after two auction pages. Every purchase still checks a fresh eligible EA listing, ownership and approved spending limits. The search is bounded and cannot guarantee the cheapest card across the entire market. Market requests also ignore Paletools' saved filter overrides while respecting EA errors. See the [compatibility review](docs/paletools-integration.md) for verified capabilities and future integration candidates.

@@ -5,7 +5,7 @@ import {quickFlipCards,reconcileSales,portfolioSummary,selectHuntCard} from './t
 const SALES_KEY='futsbc-trader-sales-v1';
 const salesLedger=async()=> (await chrome.storage.local.get(SALES_KEY))[SALES_KEY]||[];
 import {reviewSquad,supportCandidates,requestedCovered} from './squad-review.js';
-import {getConsoleEstimates} from './team-prices.js';
+import {getConsoleEstimates,paletoolsEstimates} from './team-prices.js';
 import {isEaWebAppURL,findEaTabs} from './ea-url.js';
 import {resumeComparison} from './sbc-checkpoint.js';
 import {readFutbinTab} from './tab-reader.js';
@@ -107,6 +107,14 @@ async function ea(tabId,action,payload,timeoutMs=0) {
 const readTab=(tabId,url,lookupId=null)=>readFutbinTab(chrome,tabId,url,lookupId);
 const SBC_REQUEST_TIMEOUT=120000;
 const TEAM_PRICE_PAUSE_KEY='futsbc-team-price-pause';
+async function planningEstimates(tabId,cards,cache,fetcher=fetch){
+  let displayed=[];
+  try{displayed=paletoolsEstimates(await ea(tabId,'paletoolsPrices',{definitionIds:[...new Set(cards.map(card=>card.definitionId))]},5000),cards);}
+  catch{checkTeamReadCancelled();}
+  const displayedIds=new Set(displayed.map(quote=>quote.definitionId));
+  const fallback=await getConsoleEstimates(cards.filter(card=>!displayedIds.has(card.definitionId)).map(card=>card.definitionId),cache,fetcher);
+  return {...fallback,quotes:[...displayed,...fallback.quotes]};
+}
 const sameCard=(a,b)=>a?.baseId===b?.baseId&&a?.rating===b?.rating&&a?.rarity===b?.rarity;
 const slotFor=(session,index)=>Array.isArray(session.mapping)?session.mapping[index]:suggestMapping(session.resolved,session.challenge.slots)[index];
 async function swapCandidates(session,index){
@@ -576,12 +584,12 @@ async function recommendTeam(slots,budget,broaden=false,picks=[],context=null){
     teamProgress(`Reading alternative console estimates · ${missingPrices.length} cards`);
     const key='futsbc-console-estimates-v1';
     const saved=(await chrome.storage.local.get(key))[key]||{};
-    const estimates=await getConsoleEstimates(missingPrices,saved);
+    const estimates=await planningEstimates(tabId,results.flatMap(group=>group.options).filter(card=>missingPrices.includes(card.definitionId)),saved);
     await chrome.storage.local.set({[key]:estimates.cache});
     const prices=new Map(estimates.quotes.map(quote=>[quote.definitionId,quote]));
     for(const group of results)group.options=group.options.map(option=>{
       const quote=prices.get(option.definitionId);
-      return !option.owned&&quote?{...option,price:quote.price,estimatedPrice:quote.price,priceSource:quote.source,priceUpdatedAt:quote.updatedAt}:option;
+      return !option.owned&&quote?{...option,price:quote.price,estimatedPrice:quote.price,priceSource:quote.source,priceUpdatedAt:quote.updatedAt,priceObservedAt:quote.observedAt??null}:option;
     });
   }
   // Estimates are sufficient for recommendations. Unknown fallback prices are
@@ -685,17 +693,17 @@ async function refreshSwapCandidates(saved,group,team,tabId,budget){
     const checked=await ea(tabId,'teamEvaluate',{slotIndex:group.slotIndex,fingerprint:team.fingerprint,budget,allowChemistryDrop:true,cards:ranked.slice(offset,offset+48)},SBC_REQUEST_TIMEOUT);
     for(const card of checked.options){
       const old=merged.get(card.definitionId);
-      merged.set(card.definitionId,{...old,...card,...(!card.owned&&old?.priceVerified?{price:old.price,estimatedPrice:old.estimatedPrice,priceEstimated:old.priceEstimated,priceVerified:true,priceSource:old.priceSource,priceUpdatedAt:old.priceUpdatedAt}:{})});
+      merged.set(card.definitionId,{...old,...card,...(!card.owned&&old?.priceVerified?{price:old.price,estimatedPrice:old.estimatedPrice,priceEstimated:old.priceEstimated,priceVerified:true,priceSource:old.priceSource,priceUpdatedAt:old.priceUpdatedAt,priceObservedAt:old.priceObservedAt}:{})});
     }
   }
   const candidates=[...merged.values()].filter(card=>!fixedAssets.has(card.assetId));
   const unknown=candidates.filter(card=>!card.owned&&!Number.isSafeInteger(card.price));
   if(unknown.length){
     const key='futsbc-console-estimates-v1',cache=(await chrome.storage.local.get(key))[key]||{};
-    const estimates=await getConsoleEstimates(unknown.map(card=>card.definitionId),cache,(...args)=>{checkTeamReadCancelled();return fetch(...args);});
+    const estimates=await planningEstimates(tabId,unknown,cache,(...args)=>{checkTeamReadCancelled();return fetch(...args);});
     checkTeamReadCancelled();
     await chrome.storage.local.set({[key]:estimates.cache});
-    for(const quote of estimates.quotes){const card=merged.get(quote.definitionId);Object.assign(card,{price:quote.price,estimatedPrice:quote.price,priceVerified:true,priceEstimated:true,priceSource:quote.source,priceUpdatedAt:quote.updatedAt});}
+    for(const quote of estimates.quotes){const card=merged.get(quote.definitionId);Object.assign(card,{price:quote.price,estimatedPrice:quote.price,priceVerified:true,priceEstimated:true,priceSource:quote.source,priceUpdatedAt:quote.updatedAt,priceObservedAt:quote.observedAt??null});}
   }
   const missing=[...merged.values()].filter(card=>!card.owned&&!Number.isSafeInteger(card.price)).sort((a,b)=>(a.metaRank||99)-(b.metaRank||99)).slice(0,8);
   let priceError=null;

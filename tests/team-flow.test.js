@@ -5,7 +5,7 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   const realNow=Date.now;let now=realNow();Date.now=()=>now;t.after(()=>{Date.now=realNow;});
   const EA='https://www.ea.com/ea-sports-fc/ultimate-team/web-app/';
   const players=Array.from({length:11},(_,index)=>({index,position:index===0?'GK':index===1?'RB':'CM',name:index<2?'Open position':`Current ${index}`,definitionId:index<2?0:1000+index,assetId:index<2?0:1000+index,rating:index<2?0:82}));
-  const session={};let fingerprint='current',menuPick=false,rankingGap=false,broaderSwap=false,expandedSwap=false;
+  const session={};let fingerprint='current',menuPick=false,rankingGap=false,broaderSwap=false,expandedSwap=false,displayPrices=false;
   const calls=[];let listener,tabURL='',failQuotes=false,holdQuote=false,releaseQuote,holdEvaluate=false,releaseEvaluate,estimates=false,forceLimit=false,partialKnown=false,ownedFallback=false;
   globalThis.fetch=async()=>({ok:true,json:async()=>({prices:{},updated:{}})});
   globalThis.chrome={
@@ -27,8 +27,9 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
       const [action,payload]=args;calls.push({action,payload});
       if(action==='teamPlayerSearch')return [{result:{ok:true,cards:[{definitionId:9991,assetId:9991,rating:86,name:'Chosen player',position:'CM'}],truncated:false}}];
       if(action==='teamSnapshot')return [{result:{ok:true,players,balance:50000,chemistry:10,fingerprint,formation:'4-4-2',name:'Current XI'}}];
+      if(action==='paletoolsPrices')return [{result:{ok:true,accountKey:'2027:1:console',quotes:displayPrices?payload.definitionIds.map(id=>({definitionId:id,rating:85-Math.floor((id%100)/5),rarity:0,price:1000,estimated:true,source:'Paletools display',updatedAt:null,observedAt:Date.now()})):[]}}];
       if(action==='teamEvaluate'&&holdEvaluate){holdEvaluate=false;await new Promise(resolve=>{releaseEvaluate=resolve;});}
-      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,position:players[payload.slotIndex].position,owned:ownedFallback&&card.metaRank===30,price:ownedFallback&&card.metaRank===30?0:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
+      if(action==='teamEvaluate')return [{result:{ok:true,checked:payload.cards.length,options:payload.cards.map(card=>({...card,definitionId:card.definitionId||card.assetId,slotIndex:payload.slotIndex,rarity:card.rarity??0,position:players[payload.slotIndex].position,owned:ownedFallback&&card.metaRank===30,price:ownedFallback&&card.metaRank===30?0:card.price??null,estimatedPrice:card.price??null,priceVerified:Number.isSafeInteger(card.price),chemistryChange:-1,slotChemistryChange:-1}))}}];
       if(action==='teamApply'){assert(payload.groups.every(group=>group.allowRetained===false&&group.options.length===1));assert.equal(payload.minimumChemistry,12);assert.equal(payload.allowChemistryTradeoff,payload.budget!==100000);return [{result:{ok:true,applied:2,chemistry:12}}];}
       if(action==='teamQuote'&&holdQuote){holdQuote=false;await new Promise(resolve=>{releaseQuote=resolve;});}
       if(action==='teamQuote')return [{result:failQuotes?{ok:false,error:'EA rejected the request (429).',status:429}:{ok:true,checkedAt:Date.now(),balance:50000,quotes:payload.definitionIds.map(id=>({definitionId:id,price:1000+id,listingCount:3}))}}];
@@ -209,4 +210,12 @@ test('Team prices only proposed fallback cards and uses FUTBIN estimates without
   assert.equal(partialSource.ok,true,partialSource.error);
   assert.equal(partialSource.data.results[0].options.length,0);
   assert.equal(partialSource.data.results[1].options.length,30,'one failed ranking page must not discard other positions');
+  rankingGap=false;displayPrices=true;
+  globalThis.fetch=async()=>{throw Error('Must not fetch provider prices when displayed estimates cover every candidate');};
+  await import('../extension/background.js?paletools-displayed-prices');
+  const beforeDisplayed=calls.filter(call=>call.action==='teamQuote').length;
+  const displayed=await send('teamRecommend',{slots:[0,1],budget:50000});
+  assert.equal(displayed.ok,true,displayed.error);
+  assert.equal(calls.filter(call=>call.action==='teamQuote').length,beforeDisplayed);
+  assert(displayed.data.plan.choices.every(card=>card.priceSource==='Paletools display'&&card.priceUpdatedAt===null&&card.priceObservedAt===now));
 });

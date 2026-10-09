@@ -9,7 +9,7 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
   const dom=new JSDOM(html,{url:'https://extension.test/panel.html',runScripts:'outside-only'});
   const {window}=dom;const calls=[];let fail=false;
   const team={name:'Test XI',chemistry:30,balance:10000,players:[{index:0,position:'GK',name:'Current GK',definitionId:1,rating:82}],formation:'4-4-2'};
-  const first={slotIndex:0,definitionId:2,assetId:2,name:'First suggestion',rating:84,price:2000,source:'FUT.GG',metaRank:2,slotChemistry:3,url:'https://www.fut.gg/players/2-first/27-2/'};
+  const first={slotIndex:0,definitionId:2,assetId:2,name:'First suggestion',rating:84,price:2000,source:'FUT.GG',priceSource:'Paletools display',priceUpdatedAt:null,metaRank:2,slotChemistry:3,url:'https://www.fut.gg/players/2-first/27-2/'};
   const second={...first,definitionId:3,assetId:3,name:'Alternative keeper',price:1000};
   const result={team,results:[],source:'FUT.GG',checkedAt:Date.now(),cardsPriced:0,priceMode:'estimate',combinationsChecked:10,plan:{choices:[first],chemistry:33,cost:2000,remaining:8000}};
   window.chrome={runtime:{id:'test',sendMessage:async message=>{
@@ -45,6 +45,7 @@ test('Team swap picker shows whole-team totals, replaces only after a successful
   fail=true;document.querySelector('.team-swap-options button').click();
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(document.querySelector('.team-lineup-card').textContent,/First suggestion/);
+  assert.match(document.querySelector('.team-lineup-card').textContent,/Paletools display estimate \(provider time unknown\)/);
   assert.match(document.getElementById('team-error').textContent,/squad changed/);
   fail=false;document.querySelector('.team-swap-options button').click();
   await new Promise(resolve=>setImmediate(resolve));
