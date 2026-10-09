@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="panel.css">
   <link rel="stylesheet" href="matchday.css">
   <link rel="stylesheet" href="trader-portfolio.css">
+  <link rel="stylesheet" href="gallery.css">
 </head>
 <body>
   <header class="standalone-brand"><a class="club-brand" href="#" aria-label="FutSBC home"><svg viewBox="0 0 48 56" aria-hidden="true" focusable="false"><path d="M7 3h34l4 4v25c0 9-12 17-21 21C15 49 3 41 3 32V7Z" fill="#101109" stroke="currentColor" stroke-width="2"/><path d="M12 12h25l-4 6H19v5h12l-4 6h-8v9l-7-4Z" fill="currentColor"/><path d="m27 34 3-3 3 3-3 3Zm-6 7 3-3 3 3-3 3Zm12-1 3-3 3 3-3 3Z" fill="currentColor"/></svg><strong>FutSBC<span>SQUAD LAB</span></strong></a><span class="edition">FC 27 <i>Console</i></span></header>
@@ -15,6 +16,7 @@
     <button id="trader-tab" class="view-tab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg><span>Trader</span></button>
     <button id="insights-tab" class="view-tab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5m0 14h17M7 14l4-5 4 2 5-7"/></svg><span>Market</span></button>
     <button id="team-tab" class="view-tab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16M9 3v4h6V3M9 21v-4h6v4"/><circle cx="12" cy="12" r="3"/></svg><span>My XI</span></button>
+    <button id="gallery-tab" class="view-tab" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="13" height="16" rx="2"/><path d="M7 5V3h14v15h-5M7 10h5m-5 4h5m-5 4h3"/></svg><span>Gallery</span></button>
   </nav>
   <main>
     <div id="sbc-view">
@@ -154,6 +156,28 @@
       </details>
       <div id="team-results" class="team-results" aria-live="polite"></div>
       <footer class="insights-footer"><details><summary>How we build your team</summary><p>FUTBIN ratings or FUT.GG rankings shortlist cards. EA checks card versions, ownership and team chemistry. FUTBIN prices are estimates; fallback rankings use targeted live checks. Selected players may stay when a partial upgrade fits better. Prices can change before you buy.</p></details></footer>
+    </section>
+    <section id="gallery-view" hidden aria-label="Gallery collector">
+      <div class="gallery-heading"><div><div class="section-label">YOUR COLLECTION</div><h1>Gallery</h1></div><a href="https://www.fut.gg/fut-gallery/" target="_blank" rel="noreferrer">Browse sets ↗</a></div>
+      <p class="field-note">Collect here. Autocomplete and grade in-game. Your cards stay yours.</p>
+      <div class="gallery-controls">
+        <label for="gallery-set">Choose a set</label><div class="gallery-set-picker"><select id="gallery-set"><option value="">Load Gallery sets…</option></select><button id="gallery-catalogue" class="secondary" type="button" aria-label="Refresh Gallery sets">↻</button></div>
+        <details><summary>Use a set link</summary><input id="gallery-url" type="url" placeholder="FUT.GG Gallery set link" aria-label="FUT.GG Gallery set link"></details>
+        <fieldset class="gallery-grades"><legend>Target grade</legend><label><input type="radio" name="gallery-grade" value="D" checked><span>D</span></label><label><input type="radio" name="gallery-grade" value="C"><span>C</span></label><label><input type="radio" name="gallery-grade" value="B"><span>B</span></label><label><input type="radio" name="gallery-grade" value="A"><span>A</span></label><label><input type="radio" name="gallery-grade" value="S"><span>S</span></label></fieldset>
+        <button id="gallery-prepare" class="primary" type="button"><span>Find missing cards</span><span aria-hidden="true">→</span></button>
+      </div>
+      <p id="gallery-status" class="field-note" role="status">Choose a set to start collecting.</p>
+      <section id="gallery-plan" hidden>
+        <div class="gallery-plan-heading"><h2 id="gallery-name"></h2><span id="gallery-grade-badge" class="gallery-grade-badge"></span></div>
+        <div class="gallery-progress"><progress id="gallery-progress" max="1" value="0" aria-label="Cards collected"></progress><span id="gallery-count"></span></div>
+        <div class="gallery-summary"><div><small>EST. MISSING</small><strong id="gallery-cost"></strong></div><div><small>COIN BALANCE</small><strong id="gallery-balance"></strong></div></div>
+        <p class="field-note">Club cards and your collection record count first. Tick cards you collected previously; EA’s full Gallery history is unavailable here.</p>
+        <div id="gallery-cards" class="gallery-cards"></div>
+        <label for="gallery-budget">Total spending limit</label><input id="gallery-budget" type="number" min="0" max="15000000" step="50" aria-describedby="gallery-budget-note">
+        <p id="gallery-budget-note" class="field-note">Each card has a price cap. Live listings are checked when buying. Cards are kept in your club.</p>
+        <div class="gallery-buy-actions"><button id="gallery-start" class="primary" type="button">Collect missing cards</button><button id="gallery-stop" class="secondary" type="button" hidden>Stop collecting</button><button id="gallery-recover" class="secondary" type="button" hidden>Check purchased card in club</button></div>
+        <details class="gallery-notes"><summary>About this plan</summary><p id="gallery-evidence" class="field-note"></p><p class="field-note">FUT.GG supplies a complete grade lineup. Prices and grade scores are estimates. We skip cards confirmed in your club or collection record; this is not a search of every possible lineup using your owned cards. Confirm the actual grade in EA before claiming rewards.</p></details>
+      </section>
     </section>
   </main>
   <script type="module" src="panel.js"></script>

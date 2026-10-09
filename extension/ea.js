@@ -945,6 +945,60 @@ export async function eaOperation(action, payload = {}) {
       await observe(services.Item.bid(item,bid));
       return {ok:true,phase:'bid',bid,seconds,balance:coinBalance()};
     }
+    if(['galleryIdentity','galleryOwnership','galleryBuyOne'].includes(action)){
+      const persona=services.User.getUser().getSelectedPersona();
+      if(!Number.isSafeInteger(Number(persona.id))||Number(persona.id)<1||typeof persona.sku!=='string'||!persona.sku)throw Error('EA could not identify your Gallery club.');
+      const accountKey=`2027:${persona.id}:${persona.sku}`;
+      const guard=()=>{
+        const selected=services.User.getUser().getSelectedPersona();
+        if(`2027:${selected.id}:${selected.sku}`!==accountKey||selected.getCurrentClub()!==club)throw Error('The selected EA club changed. Gallery collecting stopped.');
+        if(payload.accountKey&&payload.accountKey!==accountKey)throw Error('This Gallery plan belongs to another EA club.');
+      };
+      guard();
+      if(action==='galleryIdentity')return {ok:true,accountKey,balance:coinBalance()};
+      const requested=action==='galleryOwnership'?payload.players:[payload.player];
+      if(!Array.isArray(requested)||!requested.length||requested.length>100||requested.some(p=>!Number.isSafeInteger(p?.definitionId)||p.definitionId<1||!Number.isInteger(p.rating)||p.rating<1||p.rating>99||!Number.isInteger(p.rarity)||p.rarity<0))throw Error('Invalid Gallery card list.');
+      const eligible=(item,player)=>Number(item?.definitionId)===player.definitionId&&Number(item.id)>0&&!item.concept&&Number(item.rating)===player.rating&&Number(item.rareflag)===player.rarity&&!(Number(item.loans)>=0)&&!item.isLimitedUse?.()&&!(Number(item.endTime)>0)&&!item.isEvolution?.();
+      const owned=async()=>{
+        const rows=[];let offset=0;
+        for(let page=0;page<10;page++){
+          guard();const criteria=new UTSearchCriteriaDTO();criteria.type=SearchType.PLAYER;criteria.defId=requested.map(p=>p.definitionId);criteria.count=100;criteria.offset=offset;
+          const result=await observe(services.Club.search(criteria),false,'gallery-club');guard();
+          if(!Array.isArray(result.response?.items))throw Error('EA did not return Gallery club cards.');
+          rows.push(...result.response.items);offset+=result.response.items.length;
+          if(result.response.retrievedAll===true||result.response.retrievedAll===undefined&&result.response.items.length<criteria.count)return rows;
+          if(!result.response.items.length)break;
+        }
+        throw Error('EA club results are incomplete. Gallery collecting stopped.');
+      };
+      const existing=await owned();
+      if(action==='galleryOwnership')return {ok:true,accountKey,balance:coinBalance(),owned:requested.filter(p=>existing.some(item=>eligible(item,p))).map(p=>p.definitionId)};
+      const player=payload.player,maxPrice=payload.maxPrice,remaining=payload.remaining;
+      if(!Number.isSafeInteger(maxPrice)||maxPrice<150||!Number.isSafeInteger(remaining)||remaining<maxPrice)throw Error('Invalid Gallery spending limit.');
+      if(existing.some(item=>eligible(item,player)))return {ok:true,phase:'owned',accountKey,definitionId:player.definitionId,balance:coinBalance()};
+      if(typeof services.Item.bid!=='function'||typeof services.Item.move!=='function'||typeof ItemPile==='undefined')throw Error('EA Gallery buying is unavailable.');
+      const balance=coinBalance();if(!Number.isSafeInteger(balance)||balance<maxPrice)return {ok:true,phase:'unavailable',reason:'The coin balance is below this card limit.',balance};
+      const matches=[],criteria=marketCriteria(player.definitionId,Math.min(maxPrice,remaining,balance));
+      for(let page=1;page<=2;page++){
+        const result=await searchMarket(criteria,false,page,'gallery-market');guard();
+        matches.push(...marketRows(result).filter(item=>eligible(item,player)&&auction(item)?.getSecondsRemaining?.()>0&&auction(item)?.canBuy?.(coinBalance())&&Number(auction(item)?.buyNowPrice)<=maxPrice));
+        if(result.data.items.length<20)break;
+      }
+      matches.sort((a,b)=>Number(auction(a).buyNowPrice)-Number(auction(b).buyNowPrice));
+      const item=matches[0];if(!item)return {ok:true,phase:'unavailable',reason:'No checked exact-card listing is within its price limit.',balance};
+      const price=Number(auction(item).buyNowPrice),tradeId=String(auction(item).tradeId);
+      guard();if(!Number.isSafeInteger(price)||price<150||price>remaining||price>coinBalance()||!auction(item).canBuy?.(coinBalance()))throw Error('The Gallery listing or balance changed.');
+      let response;
+      try{sbcPurchaseAttempted=true;response=await observe(services.Item.bid(item,price),false,'gallery-buy');}
+      catch(error){return {ok:true,phase:'uncertain',price,tradeId,warning:`Purchase outcome unknown: ${error.message} Check EA New Items.`};}
+      const won=[...(response.data?.items||[]),...(response.response?.items||[])].find(row=>eligible(row,player))||(auction(item)?.isWon?.()?item:null);
+      if(!won||!(auction(item)?.isWon?.()||auction(won)?.isWon?.()||won.pile===ItemPile.PURCHASED))return {ok:true,phase:'uncertain',price,tradeId,warning:'EA has not confirmed the purchased Gallery card. Check New Items.'};
+      try{
+        guard();await observe(services.Item.move(won,ItemPile.CLUB),false,'gallery-move');guard();
+        if(!(await owned()).some(row=>Number(row.id)===Number(won.id)&&eligible(row,player)))throw Error('The card is not yet visible in the club.');
+        return {ok:true,phase:'in-club',definitionId:player.definitionId,price,tradeId,balance:coinBalance()};
+      }catch(error){return {ok:true,phase:'purchased-unverified',price,tradeId,warning:`Card bought; club move unverified: ${error.message} Check New Items.`};}
+    }
     if(action==='tradeExecute') {
       const {definitionId,tradeId,buy,sell,maxBuy}=payload;
       if(!Number.isSafeInteger(definitionId)||definitionId<1||!/^\d+$/.test(String(tradeId))||!Number.isSafeInteger(buy)||!Number.isSafeInteger(sell)||!Number.isSafeInteger(maxBuy)||buy<150||buy>maxBuy||sell<=buy) throw Error('Invalid trade order.');
@@ -1691,5 +1745,5 @@ export async function eaOperation(action, payload = {}) {
       return {ok:true,challenge:snapshot(),players:payload.players.map((player,index)=>({...player,owned:!items[index].concept}))};
     }
     throw Error('Unsupported operation.');
-  } catch(error) { return {ok:false,...(action==='sbcBuyOne'?{purchaseAttempted:sbcPurchaseAttempted}:{}),error:error.message,status:error.status??null,stage:error.stage??null,page:error.page??null,unmatchedPlayer:error.unmatchedPlayer??null}; }
+  } catch(error) { return {ok:false,...(['sbcBuyOne','galleryBuyOne'].includes(action)?{purchaseAttempted:sbcPurchaseAttempted}:{}),error:error.message,status:error.status??null,stage:error.stage??null,page:error.page??null,unmatchedPlayer:error.unmatchedPlayer??null}; }
 }

@@ -1,0 +1,2792 @@
+{
+  "set": {
+    "id": 91,
+    "categoryId": 1,
+    "name": "Rayo Vallecano",
+    "slug": "rayo-vallecano",
+    "description": "Requires 15 Rayo Vallecano Mens players to complete.",
+    "requiredCards": 15,
+    "priority": 17,
+    "startTime": 1787086800,
+    "grades": [
+      {
+        "name": "D",
+        "threshold": 10,
+        "level": 5,
+        "rewards": [
+          {
+            "id": 135320,
+            "type": "item",
+            "value": 6000480,
+            "count": 1,
+            "label": "Rayo Vallecano Badge",
+            "untradeable": true,
+            "itemType": "custom",
+            "resourceId": 6000480,
+            "assetId": 480,
+            "teamEaId": 480,
+            "itemCategory": 1,
+            "imagePath": "2027/gg-club-badge/480.4143d2dca9ad3789facdf698c90a82f19bd64e4c7daf3b30b451e03d154374bf.webp"
+          }
+        ]
+      },
+      {
+        "name": "C",
+        "threshold": 1400,
+        "level": 4,
+        "rewards": [
+          {
+            "id": 135319,
+            "type": "item",
+            "value": 6303758,
+            "count": 1,
+            "label": "Rayo Vallecano Kit",
+            "untradeable": true,
+            "itemType": "kit",
+            "resourceId": 6303758,
+            "assetId": 14,
+            "teamEaId": 480,
+            "itemCategory": 2,
+            "imagePath": "2027/gg-club-kit/480-2.119078f32afab9148dd70913522610e4833659303fce0fb7c5e44c7044a1f1a3.webp"
+          }
+        ]
+      },
+      {
+        "name": "B",
+        "threshold": 2200,
+        "level": 3,
+        "rewards": [
+          {
+            "id": 135316,
+            "type": "event_token_1",
+            "value": 8,
+            "count": 1,
+            "label": "8 Gallery Tokens",
+            "untradeable": false,
+            "itemType": null,
+            "resourceId": null,
+            "assetId": null,
+            "teamEaId": null,
+            "itemCategory": null,
+            "imagePath": null
+          }
+        ]
+      },
+      {
+        "name": "A",
+        "threshold": 3300,
+        "level": 2,
+        "rewards": [
+          {
+            "id": 135317,
+            "type": "event_token_1",
+            "value": 10,
+            "count": 1,
+            "label": "10 Gallery Tokens",
+            "untradeable": false,
+            "itemType": null,
+            "resourceId": null,
+            "assetId": null,
+            "teamEaId": null,
+            "itemCategory": null,
+            "imagePath": null
+          }
+        ]
+      },
+      {
+        "name": "S",
+        "threshold": 4700,
+        "level": 1,
+        "rewards": [
+          {
+            "id": 135318,
+            "type": "event_token_1",
+            "value": 20,
+            "count": 1,
+            "label": "20 Gallery Tokens",
+            "untradeable": false,
+            "itemType": null,
+            "resourceId": null,
+            "assetId": null,
+            "teamEaId": null,
+            "itemCategory": null,
+            "imagePath": null
+          }
+        ]
+      }
+    ],
+    "clubEaId": 480,
+    "totalTokens": 38
+  },
+  "solution": {
+    "setId": 91,
+    "name": "Rayo Vallecano",
+    "requiredCards": 15,
+    "poolSize": 31,
+    "status": "optimal",
+    "items": [
+      {
+        "eaId": 67357029,
+        "playerEaId": 248165,
+        "score": 3938,
+        "overall": 85,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 39,
+        "rarityEaId": 22,
+        "price": 158000
+      },
+      {
+        "eaId": 50579813,
+        "playerEaId": 248165,
+        "score": 2625,
+        "overall": 85,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 39,
+        "rarityEaId": 22,
+        "price": 120000
+      },
+      {
+        "eaId": 216447,
+        "playerEaId": 216447,
+        "score": 280,
+        "overall": 81,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 650
+      },
+      {
+        "eaId": 243559,
+        "playerEaId": 243559,
+        "score": 280,
+        "overall": 81,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 700
+      },
+      {
+        "eaId": 232498,
+        "playerEaId": 232498,
+        "score": 180,
+        "overall": 80,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 650
+      },
+      {
+        "eaId": 248165,
+        "playerEaId": 248165,
+        "score": 180,
+        "overall": 80,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 39,
+        "rarityEaId": 0,
+        "price": 1600
+      },
+      {
+        "eaId": 243558,
+        "playerEaId": 243558,
+        "score": 120,
+        "overall": 77,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 1200
+      },
+      {
+        "eaId": 250858,
+        "playerEaId": 250858,
+        "score": 120,
+        "overall": 77,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 136,
+        "rarityEaId": 0,
+        "price": 1100
+      },
+      {
+        "eaId": 222390,
+        "playerEaId": 222390,
+        "score": 100,
+        "overall": 76,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 1300
+      },
+      {
+        "eaId": 236492,
+        "playerEaId": 236492,
+        "score": 90,
+        "overall": 75,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 2200
+      },
+      {
+        "eaId": 245131,
+        "playerEaId": 245131,
+        "score": 35,
+        "overall": 74,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 20,
+        "rarityEaId": 0,
+        "price": 750
+      },
+      {
+        "eaId": 248805,
+        "playerEaId": 248805,
+        "score": 35,
+        "overall": 74,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 800
+      },
+      {
+        "eaId": 251756,
+        "playerEaId": 251756,
+        "score": 35,
+        "overall": 70,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 98,
+        "rarityEaId": 0,
+        "price": 800
+      },
+      {
+        "eaId": 271373,
+        "playerEaId": 271373,
+        "score": 35,
+        "overall": 74,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 850
+      },
+      {
+        "eaId": 50577761,
+        "playerEaId": 246113,
+        "score": 35,
+        "overall": 74,
+        "gender": 1,
+        "clubEaId": 480,
+        "nationEaId": 45,
+        "rarityEaId": 0,
+        "price": 800
+      }
+    ],
+    "baseGrade": 8088,
+    "bonusGrade": 3046,
+    "totalScore": 11134,
+    "grade": "S",
+    "tokens": 38,
+    "maxTokens": 38,
+    "nextGrade": null,
+    "pointsToNextGrade": null,
+    "tags": [
+      {
+        "tagId": 3,
+        "name": "Same Nation",
+        "tier": 1,
+        "minItems": 5,
+        "bonusPercent": 1,
+        "matchedCount": 9,
+        "matchedScore": 1155,
+        "bonus": 11
+      },
+      {
+        "tagId": 17,
+        "name": "Different Nation",
+        "tier": 1,
+        "minItems": 5,
+        "bonusPercent": 1,
+        "matchedCount": 5,
+        "matchedScore": 4408,
+        "bonus": 44
+      },
+      {
+        "tagId": 8,
+        "name": "Same Club",
+        "tier": 2,
+        "minItems": 10,
+        "bonusPercent": 2,
+        "matchedCount": 15,
+        "matchedScore": 8088,
+        "bonus": 161
+      },
+      {
+        "tagId": 14,
+        "name": "Different Club",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 1,
+        "matchedScore": 3938,
+        "bonus": 0
+      },
+      {
+        "tagId": 16,
+        "name": "Same League",
+        "tier": 2,
+        "minItems": 10,
+        "bonusPercent": 2,
+        "matchedCount": 15,
+        "matchedScore": 8088,
+        "bonus": 161
+      },
+      {
+        "tagId": 6,
+        "name": "Different League",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 1,
+        "matchedScore": 3938,
+        "bonus": 0
+      },
+      {
+        "tagId": 4,
+        "name": "Bronze",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 11,
+        "name": "Silver",
+        "tier": 1,
+        "minItems": 5,
+        "bonusPercent": 15,
+        "matchedCount": 5,
+        "matchedScore": 175,
+        "bonus": 26
+      },
+      {
+        "tagId": 7,
+        "name": "Golden",
+        "tier": 2,
+        "minItems": 10,
+        "bonusPercent": 2,
+        "matchedCount": 10,
+        "matchedScore": 7913,
+        "bonus": 158
+      },
+      {
+        "tagId": 12,
+        "name": "Holographic",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 1,
+        "matchedScore": 3938,
+        "bonus": 0
+      },
+      {
+        "tagId": 19,
+        "name": "Iconic",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 2,
+        "name": "Heroic",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 18,
+        "name": "TOTW",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 1,
+        "name": "First Owner",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 10,
+        "name": "Hands Only",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 15,
+        "name": "Multiples!",
+        "tier": 2,
+        "minItems": 3,
+        "bonusPercent": 15,
+        "matchedCount": 3,
+        "matchedScore": 6743,
+        "bonus": 1011
+      },
+      {
+        "tagId": 20,
+        "name": "Ambidextrous",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 5,
+        "name": "Skilled",
+        "tier": 0,
+        "minItems": 0,
+        "bonusPercent": 0,
+        "matchedCount": 0,
+        "matchedScore": 0,
+        "bonus": 0
+      },
+      {
+        "tagId": 21,
+        "name": "Defensive Wall",
+        "tier": 1,
+        "minItems": 5,
+        "bonusPercent": 3,
+        "matchedCount": 6,
+        "matchedScore": 6933,
+        "bonus": 207
+      },
+      {
+        "tagId": 22,
+        "name": "Midfield Control",
+        "tier": 3,
+        "minItems": 15,
+        "bonusPercent": 10,
+        "matchedCount": 15,
+        "matchedScore": 8088,
+        "bonus": 808
+      },
+      {
+        "tagId": 23,
+        "name": "All out Attack",
+        "tier": 2,
+        "minItems": 10,
+        "bonusPercent": 6,
+        "matchedCount": 11,
+        "matchedScore": 7658,
+        "bonus": 459
+      }
+    ],
+    "solveMs": 3755,
+    "optimalityGap": 0,
+    "costTiers": [
+      {
+        "grade": "D",
+        "threshold": 10,
+        "tokens": 0,
+        "cost": 8450,
+        "peakPrice": 800,
+        "status": "optimal",
+        "items": [
+          {
+            "eaId": 216447,
+            "playerEaId": 216447,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 243559,
+            "playerEaId": 243559,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 700
+          },
+          {
+            "eaId": 232498,
+            "playerEaId": 232498,
+            "score": 180,
+            "overall": 80,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 197948,
+            "playerEaId": 197948,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 18,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 227186,
+            "playerEaId": 227186,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 52,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 50560061,
+            "playerEaId": 228413,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 160,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 73316,
+            "playerEaId": 73316,
+            "score": 35,
+            "overall": 68,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 34,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 245131,
+            "playerEaId": 245131,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 20,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 248805,
+            "playerEaId": 248805,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 251756,
+            "playerEaId": 251756,
+            "score": 35,
+            "overall": 70,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 98,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 74178,
+            "playerEaId": 74178,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 300
+          },
+          {
+            "eaId": 74551,
+            "playerEaId": 74551,
+            "score": 20,
+            "overall": 59,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 200
+          },
+          {
+            "eaId": 79474,
+            "playerEaId": 79474,
+            "score": 20,
+            "overall": 61,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 272486,
+            "playerEaId": 272486,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 50611217,
+            "playerEaId": 279569,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          }
+        ],
+        "totalScore": 1655,
+        "tags": [
+          {
+            "tagId": 3,
+            "name": "Same Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 9,
+            "matchedScore": 875,
+            "bonus": 8
+          },
+          {
+            "tagId": 17,
+            "name": "Different Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 865,
+            "bonus": 8
+          },
+          {
+            "tagId": 8,
+            "name": "Same Club",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 1460,
+            "bonus": 29
+          },
+          {
+            "tagId": 14,
+            "name": "Different Club",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 16,
+            "name": "Same League",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 1460,
+            "bonus": 29
+          },
+          {
+            "tagId": 6,
+            "name": "Different League",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 4,
+            "name": "Bronze",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 20,
+            "matchedCount": 5,
+            "matchedScore": 100,
+            "bonus": 20
+          },
+          {
+            "tagId": 11,
+            "name": "Silver",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 4,
+            "matchedScore": 140,
+            "bonus": 0
+          },
+          {
+            "tagId": 7,
+            "name": "Golden",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 6,
+            "matchedScore": 1220,
+            "bonus": 12
+          },
+          {
+            "tagId": 12,
+            "name": "Holographic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 19,
+            "name": "Iconic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 2,
+            "name": "Heroic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 18,
+            "name": "TOTW",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 1,
+            "name": "First Owner",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 10,
+            "name": "Hands Only",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 320,
+            "bonus": 0
+          },
+          {
+            "tagId": 15,
+            "name": "Multiples!",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 20,
+            "name": "Ambidextrous",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 5,
+            "name": "Skilled",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 21,
+            "name": "Defensive Wall",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 5,
+            "matchedScore": 270,
+            "bonus": 8
+          },
+          {
+            "tagId": 22,
+            "name": "Midfield Control",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 6,
+            "matchedCount": 10,
+            "matchedScore": 940,
+            "bonus": 56
+          },
+          {
+            "tagId": 23,
+            "name": "All out Attack",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 7,
+            "matchedScore": 865,
+            "bonus": 25
+          }
+        ]
+      },
+      {
+        "grade": "C",
+        "threshold": 1400,
+        "tokens": 0,
+        "cost": 8450,
+        "peakPrice": 800,
+        "status": "optimal",
+        "items": [
+          {
+            "eaId": 216447,
+            "playerEaId": 216447,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 243559,
+            "playerEaId": 243559,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 700
+          },
+          {
+            "eaId": 232498,
+            "playerEaId": 232498,
+            "score": 180,
+            "overall": 80,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 197948,
+            "playerEaId": 197948,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 18,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 227186,
+            "playerEaId": 227186,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 52,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 50560061,
+            "playerEaId": 228413,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 160,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 73316,
+            "playerEaId": 73316,
+            "score": 35,
+            "overall": 68,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 34,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 245131,
+            "playerEaId": 245131,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 20,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 248805,
+            "playerEaId": 248805,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 251756,
+            "playerEaId": 251756,
+            "score": 35,
+            "overall": 70,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 98,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 74178,
+            "playerEaId": 74178,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 300
+          },
+          {
+            "eaId": 74551,
+            "playerEaId": 74551,
+            "score": 20,
+            "overall": 59,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 200
+          },
+          {
+            "eaId": 79474,
+            "playerEaId": 79474,
+            "score": 20,
+            "overall": 61,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 272486,
+            "playerEaId": 272486,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 50611217,
+            "playerEaId": 279569,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          }
+        ],
+        "totalScore": 1655,
+        "tags": [
+          {
+            "tagId": 3,
+            "name": "Same Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 9,
+            "matchedScore": 875,
+            "bonus": 8
+          },
+          {
+            "tagId": 17,
+            "name": "Different Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 865,
+            "bonus": 8
+          },
+          {
+            "tagId": 8,
+            "name": "Same Club",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 1460,
+            "bonus": 29
+          },
+          {
+            "tagId": 14,
+            "name": "Different Club",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 16,
+            "name": "Same League",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 1460,
+            "bonus": 29
+          },
+          {
+            "tagId": 6,
+            "name": "Different League",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 4,
+            "name": "Bronze",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 20,
+            "matchedCount": 5,
+            "matchedScore": 100,
+            "bonus": 20
+          },
+          {
+            "tagId": 11,
+            "name": "Silver",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 4,
+            "matchedScore": 140,
+            "bonus": 0
+          },
+          {
+            "tagId": 7,
+            "name": "Golden",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 6,
+            "matchedScore": 1220,
+            "bonus": 12
+          },
+          {
+            "tagId": 12,
+            "name": "Holographic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 19,
+            "name": "Iconic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 2,
+            "name": "Heroic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 18,
+            "name": "TOTW",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 1,
+            "name": "First Owner",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 10,
+            "name": "Hands Only",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 320,
+            "bonus": 0
+          },
+          {
+            "tagId": 15,
+            "name": "Multiples!",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 20,
+            "name": "Ambidextrous",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 5,
+            "name": "Skilled",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 21,
+            "name": "Defensive Wall",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 5,
+            "matchedScore": 270,
+            "bonus": 8
+          },
+          {
+            "tagId": 22,
+            "name": "Midfield Control",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 6,
+            "matchedCount": 10,
+            "matchedScore": 940,
+            "bonus": 56
+          },
+          {
+            "tagId": 23,
+            "name": "All out Attack",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 7,
+            "matchedScore": 865,
+            "bonus": 25
+          }
+        ]
+      },
+      {
+        "grade": "B",
+        "threshold": 2200,
+        "tokens": 8,
+        "cost": 12350,
+        "peakPrice": 1600,
+        "status": "optimal",
+        "items": [
+          {
+            "eaId": 216447,
+            "playerEaId": 216447,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 243559,
+            "playerEaId": 243559,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 700
+          },
+          {
+            "eaId": 232498,
+            "playerEaId": 232498,
+            "score": 180,
+            "overall": 80,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 248165,
+            "playerEaId": 248165,
+            "score": 180,
+            "overall": 80,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 39,
+            "rarityEaId": 0,
+            "price": 1600
+          },
+          {
+            "eaId": 197948,
+            "playerEaId": 197948,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 18,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 227186,
+            "playerEaId": 227186,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 52,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 50560061,
+            "playerEaId": 228413,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 160,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 243558,
+            "playerEaId": 243558,
+            "score": 120,
+            "overall": 77,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 1200
+          },
+          {
+            "eaId": 250858,
+            "playerEaId": 250858,
+            "score": 120,
+            "overall": 77,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 136,
+            "rarityEaId": 0,
+            "price": 1100
+          },
+          {
+            "eaId": 222390,
+            "playerEaId": 222390,
+            "score": 100,
+            "overall": 76,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 1300
+          },
+          {
+            "eaId": 50575178,
+            "playerEaId": 243530,
+            "score": 90,
+            "overall": 75,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 1100
+          },
+          {
+            "eaId": 245131,
+            "playerEaId": 245131,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 20,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 50577761,
+            "playerEaId": 246113,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 74551,
+            "playerEaId": 74551,
+            "score": 20,
+            "overall": 59,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 200
+          },
+          {
+            "eaId": 79474,
+            "playerEaId": 79474,
+            "score": 20,
+            "overall": 61,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          }
+        ],
+        "totalScore": 2202,
+        "tags": [
+          {
+            "tagId": 3,
+            "name": "Same Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 9,
+            "matchedScore": 1125,
+            "bonus": 11
+          },
+          {
+            "tagId": 17,
+            "name": "Different Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 1095,
+            "bonus": 10
+          },
+          {
+            "tagId": 8,
+            "name": "Same Club",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 1940,
+            "bonus": 38
+          },
+          {
+            "tagId": 14,
+            "name": "Different Club",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 16,
+            "name": "Same League",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 1940,
+            "bonus": 38
+          },
+          {
+            "tagId": 6,
+            "name": "Different League",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 4,
+            "name": "Bronze",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 40,
+            "bonus": 0
+          },
+          {
+            "tagId": 11,
+            "name": "Silver",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 70,
+            "bonus": 0
+          },
+          {
+            "tagId": 7,
+            "name": "Golden",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 11,
+            "matchedScore": 1830,
+            "bonus": 36
+          },
+          {
+            "tagId": 12,
+            "name": "Holographic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 19,
+            "name": "Iconic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 2,
+            "name": "Heroic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 18,
+            "name": "TOTW",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 1,
+            "name": "First Owner",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 10,
+            "name": "Hands Only",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 320,
+            "bonus": 0
+          },
+          {
+            "tagId": 15,
+            "name": "Multiples!",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 280,
+            "bonus": 0
+          },
+          {
+            "tagId": 20,
+            "name": "Ambidextrous",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 5,
+            "name": "Skilled",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 21,
+            "name": "Defensive Wall",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 7,
+            "matchedScore": 640,
+            "bonus": 19
+          },
+          {
+            "tagId": 22,
+            "name": "Midfield Control",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 6,
+            "matchedCount": 10,
+            "matchedScore": 1350,
+            "bonus": 81
+          },
+          {
+            "tagId": 23,
+            "name": "All out Attack",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 6,
+            "matchedScore": 990,
+            "bonus": 29
+          }
+        ]
+      },
+      {
+        "grade": "A",
+        "threshold": 3300,
+        "tokens": 18,
+        "cost": 127650,
+        "peakPrice": 120000,
+        "status": "optimal",
+        "items": [
+          {
+            "eaId": 50579813,
+            "playerEaId": 248165,
+            "score": 2625,
+            "overall": 85,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 39,
+            "rarityEaId": 22,
+            "price": 120000
+          },
+          {
+            "eaId": 216447,
+            "playerEaId": 216447,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 243559,
+            "playerEaId": 243559,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 700
+          },
+          {
+            "eaId": 232498,
+            "playerEaId": 232498,
+            "score": 180,
+            "overall": 80,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 197948,
+            "playerEaId": 197948,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 18,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 227186,
+            "playerEaId": 227186,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 52,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 50560061,
+            "playerEaId": 228413,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 160,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 245131,
+            "playerEaId": 245131,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 20,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 248805,
+            "playerEaId": 248805,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 251756,
+            "playerEaId": 251756,
+            "score": 35,
+            "overall": 70,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 98,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 74178,
+            "playerEaId": 74178,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 300
+          },
+          {
+            "eaId": 74551,
+            "playerEaId": 74551,
+            "score": 20,
+            "overall": 59,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 200
+          },
+          {
+            "eaId": 79474,
+            "playerEaId": 79474,
+            "score": 20,
+            "overall": 61,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 272486,
+            "playerEaId": 272486,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 50611217,
+            "playerEaId": 279569,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          }
+        ],
+        "totalScore": 4712,
+        "tags": [
+          {
+            "tagId": 3,
+            "name": "Same Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 9,
+            "matchedScore": 875,
+            "bonus": 8
+          },
+          {
+            "tagId": 17,
+            "name": "Different Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 3455,
+            "bonus": 34
+          },
+          {
+            "tagId": 8,
+            "name": "Same Club",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 4050,
+            "bonus": 81
+          },
+          {
+            "tagId": 14,
+            "name": "Different Club",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 2625,
+            "bonus": 0
+          },
+          {
+            "tagId": 16,
+            "name": "Same League",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 4050,
+            "bonus": 81
+          },
+          {
+            "tagId": 6,
+            "name": "Different League",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 2625,
+            "bonus": 0
+          },
+          {
+            "tagId": 4,
+            "name": "Bronze",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 20,
+            "matchedCount": 5,
+            "matchedScore": 100,
+            "bonus": 20
+          },
+          {
+            "tagId": 11,
+            "name": "Silver",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 3,
+            "matchedScore": 105,
+            "bonus": 0
+          },
+          {
+            "tagId": 7,
+            "name": "Golden",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 3845,
+            "bonus": 38
+          },
+          {
+            "tagId": 12,
+            "name": "Holographic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 19,
+            "name": "Iconic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 2,
+            "name": "Heroic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 18,
+            "name": "TOTW",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 1,
+            "name": "First Owner",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 10,
+            "name": "Hands Only",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 320,
+            "bonus": 0
+          },
+          {
+            "tagId": 15,
+            "name": "Multiples!",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 2625,
+            "bonus": 0
+          },
+          {
+            "tagId": 20,
+            "name": "Ambidextrous",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 5,
+            "name": "Skilled",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 21,
+            "name": "Defensive Wall",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 5,
+            "matchedScore": 2860,
+            "bonus": 85
+          },
+          {
+            "tagId": 22,
+            "name": "Midfield Control",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 6,
+            "matchedCount": 10,
+            "matchedScore": 3530,
+            "bonus": 211
+          },
+          {
+            "tagId": 23,
+            "name": "All out Attack",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 8,
+            "matchedScore": 3490,
+            "bonus": 104
+          }
+        ]
+      },
+      {
+        "grade": "S",
+        "threshold": 4700,
+        "tokens": 38,
+        "cost": 127650,
+        "peakPrice": 120000,
+        "status": "optimal",
+        "items": [
+          {
+            "eaId": 50579813,
+            "playerEaId": 248165,
+            "score": 2625,
+            "overall": 85,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 39,
+            "rarityEaId": 22,
+            "price": 120000
+          },
+          {
+            "eaId": 216447,
+            "playerEaId": 216447,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 243559,
+            "playerEaId": 243559,
+            "score": 280,
+            "overall": 81,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 700
+          },
+          {
+            "eaId": 232498,
+            "playerEaId": 232498,
+            "score": 180,
+            "overall": 80,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 197948,
+            "playerEaId": 197948,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 18,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 227186,
+            "playerEaId": 227186,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 52,
+            "rarityEaId": 0,
+            "price": 650
+          },
+          {
+            "eaId": 50560061,
+            "playerEaId": 228413,
+            "score": 160,
+            "overall": 79,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 160,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 73316,
+            "playerEaId": 73316,
+            "score": 35,
+            "overall": 68,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 34,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 245131,
+            "playerEaId": 245131,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 20,
+            "rarityEaId": 0,
+            "price": 750
+          },
+          {
+            "eaId": 248805,
+            "playerEaId": 248805,
+            "score": 35,
+            "overall": 74,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 800
+          },
+          {
+            "eaId": 74178,
+            "playerEaId": 74178,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 300
+          },
+          {
+            "eaId": 74551,
+            "playerEaId": 74551,
+            "score": 20,
+            "overall": 59,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 200
+          },
+          {
+            "eaId": 79474,
+            "playerEaId": 79474,
+            "score": 20,
+            "overall": 61,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 272486,
+            "playerEaId": 272486,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          },
+          {
+            "eaId": 50611217,
+            "playerEaId": 279569,
+            "score": 20,
+            "overall": 64,
+            "gender": 1,
+            "clubEaId": 480,
+            "nationEaId": 45,
+            "rarityEaId": 0,
+            "price": 250
+          }
+        ],
+        "totalScore": 4712,
+        "tags": [
+          {
+            "tagId": 3,
+            "name": "Same Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 9,
+            "matchedScore": 875,
+            "bonus": 8
+          },
+          {
+            "tagId": 17,
+            "name": "Different Nation",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 3455,
+            "bonus": 34
+          },
+          {
+            "tagId": 8,
+            "name": "Same Club",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 4050,
+            "bonus": 81
+          },
+          {
+            "tagId": 14,
+            "name": "Different Club",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 2625,
+            "bonus": 0
+          },
+          {
+            "tagId": 16,
+            "name": "Same League",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 2,
+            "matchedCount": 15,
+            "matchedScore": 4050,
+            "bonus": 81
+          },
+          {
+            "tagId": 6,
+            "name": "Different League",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 2625,
+            "bonus": 0
+          },
+          {
+            "tagId": 4,
+            "name": "Bronze",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 20,
+            "matchedCount": 5,
+            "matchedScore": 100,
+            "bonus": 20
+          },
+          {
+            "tagId": 11,
+            "name": "Silver",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 3,
+            "matchedScore": 105,
+            "bonus": 0
+          },
+          {
+            "tagId": 7,
+            "name": "Golden",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 1,
+            "matchedCount": 7,
+            "matchedScore": 3845,
+            "bonus": 38
+          },
+          {
+            "tagId": 12,
+            "name": "Holographic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 19,
+            "name": "Iconic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 2,
+            "name": "Heroic",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 18,
+            "name": "TOTW",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 1,
+            "name": "First Owner",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 10,
+            "name": "Hands Only",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 2,
+            "matchedScore": 320,
+            "bonus": 0
+          },
+          {
+            "tagId": 15,
+            "name": "Multiples!",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 1,
+            "matchedScore": 2625,
+            "bonus": 0
+          },
+          {
+            "tagId": 20,
+            "name": "Ambidextrous",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 5,
+            "name": "Skilled",
+            "tier": 0,
+            "minItems": 0,
+            "bonusPercent": 0,
+            "matchedCount": 0,
+            "matchedScore": 0,
+            "bonus": 0
+          },
+          {
+            "tagId": 21,
+            "name": "Defensive Wall",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 6,
+            "matchedScore": 2895,
+            "bonus": 86
+          },
+          {
+            "tagId": 22,
+            "name": "Midfield Control",
+            "tier": 2,
+            "minItems": 10,
+            "bonusPercent": 6,
+            "matchedCount": 10,
+            "matchedScore": 3530,
+            "bonus": 211
+          },
+          {
+            "tagId": 23,
+            "name": "All out Attack",
+            "tier": 1,
+            "minItems": 5,
+            "bonusPercent": 3,
+            "matchedCount": 7,
+            "matchedScore": 3455,
+            "bonus": 103
+          }
+        ]
+      }
+    ],
+    "computedAt": "2026-10-09T13:41:35.025221+00:00"
+  },
+  "lineupCards": [
+    {
+      "game": "27",
+      "eaId": 50579813,
+      "commonName": "Andrei Rațiu",
+      "overall": 85,
+      "positionNames": [
+        "RB",
+        "RM",
+        "RW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-50579813.070d621550dd35a1374bddff66da2ec44c401ccc65b7c8c11a72ae97f8bd4740.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 216447,
+      "commonName": "Álvaro García",
+      "overall": 81,
+      "positionNames": [
+        "LW",
+        "LM",
+        "CAM",
+        "ST"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-216447.a494865b8e566c8d6fcd3590dc51bf208f383893f37f7fc561a3e86f738a61e7.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 243559,
+      "commonName": "De Frutos",
+      "overall": 81,
+      "positionNames": [
+        "RW",
+        "RM",
+        "CAM",
+        "ST"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-243559.e319f2e2240f19b0a6d6fd375d5b0e9106013298a43c11ca38ad52dbc1e800b1.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 232498,
+      "commonName": "Isi",
+      "overall": 80,
+      "positionNames": [
+        "CAM",
+        "RM",
+        "CM",
+        "RW",
+        "ST"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-232498.266311935c5e398d3a5e8983bc73351c858b01c8b895cb51c3bb5f0b1d11ed8d.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 197948,
+      "commonName": "Florian Lejeune",
+      "overall": 79,
+      "positionNames": [
+        "CB"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-197948.d726cabe2c02234f806826ca25e55d18b4db024617e8f40c7b142fb9fd6983ec.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 227186,
+      "commonName": "Augusto Batalla",
+      "overall": 79,
+      "positionNames": [
+        "GK"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-227186.01c9ddabf69ca7329d470d9a6e6b37922621c8cadaf65432f17ba76aff533d76.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 50560061,
+      "commonName": "Emil Audero",
+      "overall": 79,
+      "positionNames": [
+        "GK"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-50560061.bf16d9efe3e93780e7e3d9fb57f0f6dca53f28bb8b67af2222a837b355ae28ed.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 73316,
+      "commonName": "Jozhua Vertrouwd",
+      "overall": 68,
+      "positionNames": [
+        "CB",
+        "LB",
+        "LM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-73316.73aef4ecb6263f96b9cc5a50f81007547072c175c6e242129c5dcce92429ed97.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 245131,
+      "commonName": "Giorgi Tsitaishvili",
+      "overall": 74,
+      "positionNames": [
+        "LM",
+        "LB",
+        "LW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-245131.43b2b3089115f816dfd7ef35b79abc9b02ad50adf79a297955fb793eb015f9eb.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 248805,
+      "commonName": "Sergio Camello",
+      "overall": 74,
+      "positionNames": [
+        "ST",
+        "CAM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-248805.b446a55f535e37205e9b4676bb60d627ecdc101979fcc5f4dc379d820e871e2a.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 74178,
+      "commonName": "Pelayo Fernández",
+      "overall": 64,
+      "positionNames": [
+        "CB"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-74178.0d77b04ce6928faf8938dd5fba3e7bc5cdc8043c77c272e57883f81fba5c41ec.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 74551,
+      "commonName": "De las Sías",
+      "overall": 59,
+      "positionNames": [
+        "CB",
+        "RB"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-74551.702418434dde3500064f3a36d0ddcc77357230fc38b3ec78f77cea6cea09bb84.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 79474,
+      "commonName": "Samu Becerra",
+      "overall": 61,
+      "positionNames": [
+        "CM",
+        "CDM",
+        "RM",
+        "CAM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-79474.67408eebc161769f575d5015319c75931dc0967ff4ba0a15f3232cb733e86c83.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 272486,
+      "commonName": "Diego Méndez",
+      "overall": 64,
+      "positionNames": [
+        "CDM",
+        "CM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-272486.2fba381f84fca4a6a7eab42fabe1007aa69b50dfe0c7c973fc904ca1b2b1be5c.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 50611217,
+      "commonName": "Rayane Belaid",
+      "overall": 64,
+      "positionNames": [
+        "CAM",
+        "RM",
+        "CM",
+        "RW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-50611217.fe2c41e0e70922d8e7cbe4bb5954a1d1957dbbb0c3201833b39ef286f7d1e271.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 67357029,
+      "commonName": "Andrei Rațiu",
+      "overall": 85,
+      "positionNames": [
+        "RB",
+        "RM",
+        "RW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-67357029.fe15bd830685bf19bccedeffe1da20e3f48e0f0b8ca55eadf4abfbe90665d335.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 248165,
+      "commonName": "Andrei Rațiu",
+      "overall": 80,
+      "positionNames": [
+        "RB",
+        "RM",
+        "RW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-248165.455825cf5dfecd31fa1826f3c572bda09ec9e6f7a636b630c2585e49904792b1.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 243558,
+      "commonName": "Óscar Valentín",
+      "overall": 77,
+      "positionNames": [
+        "CDM",
+        "CM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-243558.6c9aa4087ce2a805eb9a9137d50d16f6944e491f491380ef9a899c35125594af.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 250858,
+      "commonName": "Pathé Ciss",
+      "overall": 77,
+      "positionNames": [
+        "CDM",
+        "CB",
+        "CM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-250858.34ab433e34134f5fe5bc6c9474e5a44f1110706e54c92e355cc79d675543f2f9.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 222390,
+      "commonName": "Unai López",
+      "overall": 76,
+      "positionNames": [
+        "CM",
+        "CDM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-222390.646a0e411009b72667f5f5667db68c6d4740016eca3902ec303a020cc97c1899.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 236492,
+      "commonName": "Pedro Díaz",
+      "overall": 75,
+      "positionNames": [
+        "CM",
+        "CDM",
+        "CAM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-236492.a953abaaf602e0c3f5e2694a112717e5e2ece656204a51c0e34d885d9260e8b8.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 251756,
+      "commonName": "Randy Nteka",
+      "overall": 70,
+      "positionNames": [
+        "ST",
+        "CM",
+        "CAM"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-251756.fc53a734612893f7252dc6a6907fc0e41aa537430dfc3b5a19fceb65a3dac013.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 271373,
+      "commonName": "Fran Pérez",
+      "overall": 74,
+      "positionNames": [
+        "RW",
+        "RM",
+        "LM",
+        "LW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-271373.5c6df57f1eea87b12787a4eeadd907afb37cbdc4dcd744c86be595d1355c1be7.webp"
+    },
+    {
+      "game": "27",
+      "eaId": 50577761,
+      "commonName": "Adrià Pedrosa",
+      "overall": 74,
+      "positionNames": [
+        "LB",
+        "LM",
+        "LW"
+      ],
+      "loanDuration": null,
+      "isEvolutionPlayerItem": false,
+      "cardImageUrl": "https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=300/2027/futgg-player-item-card/27-50577761.23b33c3df597f0254032d10380f8fb2331ba8d6a815e722e714fc4a90c0bc3cf.webp"
+    }
+  ]
+}

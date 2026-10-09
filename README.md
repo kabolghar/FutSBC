@@ -12,7 +12,7 @@ A Chromium browser extension for the EA FC 27 Web App, for PlayStation and Xbox 
 
 Alternatively, download this repository using **Code → Download ZIP**, extract it, and load its **extension** subfolder. The release ZIP contains only the installable extension.
 
-To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.56**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
+To update, replace the files in the installed folder, click **Reload** in the extension manager, and refresh the EA Web App. Current version: **0.21.57**. Requires Chromium 116 or newer; Arc was used for live checks. This is not a Chrome Web Store installation.
 
 ## Use
 
@@ -308,3 +308,17 @@ EA still validates the complete squad before saving. Balance checks, protected c
 ### Club + market request format (v0.21.56)
 
 Fixed a reproducible 400 during position discovery. EA's native search DTO serializes position names such as `GK`, `CB` and `ST`; passing a numeric chemistry ID sends an invalid market filter. In the failing Arc session on Destined for Glory Challenge 4, the eighth search sent position `0` and returned 400. The corrected `GK` search returned status 200 with 21 listings. Native card position IDs remain numeric when checking squad fit and chemistry. Failed reads now identify the active-squad, club, market or concept-matching stage, and failed saves preserve their status and stage. Malformed requests are not retried; no purchases or submissions are performed by this recovery.
+
+### Gallery collector (v0.21.57)
+
+Open **Gallery**, choose a set and a target grade, then click **Find missing cards**. FutSBC reads the public FC 27 FUT.GG Gallery catalogue and a complete published grade lineup, including card images, exact versions, estimated points, tokens and console prices. It checks eligible cards currently in your selected console club and remembers confirmed collection locally for that EA persona. Tick **Already collected** for cards acquired previously, including cards you have sold; this is a manual record, not an EA collection-history lookup.
+
+Review the missing cards, their individual maximum prices and the total spending limit, then click **Collect missing cards**. Each purchase rechecks club ownership, searches up to two pages of exact-version EA listings, buys the cheapest checked eligible buy-now listing within its limit, moves the card to your club, and verifies the move before continuing. No missing price is treated as zero. The approved card limits must fit within the total budget and current coin balance. Owned cards do not trigger market searches. The queue continues with the menu closed while the browser and signed-in EA tab remain available; **Stop collecting** stops further cards after the current request.
+
+An uncertain purchase or club move pauses the queue and preserves its intent across extension restarts. Check EA New Items, resolve the card, then click **Check purchased card**. FutSBC requires confirmation in the club before restarting, rather than repeating a purchase. Trading and squad-building operations cannot run alongside Gallery collecting. Account changes stop the collection; collection records are scoped to the EA persona and are not shared between installations.
+
+Gallery grading stays in-game: open the set, use **Autocomplete**, and confirm **Grade** on console. Cards are not consumed by Gallery grading. FutSBC does not submit grades, spend Gallery Tokens, resell cards or claim to read EA's complete collection history. The provider's published lineup is not a globally optimized solution for every card already in your club. Points, tokens and prices are estimates; the in-game grade is authoritative. Plans must be refreshed after 30 minutes, and provider prices older than 24 hours are rejected.
+
+Verification: the public FUT.GG catalogue and Rayo Vallecano grade lineups were parsed from real current pages, and the card layout was viewed in Arc using an isolated local preview. The installed v0.21.57 extension also loaded the live Gallery catalogue in Arc without opening or logging into EA. Automated tests cover exact-card eligibility, ownership skipping, spending caps, account changes, stop behavior, interrupted purchases, recovery and queue completion. Purchase and move tests use a simulated EA client; no live cards were bought for this feature's validation.
+
+Sources: [EA Gallery guide](https://help.ea.com/en/articles/ea-sports-fc/gallery-hub/), [FUT.GG Gallery catalogue](https://www.fut.gg/fut-gallery/), [Rayo Vallecano Gallery set](https://www.fut.gg/fut-gallery/laliga/rayo-vallecano/).

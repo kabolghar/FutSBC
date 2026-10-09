@@ -4,7 +4,7 @@ const embedded=window.parent!==window;
 let reportSize=()=>{};
 if(embedded){
   document.documentElement.classList.add('embedded');
-  reportSize=()=>window.parent.postMessage({type:'futsbc-panel-size',height:Math.ceil(document.body.scrollHeight),view:activeView==='trader'?'trader':activeView==='insights'?'market':activeView==='team'?'team':state.plan?'lineup':'menu',hasResult:activeView==='sbc'&&!!state.plan},'*');
+  reportSize=()=>window.parent.postMessage({type:'futsbc-panel-size',height:Math.ceil(document.body.scrollHeight),view:activeView==='gallery'?'gallery':activeView==='trader'?'trader':activeView==='insights'?'market':activeView==='team'?'team':state.plan?'lineup':'menu',hasResult:activeView==='sbc'&&!!state.plan},'*');
   new ResizeObserver(reportSize).observe(document.body);
   window.addEventListener('load',reportSize);
 }
@@ -16,6 +16,7 @@ let squadReviewResult=null,reviewPending=false;
 let teamSwapView=null;
 let teamPicks=new Map(),teamPickerSlot=null,teamPickerEpoch=0;
 let team={},teamResult=null,teamSelected=new Set(),teamPending=false,teamUiError='',teamRunActive=false,teamProgressText='';
+let gallery={},galleryPending=false,galleryError='',galleryDraftId=null,galleryPriceCaps={},galleryCatalogueLoaded=false;
 let swapCache=new Map(),swapQueue=[],swapActive=null,swapEpoch=0;
 let recovering=false;
 const recoveryKey='futsbc-last-context-reload';
@@ -659,6 +660,53 @@ async function findTeam(){
   finally{clearInterval(poll);clearTimeout(timer);teamPending=false;teamRunActive=false;renderTeam();drainTeamPrefetch();}
 }
 
+function renderGallery(){
+  const collected=p=>['owned','collected','in-club'].includes(p.phase),missing=(gallery.players||[]).filter(p=>!collected(p));
+  const locked=galleryPending||gallery.enabled||!!gallery.pending;
+  $('gallery-status').textContent=galleryError||(galleryPending?'Checking Gallery cards…':gallery.status)||'Choose a set to start collecting.';
+  $('gallery-status').classList.toggle('error',!!galleryError);
+  for(const id of ['gallery-set','gallery-url','gallery-prepare','gallery-catalogue','gallery-budget'])$(id).disabled=locked;
+  document.querySelectorAll('input[name=gallery-grade]').forEach(input=>{input.disabled=locked;});
+  $('gallery-plan').hidden=!gallery.id;
+  if(!gallery.id){reportSize();return;}
+  if(galleryDraftId!==gallery.id){galleryDraftId=gallery.id;galleryPriceCaps=Object.fromEntries(gallery.players.map(p=>[p.definitionId,p.maxPrice||p.price]));$('gallery-budget').value=String(missing.reduce((n,p)=>n+p.price,0));}
+  $('gallery-name').textContent=gallery.name;$('gallery-grade-badge').textContent=gallery.grade;
+  const done=gallery.players.length-missing.length;$('gallery-progress').max=gallery.players.length;$('gallery-progress').value=done;$('gallery-count').textContent=`${done} / ${gallery.players.length} collected`;
+  $('gallery-cost').textContent=`${fmt(missing.reduce((n,p)=>n+p.price,0))} coins`;$('gallery-balance').textContent=fmt(gallery.balance||0);
+  $('gallery-cards').replaceChildren();
+  for(const player of gallery.players){
+    const row=document.createElement('article');row.className='gallery-card';row.classList.toggle('is-collected',collected(player));
+    let picture;if(player.picture){picture=document.createElement('img');picture.src=player.picture;picture.alt=`${player.name}, ${player.rating}, ${player.position}`;picture.loading='lazy';picture.onerror=()=>{const fallback=document.createElement('span');fallback.className='gallery-card-art';fallback.textContent=String(player.rating);picture.replaceWith(fallback);};}else{picture=document.createElement('span');picture.className='gallery-card-art';picture.textContent=String(player.rating);}
+    const copy=document.createElement('div');copy.className='gallery-card-copy';const name=document.createElement('strong');name.textContent=player.name;
+    const detail=document.createElement('small');detail.textContent=`${player.position} · ${player.phase==='owned'||player.phase==='in-club'?'In club':player.phase==='collected'?'Collected before':player.phase==='unavailable'?'No listing at cap':'Missing'}`;
+    copy.append(name,detail);
+    if(!collected(player)){const price=document.createElement('input');price.type='number';price.min='150';price.max='15000000';price.step='50';price.value=String(galleryPriceCaps[player.definitionId]);price.disabled=locked;price.setAttribute('aria-label',`Maximum price for ${player.name}`);price.oninput=()=>{galleryPriceCaps[player.definitionId]=Number(price.value);};copy.append(price);}
+    const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=collected(player);check.disabled=locked||['owned','in-club'].includes(player.phase);check.setAttribute('aria-label',`Already collected ${player.name}`);check.onchange=()=>void galleryAction('galleryMark',{definitionId:player.definitionId,collected:check.checked});label.append(check,document.createTextNode('Already collected'));copy.append(label);row.append(picture,copy);$('gallery-cards').append(row);
+  }
+  $('gallery-start').disabled=locked||!missing.length;$('gallery-start').textContent=missing.length?`Collect ${missing.length} missing ${missing.length===1?'card':'cards'}`:'Ready to grade in-game';
+  $('gallery-stop').hidden=!gallery.enabled;$('gallery-recover').hidden=!gallery.pending||gallery.enabled;$('gallery-recover').disabled=galleryPending;
+  $('gallery-evidence').textContent=`${gallery.source} · ${gallery.grade} lineup · estimated ${fmt(gallery.estimatedScore)} points · ${gallery.tokens||0} tokens · prices updated ${new Date(gallery.computedAt).toLocaleString()}`;
+  reportSize();
+}
+async function galleryAction(type,extra={}){
+  if(galleryPending&&type!=='galleryStop')return;
+  const silent=type==='galleryState';if(!silent){galleryPending=true;galleryError='';renderGallery();}
+  try{gallery=await call(type,extra);galleryError='';}
+  catch(error){galleryError=error.message;}
+  finally{if(!silent)galleryPending=false;renderGallery();}
+}
+async function loadGalleryCatalogue(){
+  if(preview)return;
+  try{const sets=await call('galleryCatalogue');const selected=$('gallery-set').value;$('gallery-set').replaceChildren(new Option('Choose a Gallery set…',''));const groups=new Map();for(const set of sets){if(!groups.has(set.category)){const group=document.createElement('optgroup');group.label=set.category;groups.set(set.category,group);$('gallery-set').append(group);}groups.get(set.category).append(new Option(`${set.name} · ${set.requiredCards} cards`,set.url));}$('gallery-set').value=selected;galleryCatalogueLoaded=true;}
+  catch(error){galleryError=error.message;renderGallery();}
+}
+$('gallery-catalogue').onclick=()=>void loadGalleryCatalogue();
+$('gallery-set').onchange=()=>{$('gallery-url').value='';};
+$('gallery-prepare').onclick=()=>void galleryAction('galleryPrepare',{url:$('gallery-url').value.trim()||$('gallery-set').value,grade:document.querySelector('input[name=gallery-grade]:checked').value});
+$('gallery-start').onclick=()=>void galleryAction('galleryStart',{planId:gallery.id,budget:Number($('gallery-budget').value),caps:galleryPriceCaps});
+$('gallery-stop').onclick=()=>void galleryAction('galleryStop');
+$('gallery-recover').onclick=()=>void galleryAction('galleryRecover');
+
 async function refreshInsights(){
   if(preview||insightsPending)return;
   insightsPending=true;renderInsights();
@@ -675,7 +723,8 @@ function setView(view){
   $('trader-view').hidden=view!=='trader';
   $('insights-view').hidden=view!=='insights';
   $('team-view').hidden=view!=='team';
-  for(const name of ['sbc','trader','insights','team']){
+  $('gallery-view').hidden=view!=='gallery';
+  for(const name of ['sbc','trader','insights','team','gallery']){
     const tab=$(name+'-tab'),selected=view===name;
     tab.classList.toggle('active',selected);
     if(selected)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');
@@ -683,6 +732,7 @@ function setView(view){
   if(view==='trader')refreshTrader();
   if(view==='insights'&&!preview)call('marketInsightsState').then(value=>{insights=value;renderInsights();}).catch(()=>{});
   if(view==='team')void syncTeam(true);
+  if(view==='gallery'){void galleryAction('galleryState');if(!galleryCatalogueLoaded)void loadGalleryCatalogue();}
   render();renderTrader();renderInsights();renderTeam();
 }
 for(const [id,icon] of [['trader-futbin','coin'],['trader-diagnose','shield'],['price-check','coin']])$(id).prepend(uiIcon(icon));
@@ -692,6 +742,7 @@ $('sbc-tab').onclick=()=>setView('sbc');
 $('trader-tab').onclick=()=>setView('trader');
 $('insights-tab').onclick=()=>setView('insights');
 $('team-tab').onclick=()=>setView('team');
+$('gallery-tab').onclick=()=>setView('gallery');
 $('team-refresh').onclick=()=>refreshTeam();
 $('team-find').onclick=()=>findTeam();
 $('team-select-empty').onclick=()=>{for(const player of team.players||[])if(!player.definitionId&&!teamPicks.has(player.index))teamSelected.add(player.index);teamResult=null;renderTeam();};
@@ -766,11 +817,13 @@ if(!preview){
     if(area==='local'&&changes['futsbc-sbc-buy-v1']){buy=changes['futsbc-sbc-buy-v1'].newValue||{enabled:false};render();}
     if(area==='local'&&changes['futsbc-auto-trade-v1']){trader=changes['futsbc-auto-trade-v1'].newValue||{enabled:false};renderTrader();}
     if(area==='local'&&changes['futsbc-market-insights-v1']){insights={...changes['futsbc-market-insights-v1'].newValue,modelConfigured:insights.modelConfigured,modelName:insights.modelName};renderInsights();}
+    if(area==='local'&&changes['futsbc-gallery-v1']){gallery=changes['futsbc-gallery-v1'].newValue||{enabled:false};renderGallery();}
   });
 }else{notice('Extension preview · no EA account connected.');}
 render();
 renderTrader();
 renderInsights();
 renderTeam();
+renderGallery();
 setInterval(()=>{if(activeView==='trader')renderTrader();},1000);
 setInterval(()=>{if(activeView==='trader'&&!trader.enabled&&trader.inFlight)void refreshTrader();},10000);

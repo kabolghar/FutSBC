@@ -1,4 +1,5 @@
 import {discoverSbc} from './sbc-discovery.js';
+import {createGalleryCollector,GALLERY_ALARM} from './gallery-workflow.js';
 import {teamLinkPages,teamCandidatePool,linkedTeamOptions} from './team-links.js';
 import {quickFlipCards,reconcileSales,portfolioSummary,selectHuntCard} from './trader-performance.js';
 const SALES_KEY='futsbc-trader-sales-v1';
@@ -921,7 +922,17 @@ async function runAutoTrade(){
     await chrome.alarms.clear(TRADE_ALARM);
   }finally{tradingBusy=false;await chrome.alarms.clear(STOP_ALARM);}
 }
-chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name===TRADE_ALARM)void runAutoTrade();if(alarm.name===STOP_ALARM)void tradeState();if(alarm.name===SBC_BUY_ALARM)void runSbcBuy();if(alarm.name===INSIGHTS_ALARM){if(busy||tradingBusy||sbcBuying)chrome.alarms.create(INSIGHTS_ALARM,{when:Date.now()+60_000,periodInMinutes:1440});else{busy=true;void refreshMarketInsights().catch(()=>{}).finally(()=>{busy=false;});}}});
+const gallery=createGalleryCollector({storage:chrome.storage.local,alarms:chrome.alarms,ea,
+  connect:async()=>{const tabs=await findEaTabs(chrome.tabs);let reason='Open your signed-in EA Web App.';for(const tab of tabs.sort((a,b)=>Number(b.active)-Number(a.active))){try{return {...await ea(tab.id,'galleryIdentity'),tabId:tab.id};}catch(error){reason=error.message;}}throw Error(reason);},
+  available:async()=>{if(tradingBusy||(await rawTradeState()).enabled||sbcBuying||(await rawSbcBuy()).enabled||teamRun.running||activeSbcBuild)throw Error('Stop trading or squad building before collecting Gallery cards.');}
+});
+void gallery.restore().catch(()=>{});
+async function runDailyInsights(){
+  const collecting=await gallery.state();
+  if(busy||tradingBusy||sbcBuying||collecting.enabled||collecting.pending){await chrome.alarms.create(INSIGHTS_ALARM,{when:Date.now()+60_000,periodInMinutes:1440});return;}
+  busy=true;try{await refreshMarketInsights();}catch{}finally{busy=false;}
+}
+chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name===GALLERY_ALARM){if(busy)chrome.alarms.create(GALLERY_ALARM,{when:Date.now()+1000});else void gallery.run();}if(alarm.name===TRADE_ALARM)void runAutoTrade();if(alarm.name===STOP_ALARM)void tradeState();if(alarm.name===SBC_BUY_ALARM)void runSbcBuy();if(alarm.name===INSIGHTS_ALARM)void runDailyInsights();});
 void (async()=>{
   const previous=await rawSbcBuy();
   if(!previous.enabled)return;
@@ -944,6 +955,14 @@ void (async()=>{
 })();
 async function dispatch(message) {
   if(message.type==='cardArt')return cardArt(Number(message.assetId),Number(message.definitionId));
+  if(message.type==='galleryState')return gallery.state();
+  if(message.type==='galleryCatalogue')return gallery.catalogue();
+  if(message.type==='galleryPrepare')return gallery.prepare(message.url,message.grade);
+  if(message.type==='galleryMark')return gallery.mark(message.definitionId,message.collected);
+  if(message.type==='galleryStart')return gallery.start(message.budget,message.caps,message.planId);
+  if(message.type==='galleryStop')return gallery.stop();
+  if(message.type==='galleryRecover')return gallery.recover();
+  if(!['teamRunState','teamCancel','sbcBuildStop','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState'].includes(message.type)){const collecting=await gallery.state();if(collecting.enabled||collecting.pending)throw Error('Stop Gallery collecting and resolve any pending purchase before starting another operation.');}
   if(['teamStyles','teamStyleApply','teamStyleOpen'].includes(message.type)){
     if(message.type==='teamStyleApply'&&(sbcBuying||(await rawSbcBuy()).enabled))throw Error('Stop SBC buying before applying chemistry styles.');
     if(message.type==='teamStyleApply'&&(tradingBusy||(await rawTradeState()).enabled))throw Error('Stop trading before applying chemistry styles.');
@@ -1467,7 +1486,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
     dispatch(message).then(data=>respond({ok:true,data})).catch(error=>respond({ok:false,error:error.message}));
     return true;
   }
-  const readOnly=['teamRunState','teamCancel','sbcBuildStop','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'].includes(message.type);
+  const readOnly=['galleryState','galleryStop','teamRunState','teamCancel','sbcBuildStop','state','tradeState','sbcBuyState','sbcBuyStop','marketInsightsState','cardArt'].includes(message.type);
   if(busy&&!readOnly) {respond({ok:false,error:'Please wait for the current operation.'});return false;}
   const locks=!readOnly;if(locks)busy=true;
   (async()=>{

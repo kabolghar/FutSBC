@@ -29,11 +29,12 @@ export function openOverlay({initiallyOpen=true,replace=true}={}) {
     .modal[data-view="trader"]{width:min(600px,calc(100vw - 40px))}
     .modal[data-view="market"]{width:min(920px,calc(100vw - 40px))}
     .modal[data-view="team"]{width:min(920px,calc(100vw - 40px))}
+    .modal[data-view="gallery"]{width:min(740px,calc(100vw - 40px))}
     .modal:focus{outline:none}
     .close{position:absolute;top:23px;right:12px;z-index:1;width:36px;height:36px;border:1px solid oklch(34% .014 115);border-radius:8px;background:oklch(21% .012 115);color:oklch(92% .012 105);font-size:20px;line-height:1}
     .close:hover{border-color:oklch(83% .13 112)}
     iframe{display:block;width:100%;height:100%;border:0;background:oklch(17% .009 115)}
-    @media(max-width:480px){.modal,.modal[data-view="lineup"],.modal[data-view="trader"],.modal[data-view="market"],.modal[data-view="team"]{width:calc(100vw - 12px);max-height:calc(100dvh - 12px)}}
+    @media(max-width:480px){.modal,.modal[data-view="lineup"],.modal[data-view="trader"],.modal[data-view="market"],.modal[data-view="team"],.modal[data-view="gallery"]{width:calc(100vw - 12px);max-height:calc(100dvh - 12px)}}
   `;
 
   const launcher=document.createElement('button');
@@ -78,8 +79,8 @@ export function openOverlay({initiallyOpen=true,replace=true}={}) {
   const panelOrigin=new URL(frame.src).origin;
   const onSize=event=>{
     if(event.source!==frame.contentWindow||event.origin!==panelOrigin||event.data?.type!=='futsbc-panel-size')return;
-    modal.dataset.view=['menu','lineup','trader','market','team'].includes(event.data.view)?event.data.view:event.data.hasResult?'lineup':'menu';
-    modal.setAttribute('aria-label',modal.dataset.view==='trader'?'FutSBC auto trader':modal.dataset.view==='market'?'FutSBC market brief':modal.dataset.view==='team'?'FutSBC team upgrades':'FutSBC menu');
+    modal.dataset.view=['menu','lineup','trader','market','team','gallery'].includes(event.data.view)?event.data.view:event.data.hasResult?'lineup':'menu';
+    modal.setAttribute('aria-label',modal.dataset.view==='gallery'?'FutSBC Gallery collector':modal.dataset.view==='trader'?'FutSBC auto trader':modal.dataset.view==='market'?'FutSBC market brief':modal.dataset.view==='team'?'FutSBC team upgrades':'FutSBC menu');
     const height=Number(event.data.height);
     if(Number.isFinite(height))modal.style.height=`${Math.max(220,Math.min(Math.ceil(height),window.innerHeight-24))}px`;
   };
